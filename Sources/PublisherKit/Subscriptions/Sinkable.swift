@@ -12,7 +12,11 @@ extension NKSubscribers {
     
     class DataTaskSinkable: Sinkable {
         
-        var task: URLSessionDataTask?
+        var task: URLSessionTask?
+        
+        deinit {
+            print("Deiniting DataTaskSinkable")
+        }
         
         override func cancel() {
             task?.cancel()
@@ -31,6 +35,9 @@ extension NKSubscribers {
         private let date = Date()
         
         private(set) var isCancelled = false
+        deinit {
+            print("Deiniting Sinkable")
+        }
         
         var isEnded = false
         

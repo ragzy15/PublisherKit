@@ -1,8 +1,8 @@
 //
-//  Data Task.swift
+//  Download Task.swift
 //  PublisherKit
 //
-//  Created by Raghav Ahuja on 25/12/19.
+//  Created by Raghav Ahuja on 08/01/20.
 //  Copyright © 2019 Raghav Ahuja. All rights reserved.
 //
 
@@ -10,31 +10,31 @@ import Foundation
 
 extension URLSession {
     
-    /// Returns a publisher that wraps a URL session data task for a given URL.
+    /// Returns a publisher that wraps a URL session download task for a given URL.
     ///
-    /// The publisher publishes data when the task completes, or terminates if the task fails with an error.
-    /// - Parameter url: The URL for which to create a data task.
-    /// - Returns: A publisher that wraps a data task for the URL.
-    public func nkDataTaskPublisher(for url: URL, apiName: String = "") -> NKDataTaskPublisher {
+    /// The publisher publishes file URL when the task completes, or terminates if the task fails with an error.
+    /// - Parameter url: The URL for which to create a download task.
+    /// - Returns: A publisher that wraps a download task for the URL.
+    public func nkDownloadTaskPublisher(for url: URL, apiName: String = "") -> NKDownloadTaskPublisher {
         let request = URLRequest(url: url)
-        return NKDataTaskPublisher(name: apiName, request: request, session: self)
+        return NKDownloadTaskPublisher(name: apiName, request: request, session: self)
     }
     
-    /// Returns a publisher that wraps a URL session data task for a given URL request.
+    /// Returns a publisher that wraps a URL session download task for a given URL request.
     ///
-    /// The publisher publishes data when the task completes, or terminates if the task fails with an error.
-    /// - Parameter request: The URL request for which to create a data task.
-    /// - Returns: A publisher that wraps a data task for the URL request.
-    public func nkDataTaskPublisher(for request: URLRequest, apiName: String = "") -> NKDataTaskPublisher {
-        NKDataTaskPublisher(name: apiName, request: request, session: self)
+    /// The publisher publishes file URL when the task completes, or terminates if the task fails with an error.
+    /// - Parameter request: The URL request for which to create a download task.
+    /// - Returns: A publisher that wraps a download task for the URL request.
+    public func nkDownloadTaskPublisher(for request: URLRequest, apiName: String = "") -> NKDownloadTaskPublisher {
+        NKDownloadTaskPublisher(name: apiName, request: request, session: self)
     }
 }
 
 extension URLSession {
     
-    public struct NKDataTaskPublisher: NKPublisher {
+    public struct NKDownloadTaskPublisher: NKPublisher {
          
-        public typealias Output = (data: Data, response: HTTPURLResponse)
+        public typealias Output = (url: URL, response: HTTPURLResponse)
         
         public typealias Failure = NSError
         
@@ -61,18 +61,18 @@ extension URLSession {
             
             let dataTaskSubscriber = NKSubscribers.DataTaskSink(downstream: subscriber)
             
-            dataTaskSubscriber.task = session.dataTask(with: request) { (data, response, error) in
+            dataTaskSubscriber.task = session.downloadTask(with: request) { (url, response, error) in
                 
                 guard !dataTaskSubscriber.isCancelled else { return }
                 
                 if let error = error as NSError? {
-                    NKDataTaskPublisher.queue.async {
+                    NKDownloadTaskPublisher.queue.async {
                         dataTaskSubscriber.receive(completion: .failure(error))
                     }
                     
-                } else if let response = response as? HTTPURLResponse, let data = data {
-                    NKDataTaskPublisher.queue.async {
-                        dataTaskSubscriber.receive(input: (data, response))
+                } else if let response = response as? HTTPURLResponse, let url = url {
+                    NKDownloadTaskPublisher.queue.async {
+                        dataTaskSubscriber.receive(input: (url, response))
                         dataTaskSubscriber.receive(completion: .finished)
                     }
                 }
@@ -86,12 +86,5 @@ extension URLSession {
             Logger.default.logAPIRequest(request: request, apiName: apiName)
             #endif
         }
-    }
-}
-
-extension URLSession.NKDataTaskPublisher {
-    
-    func validate(shouldCheckForErrorModel flag: Bool, acceptableStatusCodes codes: [Int]) -> NKPublishers.Validate {
-        NKPublishers.Validate(upstream: self, shouldCheckForErrorModel: flag, acceptableStatusCodes: codes)
     }
 }

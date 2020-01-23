@@ -10,15 +10,13 @@ import Foundation
 
 extension NKSubscribers {
     
-    final class DataTaskSink<Downstream: NKSubscriber>: NKSubscribers.DataTaskSinkable, NKSubscriber where Downstream.Input == (data: Data, response: HTTPURLResponse), Downstream.Failure == NSError {
+    final class DataTaskSink<Downstream: NKSubscriber, Input, Failure>: NKSubscribers.DataTaskSinkable, NKSubscriber where Downstream.Input == Input, Downstream.Failure == Failure {
         
         typealias Input = Downstream.Input
         
         typealias Failure = Downstream.Failure
         
         var downstream: Downstream?
-        
-        var cancelBlock: (() -> Void)?
         
         private(set) var isCompleted: Bool = false
         
@@ -61,12 +59,6 @@ extension NKSubscribers {
                 isCompleted.toggle()
                 receive(completion: .finished)
             }
-        }
-        
-        override func cancel() {
-            super.cancel()
-            cancelBlock?()
-            cancelBlock = nil
         }
     }
 }

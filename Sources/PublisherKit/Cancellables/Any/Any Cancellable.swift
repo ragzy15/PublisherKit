@@ -15,7 +15,7 @@ final public class NKAnyCancellable: NKCancellable, Hashable {
     
     var isCancelled = false
     
-    private var storagePointer: UnsafeMutablePointer<Set<NKAnyCancellable>>?
+//    private var storagePointer: UnsafeMutablePointer<Set<NKAnyCancellable>>?
     
     /// Initializes the cancellable object with the given cancel-time closure.
     ///
@@ -39,8 +39,6 @@ final public class NKAnyCancellable: NKCancellable, Hashable {
     public final func cancel() {
         isCancelled = true
         block()
-        storagePointer?.pointee.remove(self)
-        storagePointer = nil
     }
     
     public final func hash(into hasher: inout Hasher) {
@@ -52,10 +50,6 @@ final public class NKAnyCancellable: NKCancellable, Hashable {
     }
     
     public final func store(in set: inout Set<NKAnyCancellable>) {
-        storagePointer = withUnsafeMutablePointer(to: &set) { (ptr) in
-            return ptr
-        }
-        
         set.insert(self)
     }
 }
