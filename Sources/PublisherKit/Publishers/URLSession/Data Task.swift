@@ -20,6 +20,11 @@ extension URLSession {
         return NKDataTaskPublisher(name: apiName, request: request, session: self)
     }
     
+    @available(*, deprecated, renamed: "nkDataTaskPublisher")
+    public func nkTaskPublisher(for url: URL, apiName: String = "") -> NKDataTaskPublisher {
+        nkDataTaskPublisher(for: url, apiName: apiName)
+    }
+    
     /// Returns a publisher that wraps a URL session data task for a given URL request.
     ///
     /// The publisher publishes data when the task completes, or terminates if the task fails with an error.
@@ -27,6 +32,11 @@ extension URLSession {
     /// - Returns: A publisher that wraps a data task for the URL request.
     public func nkDataTaskPublisher(for request: URLRequest, apiName: String = "") -> NKDataTaskPublisher {
         NKDataTaskPublisher(name: apiName, request: request, session: self)
+    }
+    
+    @available(*, deprecated, renamed: "nkDataTaskPublisher")
+    public func nkTaskPublisher(for request: URLRequest, apiName: String = "") -> NKDataTaskPublisher {
+        nkDataTaskPublisher(for: request, apiName: apiName)
     }
 }
 
