@@ -63,13 +63,13 @@ public final class BindableValue<Value> {
     
     public func removeAllObservers() {
         observers.forEach { (observer) in
-            removeObsever(observer)
+            removeObserver(observer)
         }
         
         observers.removeAll()
     }
     
-    private func removeObsever(_ observer: BindableObserver) {
+    private func removeObserver(_ observer: BindableObserver) {
         BindableCenter.notificationCenter.removeObserver(observer.observer, name: notificationName, object: self)
     }
 }
