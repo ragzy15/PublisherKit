@@ -8,9 +8,9 @@
 
 import Foundation
 
-public extension NKPublishers {
+public extension PKPublishers {
     
-    struct Decode<Upstream: NKPublisher, Item: Decodable, Decoder: NKDecoder>: NKPublisher where Upstream.Output == Decoder.Input {
+    struct Decode<Upstream: PKPublisher, Item: Decodable, Decoder: PKDecoder>: PKPublisher where Upstream.Output == Decoder.Input {
         
         public typealias Output = Item
         
@@ -28,7 +28,7 @@ public extension NKPublishers {
             self.decoder = decoder
         }
         
-        public func receive<S: NKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let upstreamSubscriber = UpstreamOperatorSink<S, Upstream>(downstream: subscriber, receiveCompletion: { (completion) in
                 
@@ -42,7 +42,7 @@ public extension NKPublishers {
                     
                     #if DEBUG
                     if self.log {
-                        Logger.default.printJSON(data: output, apiName: "")
+                        Logger.default.printJSON(data: output, name: "")
                     }
                     #endif
                     

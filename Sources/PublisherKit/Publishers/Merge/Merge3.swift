@@ -8,10 +8,10 @@
 
 import Foundation
 
-extension NKPublishers {
+extension PKPublishers {
     
     /// A publisher created by applying the merge function to three upstream publishers.
-    public struct Merge3<A: NKPublisher, B: NKPublisher, C: NKPublisher>: NKPublisher where A.Output == B.Output, A.Failure == B.Failure, B.Output == C.Output, B.Failure == C.Failure {
+    public struct Merge3<A: PKPublisher, B: PKPublisher, C: PKPublisher>: PKPublisher where A.Output == B.Output, A.Failure == B.Failure, B.Output == C.Output, B.Failure == C.Failure {
 
         public typealias Output = A.Output
 
@@ -29,8 +29,8 @@ extension NKPublishers {
             self.c = c
         }
 
-        public func receive<S: NKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            typealias Subscriber = NKSubscribers.MergeSink<S, A>
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+            typealias Subscriber = PKSubscribers.MergeSink<S, A>
             
             let upstreamSubscriber = Subscriber(downstream: subscriber)
             
@@ -83,24 +83,24 @@ extension NKPublishers {
             c.subscribe(cUpstreamSubscriber)
         }
         
-        public func merge<P: NKPublisher>(with other: P) -> NKPublishers.Merge4<A, B, C, P> {
-            NKPublishers.Merge4(a, b, c, other)
+        public func merge<P: PKPublisher>(with other: P) -> PKPublishers.Merge4<A, B, C, P> {
+            PKPublishers.Merge4(a, b, c, other)
         }
 
-        public func merge<P: NKPublisher, Q: NKPublisher>(with p: P, _ q: Q) -> NKPublishers.Merge5<A, B, C, P, Q> {
-            NKPublishers.Merge5(a, b, c, p, q)
+        public func merge<P: PKPublisher, Q: PKPublisher>(with p: P, _ q: Q) -> PKPublishers.Merge5<A, B, C, P, Q> {
+            PKPublishers.Merge5(a, b, c, p, q)
         }
 
-        public func merge<P: NKPublisher, Q: NKPublisher, R: NKPublisher>(with p: P, _ q: Q, _ r: R) -> NKPublishers.Merge6<A, B, C, P, Q, R> {
-            NKPublishers.Merge6(a, b, c, p, q, r)
+        public func merge<P: PKPublisher, Q: PKPublisher, R: PKPublisher>(with p: P, _ q: Q, _ r: R) -> PKPublishers.Merge6<A, B, C, P, Q, R> {
+            PKPublishers.Merge6(a, b, c, p, q, r)
         }
 
-        public func merge<P: NKPublisher, Q: NKPublisher, R: NKPublisher, S: NKPublisher>(with p: P, _ q: Q, _ r: R, _ s: S) -> NKPublishers.Merge7<A, B, C, P, Q, R, S> {
-            NKPublishers.Merge7(a, b, c, p, q, r, s)
+        public func merge<P: PKPublisher, Q: PKPublisher, R: PKPublisher, S: PKPublisher>(with p: P, _ q: Q, _ r: R, _ s: S) -> PKPublishers.Merge7<A, B, C, P, Q, R, S> {
+            PKPublishers.Merge7(a, b, c, p, q, r, s)
         }
 
-        public func merge<P: NKPublisher, Q: NKPublisher, R: NKPublisher, S: NKPublisher, T: NKPublisher>(with p: P, _ q: Q, _ r: R, _ s: S, _ t: T) -> NKPublishers.Merge8<A, B, C, P, Q, R, S, T> {
-            NKPublishers.Merge8(a, b, c, p, q, r, s, t)
+        public func merge<P: PKPublisher, Q: PKPublisher, R: PKPublisher, S: PKPublisher, T: PKPublisher>(with p: P, _ q: Q, _ r: R, _ s: S, _ t: T) -> PKPublishers.Merge8<A, B, C, P, Q, R, S, T> {
+            PKPublishers.Merge8(a, b, c, p, q, r, s, t)
         }
     }
 }

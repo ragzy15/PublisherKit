@@ -10,14 +10,14 @@ import Foundation
 
 extension NotificationCenter {
     
-    public func nkPublisher(for name: Notification.Name, object: AnyObject? = nil) -> NotificationCenter.NKPublisher {
-        NKPublisher(center: self, name: name, object: object)
+    public func nkPublisher(for name: Notification.Name, object: AnyObject? = nil) -> NotificationCenter.PKPublisher {
+        PKPublisher(center: self, name: name, object: object)
     }
 }
 
 extension NotificationCenter {
     
-    public struct NKPublisher: PublisherKit.NKPublisher {
+    public struct PKPublisher: PublisherKit.PKPublisher {
         
         public typealias Output = Notification
         
@@ -44,9 +44,9 @@ extension NotificationCenter {
             self.object = object
         }
         
-        public func receive<S: NKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let notificationSubscriber = NKSubscribers.TopLevelSink<S, Self>(downstream: subscriber)
+            let notificationSubscriber = PKSubscribers.TopLevelSink<S, Self>(downstream: subscriber)
 
             let observer = center.addObserver(forName: name, object: object, queue: nil) { (notification) in
                 notificationSubscriber.receive(input: notification)

@@ -8,9 +8,9 @@
 
 import Foundation
 
-extension NKPublishers {
+extension PKPublishers {
     
-    public struct MergeMany<Upstream>: NKPublisher where Upstream : NKPublisher {
+    public struct MergeMany<Upstream>: PKPublisher where Upstream : PKPublisher {
 
         public typealias Output = Upstream.Output
 
@@ -26,7 +26,7 @@ extension NKPublishers {
             publishers = upstream.map { $0 }
         }
 
-        public func receive<S: NKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             let upstreamSubscriber = SameUpstreamOperatorSink<S, Upstream>(downstream: subscriber)
             
             subscriber.receive(subscription: upstreamSubscriber)
@@ -36,8 +36,8 @@ extension NKPublishers {
             }
         }
 
-        public func merge(with other: Upstream) -> NKPublishers.MergeMany<Upstream> {
-            NKPublishers.MergeMany(publishers + [other])
+        public func merge(with other: Upstream) -> PKPublishers.MergeMany<Upstream> {
+            PKPublishers.MergeMany(publishers + [other])
         }
     }
 }

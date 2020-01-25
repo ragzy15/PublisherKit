@@ -13,8 +13,8 @@ import UIKit
 
 extension UITextView {
     
-    public var nkTextPublisher: NKAnyPublisher<String, Never> {
-        NotificationCenter.default.nkPublisher(for: UITextView.textDidChangeNotification, object: self)
+    public var nkTextPublisher: AnyPKPublisher<String, Never> {
+        NotificationCenter.default.pkPublisher(for: UITextView.textDidChangeNotification, object: self)
             .map { ($0.object as? Self)?.text ?? "" }
             .eraseToAnyPublisher()
     }

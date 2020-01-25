@@ -8,7 +8,7 @@
 
 import Foundation
 
-extension DispatchQueue: NKScheduler {
+extension DispatchQueue: PKScheduler {
     
     public func schedule(block: @escaping () -> Void) {
         async(execute: block)

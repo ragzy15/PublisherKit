@@ -8,10 +8,10 @@
 
 import Foundation
 
-public extension NKPublishers {
+public extension PKPublishers {
     
     /// A publisher that handles errors from an upstream publisher by replacing the failed publisher with another publisher.
-    struct Catch<Upstream: NKPublisher, NewPublisher: NKPublisher>: NKPublisher where Upstream.Output == NewPublisher.Output {
+    struct Catch<Upstream: PKPublisher, NewPublisher: PKPublisher>: PKPublisher where Upstream.Output == NewPublisher.Output {
         
         public typealias Output = Upstream.Output
 
@@ -33,7 +33,7 @@ public extension NKPublishers {
             self.handler = handler
         }
         
-        public func receive<S: NKSubscriber>(subscriber: S) where  Output == S.Input, Failure == S.Failure {
+        public func receive<S: PKSubscriber>(subscriber: S) where  Output == S.Input, Failure == S.Failure {
             
             let upstreamSubscriber = SameUpstreamOutputOperatorSink<S, Upstream>(downstream: subscriber) { (completion) in
                 

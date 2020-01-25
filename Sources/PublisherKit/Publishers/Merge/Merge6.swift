@@ -8,10 +8,10 @@
 
 import Foundation
 
-extension NKPublishers {
+extension PKPublishers {
     
     /// A publisher created by applying the merge function to six upstream publishers.
-    public struct Merge6<A: NKPublisher, B: NKPublisher, C: NKPublisher, D: NKPublisher, E: NKPublisher, F: NKPublisher>: NKPublisher where A.Output == B.Output, A.Failure == B.Failure, B.Output == C.Output, B.Failure == C.Failure, C.Output == D.Output, C.Failure == D.Failure, D.Output == E.Output, D.Failure == E.Failure, E.Output == F.Output, E.Failure == F.Failure {
+    public struct Merge6<A: PKPublisher, B: PKPublisher, C: PKPublisher, D: PKPublisher, E: PKPublisher, F: PKPublisher>: PKPublisher where A.Output == B.Output, A.Failure == B.Failure, B.Output == C.Output, B.Failure == C.Failure, C.Output == D.Output, C.Failure == D.Failure, D.Output == E.Output, D.Failure == E.Failure, E.Output == F.Output, E.Failure == F.Failure {
 
         public typealias Output = A.Output
 
@@ -38,8 +38,8 @@ extension NKPublishers {
             self.f = f
         }
 
-        public func receive<S: NKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            typealias Subscriber = NKSubscribers.MergeSink<S, A>
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+            typealias Subscriber = PKSubscribers.MergeSink<S, A>
             
             let upstreamSubscriber = Subscriber(downstream: subscriber)
             
@@ -162,12 +162,12 @@ extension NKPublishers {
             f.subscribe(fUpstreamSubscriber)
         }
         
-        public func merge<P: NKPublisher>(with other: P) -> NKPublishers.Merge7<A, B, C, D, E, F, P> {
-            NKPublishers.Merge7(a, b, c, d, e, f, other)
+        public func merge<P: PKPublisher>(with other: P) -> PKPublishers.Merge7<A, B, C, D, E, F, P> {
+            PKPublishers.Merge7(a, b, c, d, e, f, other)
         }
 
-        public func merge<P: NKPublisher, Q: NKPublisher>(with p: P, _ q: Q) -> NKPublishers.Merge8<A, B, C, D, E, F, P, Q> {
-            NKPublishers.Merge8(a, b, c, d, e, f, p, q)
+        public func merge<P: PKPublisher, Q: PKPublisher>(with p: P, _ q: Q) -> PKPublishers.Merge8<A, B, C, D, E, F, P, Q> {
+            PKPublishers.Merge8(a, b, c, d, e, f, p, q)
         }
     }
 }

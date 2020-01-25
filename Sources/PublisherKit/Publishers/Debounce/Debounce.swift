@@ -8,9 +8,9 @@
 
 import Foundation
 
-public extension NKPublishers {
+public extension PKPublishers {
     
-    struct Debounce<Upstream: NKPublisher, Scheduler: NKScheduler>: NKPublisher {
+    struct Debounce<Upstream: PKPublisher, Scheduler: PKScheduler>: PKPublisher {
         
         public typealias Output = Upstream.Output
         
@@ -29,7 +29,7 @@ public extension NKPublishers {
             self.scheduler = scheduler
         }
         
-        public func receive<S: NKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             var outputCounter = 0
             

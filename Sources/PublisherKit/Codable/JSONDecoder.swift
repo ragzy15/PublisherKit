@@ -8,7 +8,5 @@
 
 import Foundation
 
-extension JSONDecoder: NKDecoder {
-    
-    public typealias Input = Data
+extension JSONDecoder: PKDecoder {
 }

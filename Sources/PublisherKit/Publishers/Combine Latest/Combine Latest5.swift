@@ -8,10 +8,10 @@
 
 import Foundation
 
-extension NKPublishers {
+extension PKPublishers {
     
     /// A publisher created by applying the zip function to two upstream publishers.
-    public struct CombineLatest5<A: NKPublisher, B: NKPublisher, C: NKPublisher, D: NKPublisher, E: NKPublisher>: NKPublisher where A.Failure == B.Failure, B.Failure == C.Failure, C.Failure == D.Failure, D.Failure == E.Failure {
+    public struct CombineLatest5<A: PKPublisher, B: PKPublisher, C: PKPublisher, D: PKPublisher, E: PKPublisher>: PKPublisher where A.Failure == B.Failure, B.Failure == C.Failure, C.Failure == D.Failure, D.Failure == E.Failure {
 
         public typealias Output = (A.Output, B.Output, C.Output, D.Output, E.Output)
 
@@ -35,7 +35,7 @@ extension NKPublishers {
             self.e = e
         }
         
-        public func receive<S: NKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             typealias Sub = CombineLatestSink5<S, A.Output, B.Output, C.Output, D.Output, E.Output, Failure>
             
@@ -85,9 +85,9 @@ extension NKPublishers {
     }
 }
 
-extension NKPublishers.CombineLatest5: Equatable where A: Equatable, B: Equatable, C: Equatable, D: Equatable, E: Equatable {
+extension PKPublishers.CombineLatest5: Equatable where A: Equatable, B: Equatable, C: Equatable, D: Equatable, E: Equatable {
     
-    public static func == (lhs: NKPublishers.CombineLatest5<A, B, C, D, E>, rhs: NKPublishers.CombineLatest5<A, B, C, D, E>) -> Bool {
+    public static func == (lhs: PKPublishers.CombineLatest5<A, B, C, D, E>, rhs: PKPublishers.CombineLatest5<A, B, C, D, E>) -> Bool {
         lhs.a == rhs.a && lhs.b == rhs.b && lhs.c == rhs.c && lhs.d == rhs.d && lhs.e == rhs.e
     }
 }

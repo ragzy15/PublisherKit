@@ -8,21 +8,21 @@
 
 import Foundation
 
-class ZipSink4<Downstream: NKSubscriber, AInput, BInput, CInput, DInput, Failure>: InternalSink<Downstream, (AInput, BInput, CInput, DInput), Failure> where Downstream.Input == (AInput, BInput, CInput, DInput), Downstream.Failure == Failure {
+class ZipSink4<Downstream: PKSubscriber, AInput, BInput, CInput, DInput, Failure>: InternalSink<Downstream, (AInput, BInput, CInput, DInput), Failure> where Downstream.Input == (AInput, BInput, CInput, DInput), Downstream.Failure == Failure {
     
     var aOutput: AInput?
     var bOutput: BInput?
     var cOutput: CInput?
     var dOutput: DInput?
     
-    var subscriptions: [NKSubscription] = []
+    var subscriptions: [PKSubscription] = []
     
-    override func receive(subscription: NKSubscription) {
+    override func receive(subscription: PKSubscription) {
         guard !isCancelled else { return }
         subscriptions.append(subscription)
     }
     
-    override func receive(_ input: (AInput, BInput, CInput, DInput)) -> NKSubscribers.Demand {
+    override func receive(_ input: (AInput, BInput, CInput, DInput)) -> PKSubscribers.Demand {
         guard !isCancelled else { return .none }
         _ = downstream?.receive(input)
         return demand
@@ -59,7 +59,7 @@ class ZipSink4<Downstream: NKSubscriber, AInput, BInput, CInput, DInput, Failure
         }
     }
     
-    override func receive(completion: NKSubscribers.Completion<Failure>) {
+    override func receive(completion: PKSubscribers.Completion<Failure>) {
         guard !isCancelled else { return }
         downstream?.receive(completion: completion)
         end()
@@ -68,5 +68,12 @@ class ZipSink4<Downstream: NKSubscriber, AInput, BInput, CInput, DInput, Failure
     override func end() {
         super.end()
         subscriptions.removeAll()
+    }
+    
+    override func cancel() {
+        super.cancel()
+        subscriptions.forEach { (subscription) in
+            subscription.cancel()
+        }
     }
 }

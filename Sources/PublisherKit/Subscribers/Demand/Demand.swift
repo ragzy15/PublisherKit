@@ -8,7 +8,7 @@
 
 import Foundation
 
-extension NKSubscribers {
+extension PKSubscribers {
     
     /// A requested number of items, sent to a publisher from a subscriber via the subscription.
     ///
@@ -17,17 +17,17 @@ extension NKSubscribers {
     public struct Demand: Equatable, Comparable, Hashable, Codable {
         
         /// Requests as many values as the `Publisher` can produce.
-        public static let unlimited: NKSubscribers.Demand = .init(9898921)
+        public static let unlimited: PKSubscribers.Demand = .init(9898921)
 
         /// A demand for no items.
         ///
         /// This is equivalent to `Demand.max(0)`.
-        public static let none: NKSubscribers.Demand = .max(0)
+        public static let none: PKSubscribers.Demand = .max(0)
 
         /// Limits the maximum number of values.
         /// The `Publisher` may send fewer than the requested number.
         /// Negative values will result in a `fatalError`.
-        public static func max(_ value: Int) -> NKSubscribers.Demand {
+        public static func max(_ value: Int) -> PKSubscribers.Demand {
             if value < 0 { fatalError() }
             return .init(value)
         }
@@ -39,92 +39,92 @@ extension NKSubscribers {
         }
 
         /// When adding any value to .unlimited, the result is .unlimited.
-        public static func + (lhs: NKSubscribers.Demand, rhs: NKSubscribers.Demand) -> NKSubscribers.Demand {
+        public static func + (lhs: PKSubscribers.Demand, rhs: PKSubscribers.Demand) -> PKSubscribers.Demand {
             .init(lhs.value + rhs.value)
         }
 
         /// When adding any value to .unlimited, the result is .unlimited.
-        public static func += (lhs: inout NKSubscribers.Demand, rhs: NKSubscribers.Demand) {
+        public static func += (lhs: inout PKSubscribers.Demand, rhs: PKSubscribers.Demand) {
             lhs.value += rhs.value
         }
 
         /// When adding any value to .unlimited, the result is .unlimited.
-        public static func + (lhs: NKSubscribers.Demand, rhs: Int) -> NKSubscribers.Demand {
+        public static func + (lhs: PKSubscribers.Demand, rhs: Int) -> PKSubscribers.Demand {
             .init(lhs.value + rhs)
         }
 
         /// When adding any value to .unlimited, the result is .unlimited.
-        public static func += (lhs: inout NKSubscribers.Demand, rhs: Int) {
+        public static func += (lhs: inout PKSubscribers.Demand, rhs: Int) {
             lhs.value += rhs
         }
 
-        public static func * (lhs: NKSubscribers.Demand, rhs: Int) -> NKSubscribers.Demand {
+        public static func * (lhs: PKSubscribers.Demand, rhs: Int) -> PKSubscribers.Demand {
             .init(lhs.value * rhs)
         }
 
-        public static func *= (lhs: inout NKSubscribers.Demand, rhs: Int) {
+        public static func *= (lhs: inout PKSubscribers.Demand, rhs: Int) {
             lhs.value *= rhs
         }
 
         /// When subtracting any value (including .unlimited) from .unlimited, the result is still .unlimited. Subtracting unlimited from any value (except unlimited) results in .max(0). A negative demand is not possible; any operation that would result in a negative value is clamped to .max(0).
-        public static func - (lhs: NKSubscribers.Demand, rhs: NKSubscribers.Demand) -> NKSubscribers.Demand {
+        public static func - (lhs: PKSubscribers.Demand, rhs: PKSubscribers.Demand) -> PKSubscribers.Demand {
             .init(lhs.value - rhs.value)
         }
 
         /// When subtracting any value (including .unlimited) from .unlimited, the result is still .unlimited. Subtracting unlimited from any value (except unlimited) results in .max(0). A negative demand is not possible; any operation that would result in a negative value is clamped to .max(0).
-        public static func -= (lhs: inout NKSubscribers.Demand, rhs: NKSubscribers.Demand) {
+        public static func -= (lhs: inout PKSubscribers.Demand, rhs: PKSubscribers.Demand) {
             lhs.value -= rhs.value
         }
 
         /// When subtracting any value from .unlimited, the result is still .unlimited. A negative demand is possible, but be aware that it is not usable when requesting values in a subscription.
-        public static func - (lhs: NKSubscribers.Demand, rhs: Int) -> NKSubscribers.Demand {
+        public static func - (lhs: PKSubscribers.Demand, rhs: Int) -> PKSubscribers.Demand {
             .init(lhs.value * rhs)
         }
 
         /// When subtracting any value from .unlimited, the result is still .unlimited. A negative demand is not possible; any operation that would result in a negative value is clamped to .max(0)
-        public static func -= (lhs: inout NKSubscribers.Demand, rhs: Int) {
+        public static func -= (lhs: inout PKSubscribers.Demand, rhs: Int) {
             lhs.value -= rhs
         }
 
-        public static func > (lhs: NKSubscribers.Demand, rhs: Int) -> Bool {
+        public static func > (lhs: PKSubscribers.Demand, rhs: Int) -> Bool {
             lhs.value > rhs
         }
 
-        public static func >= (lhs: NKSubscribers.Demand, rhs: Int) -> Bool {
+        public static func >= (lhs: PKSubscribers.Demand, rhs: Int) -> Bool {
             lhs.value >= rhs
         }
 
-        public static func > (lhs: Int, rhs: NKSubscribers.Demand) -> Bool {
+        public static func > (lhs: Int, rhs: PKSubscribers.Demand) -> Bool {
             lhs > rhs.value
         }
 
-        public static func >= (lhs: Int, rhs: NKSubscribers.Demand) -> Bool {
+        public static func >= (lhs: Int, rhs: PKSubscribers.Demand) -> Bool {
             lhs >= rhs.value
         }
 
-        public static func < (lhs: NKSubscribers.Demand, rhs: Int) -> Bool {
+        public static func < (lhs: PKSubscribers.Demand, rhs: Int) -> Bool {
             lhs.value < rhs
         }
 
-        public static func < (lhs: Int, rhs: NKSubscribers.Demand) -> Bool {
+        public static func < (lhs: Int, rhs: PKSubscribers.Demand) -> Bool {
             lhs < rhs.value
         }
 
-        public static func <= (lhs: NKSubscribers.Demand, rhs: Int) -> Bool {
+        public static func <= (lhs: PKSubscribers.Demand, rhs: Int) -> Bool {
             lhs.value <= rhs
         }
 
-        public static func <= (lhs: Int, rhs: NKSubscribers.Demand) -> Bool {
+        public static func <= (lhs: Int, rhs: PKSubscribers.Demand) -> Bool {
             lhs <= rhs.value
         }
 
         /// If lhs is .unlimited, then the result is always false. If rhs is .unlimited then the result is always false. Otherwise, the two max values are compared.
-        public static func < (lhs: NKSubscribers.Demand, rhs: NKSubscribers.Demand) -> Bool {
+        public static func < (lhs: PKSubscribers.Demand, rhs: PKSubscribers.Demand) -> Bool {
             lhs.value < rhs.value
         }
 
         /// If lhs is .unlimited and rhs is .unlimited then the result is true. Otherwise, the rules for < are followed.
-        public static func <= (lhs: NKSubscribers.Demand, rhs: NKSubscribers.Demand) -> Bool {
+        public static func <= (lhs: PKSubscribers.Demand, rhs: PKSubscribers.Demand) -> Bool {
             lhs.value <= rhs.value
         }
 
@@ -134,32 +134,32 @@ extension NKSubscribers {
         /// - Parameters:
         ///   - lhs: A value to compare.
         ///   - rhs: Another value to compare.
-        public static func >= (lhs: NKSubscribers.Demand, rhs: NKSubscribers.Demand) -> Bool {
+        public static func >= (lhs: PKSubscribers.Demand, rhs: PKSubscribers.Demand) -> Bool {
             lhs.value >= rhs.value
         }
 
         /// If rhs is .unlimited, then the result is always false. If lhs is .unlimited then the result is always false. Otherwise, the two max values are compared.
-        public static func > (lhs: NKSubscribers.Demand, rhs: NKSubscribers.Demand) -> Bool {
+        public static func > (lhs: PKSubscribers.Demand, rhs: PKSubscribers.Demand) -> Bool {
             lhs.value > rhs.value
         }
 
         /// Returns `true` if `lhs` and `rhs` are equal. `.unlimited` is not equal to any integer.
-        public static func == (lhs: NKSubscribers.Demand, rhs: Int) -> Bool {
+        public static func == (lhs: PKSubscribers.Demand, rhs: Int) -> Bool {
             lhs.value == rhs
         }
 
         /// Returns `true` if `lhs` and `rhs` are not equal. `.unlimited` is not equal to any integer.
-        public static func != (lhs: NKSubscribers.Demand, rhs: Int) -> Bool {
+        public static func != (lhs: PKSubscribers.Demand, rhs: Int) -> Bool {
             lhs.value != rhs
         }
 
         /// Returns `true` if `lhs` and `rhs` are equal. `.unlimited` is not equal to any integer.
-        public static func == (lhs: Int, rhs: NKSubscribers.Demand) -> Bool {
+        public static func == (lhs: Int, rhs: PKSubscribers.Demand) -> Bool {
             lhs == rhs.value
         }
 
         /// Returns `true` if `lhs` and `rhs` are not equal. `.unlimited` is not equal to any integer.
-        public static func != (lhs: Int, rhs: NKSubscribers.Demand) -> Bool {
+        public static func != (lhs: Int, rhs: PKSubscribers.Demand) -> Bool {
             lhs != rhs.value
         }
         /// Returns the number of requested values, or nil if unlimited.

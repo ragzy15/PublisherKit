@@ -8,7 +8,7 @@
 
 import Foundation
 
-public extension NKSubscribers {
+public extension PKSubscribers {
     
     enum Completion<Failure: Error> {
 

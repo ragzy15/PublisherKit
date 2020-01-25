@@ -8,9 +8,9 @@
 
 import Foundation
 
-public extension NKPublishers {
+public extension PKPublishers {
     
-    struct MapError<Upstream: NKPublisher, Failure: Error>: NKPublisher {
+    struct MapError<Upstream: PKPublisher, Failure: Error>: PKPublisher {
         
         public typealias Output = Upstream.Output
         
@@ -25,7 +25,7 @@ public extension NKPublishers {
             self.transform = transform
         }
         
-        public func receive<S: NKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let upstreamSubscriber = SameUpstreamOutputOperatorSink<S, Upstream>(downstream: subscriber) { (completion) in
                 

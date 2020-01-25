@@ -8,9 +8,9 @@
 
 import Foundation
 
-extension NKSubscribers {
+extension URLSession {
     
-    final class DataTaskSink<Downstream: NKSubscriber, Input, Failure>: NKSubscribers.DataTaskSinkable, NKSubscriber where Downstream.Input == Input, Downstream.Failure == Failure {
+    final class DataTaskSink<Downstream: PKSubscriber, Input, Failure>: PKSubscribers.DataTaskSinkable, PKSubscriber where Downstream.Input == Input, Downstream.Failure == Failure {
         
         typealias Input = Downstream.Input
         
@@ -25,22 +25,18 @@ extension NKSubscribers {
             super.init()
         }
         
-        deinit {
-            print("Deiniting DataTaskSink")
-        }
-        
-        func receive(subscription: NKSubscription) {
+        func receive(subscription: PKSubscription) {
             guard !isCancelled else { return }
             self.subscription = subscription
         }
         
-        func receive(_ input: Input) -> NKSubscribers.Demand {
+        func receive(_ input: Input) -> PKSubscribers.Demand {
             guard !isCancelled else { return .none }
             _ = downstream?.receive(input)
             return demand
         }
         
-        func receive(completion: NKSubscribers.Completion<Failure>) {
+        func receive(completion: PKSubscribers.Completion<Failure>) {
             guard !isCancelled else { return }
             downstream?.receive(completion: completion)
             end()

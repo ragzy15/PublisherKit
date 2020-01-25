@@ -8,10 +8,10 @@
 
 import Foundation
 
-extension NKPublishers {
+extension PKPublishers {
     
     /// A publisher that receives and combines the latest elements from two publishers.
-    public struct CombineLatest<A: NKPublisher, B: NKPublisher>: NKPublisher where A.Failure == B.Failure {
+    public struct CombineLatest<A: PKPublisher, B: PKPublisher>: PKPublisher where A.Failure == B.Failure {
         
         public typealias Output = (A.Output, B.Output)
         
@@ -26,7 +26,7 @@ extension NKPublishers {
             self.b = b
         }
         
-        public func receive<S: NKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             typealias Sub = CombineLatestSink<S, A.Output, B.Output, Failure>
             
@@ -55,9 +55,9 @@ extension NKPublishers {
     }
 }
 
-extension NKPublishers.CombineLatest: Equatable where A: Equatable, B: Equatable{
+extension PKPublishers.CombineLatest: Equatable where A: Equatable, B: Equatable{
     
-    public static func == (lhs: NKPublishers.CombineLatest<A, B>, rhs: NKPublishers.CombineLatest<A, B>) -> Bool {
+    public static func == (lhs: PKPublishers.CombineLatest<A, B>, rhs: PKPublishers.CombineLatest<A, B>) -> Bool {
         lhs.a == rhs.a && lhs.b == rhs.b
     }
 }

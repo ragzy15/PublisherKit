@@ -8,7 +8,7 @@
 
 import Foundation
 
-class InternalSink<Downstream: NKSubscriber, Input, Failure: Error>: NKSubscribers.Sinkable, NKSubscriber {
+class InternalSink<Downstream: PKSubscriber, Input, Failure: Error>: PKSubscribers.Sinkable, PKSubscriber {
     
     var downstream: Downstream?
     
@@ -17,17 +17,17 @@ class InternalSink<Downstream: NKSubscriber, Input, Failure: Error>: NKSubscribe
         super.init()
     }
     
-    func receive(subscription: NKSubscription) {
+    func receive(subscription: PKSubscription) {
         guard !isCancelled else { return }
         self.subscription = subscription
     }
     
-    func receive(_ input: Input) -> NKSubscribers.Demand {
+    func receive(_ input: Input) -> PKSubscribers.Demand {
         guard !isCancelled else { return .none }
         return demand
     }
     
-    func receive(completion: NKSubscribers.Completion<Failure>) {
+    func receive(completion: PKSubscribers.Completion<Failure>) {
         guard !isCancelled else { return }
     }
 }

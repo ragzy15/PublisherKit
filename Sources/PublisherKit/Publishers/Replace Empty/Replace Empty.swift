@@ -8,10 +8,10 @@
 
 import Foundation
 
-public extension NKPublishers {
+public extension PKPublishers {
     
     /// A publisher that replaces an empty stream with a provided element.
-    struct ReplaceEmpty<Upstream: NKPublisher>: NKPublisher {
+    struct ReplaceEmpty<Upstream: PKPublisher>: PKPublisher {
         
         public typealias Output = Upstream.Output
         
@@ -27,7 +27,7 @@ public extension NKPublishers {
             self.output = output
         }
         
-        public func receive<S: NKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             var outputReceived = false
             

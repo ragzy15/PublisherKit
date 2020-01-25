@@ -8,18 +8,18 @@
 
 import Foundation
 
-typealias UpstreamOperatorSink<Downstream: NKSubscriber, Upstream: NKPublisher> = NKSubscribers.OperatorSink<Downstream, Upstream.Output, Upstream.Failure>
+typealias UpstreamOperatorSink<Downstream: PKSubscriber, Upstream: PKPublisher> = PKSubscribers.OperatorSink<Downstream, Upstream.Output, Upstream.Failure>
 
-extension NKSubscribers {
+extension PKSubscribers {
     
-    final class OperatorSink<Downstream: NKSubscriber, Input, Failure: Error>: InternalSink<Downstream, Input, Failure> {
+    final class OperatorSink<Downstream: PKSubscriber, Input, Failure: Error>: InternalSink<Downstream, Input, Failure> {
         
         final let receiveValue: ((Input) -> Void)
         
-        final let receiveCompletion: ((NKSubscribers.Completion<Failure>) -> Void)
+        final let receiveCompletion: ((PKSubscribers.Completion<Failure>) -> Void)
         
         init(downstream: Downstream,
-             receiveCompletion: @escaping (NKSubscribers.Completion<Failure>) -> Void,
+             receiveCompletion: @escaping (PKSubscribers.Completion<Failure>) -> Void,
              receiveValue: @escaping ((Input) -> Void)) {
             
             self.receiveCompletion = receiveCompletion
@@ -27,13 +27,13 @@ extension NKSubscribers {
             super.init(downstream: downstream)
         }
         
-        override func receive(_ input: Input) -> NKSubscribers.Demand {
+        override func receive(_ input: Input) -> PKSubscribers.Demand {
             guard !isCancelled else { return .none }
             receiveValue(input)
             return demand
         }
         
-        override func receive(completion: NKSubscribers.Completion<Failure>) {
+        override func receive(completion: PKSubscribers.Completion<Failure>) {
             guard !isCancelled else { return }
             end()
             receiveCompletion(completion)
@@ -42,11 +42,11 @@ extension NKSubscribers {
 }
 
 // MARK: SAME FAILURE
-typealias SameUpstreamFailureOperatorSink<Downstream: NKSubscriber, Upstream: NKPublisher> = NKSubscribers.SameFailureOperatorSink<Downstream, Upstream.Output, Upstream.Failure> where Downstream.Failure == Upstream.Failure
+typealias SameUpstreamFailureOperatorSink<Downstream: PKSubscriber, Upstream: PKPublisher> = PKSubscribers.SameFailureOperatorSink<Downstream, Upstream.Output, Upstream.Failure> where Downstream.Failure == Upstream.Failure
 
-extension NKSubscribers {
+extension PKSubscribers {
     
-    final class SameFailureOperatorSink<Downstream: NKSubscriber, Input, Failure>: InternalSink<Downstream, Input, Failure> where Downstream.Failure == Failure {
+    final class SameFailureOperatorSink<Downstream: PKSubscriber, Input, Failure>: InternalSink<Downstream, Input, Failure> where Downstream.Failure == Failure {
         
         final let receiveValue: ((Input) -> Void)
         
@@ -55,13 +55,13 @@ extension NKSubscribers {
             super.init(downstream: downstream)
         }
         
-        override func receive(_ input: Input) -> NKSubscribers.Demand {
+        override func receive(_ input: Input) -> PKSubscribers.Demand {
             guard !isCancelled else { return .none }
             receiveValue(input)
             return demand
         }
         
-        override func receive(completion: NKSubscribers.Completion<Failure>) {
+        override func receive(completion: PKSubscribers.Completion<Failure>) {
             guard !isCancelled else { return }
             end()
             downstream?.receive(completion: completion)
@@ -70,26 +70,26 @@ extension NKSubscribers {
 }
 
 // MARK: SAME OUTPUT
-typealias SameUpstreamOutputOperatorSink<Downstream: NKSubscriber, Upstream: NKPublisher> = NKSubscribers.SameOutputOperatorSink<Downstream, Upstream.Output, Upstream.Failure> where Downstream.Input == Upstream.Output
+typealias SameUpstreamOutputOperatorSink<Downstream: PKSubscriber, Upstream: PKPublisher> = PKSubscribers.SameOutputOperatorSink<Downstream, Upstream.Output, Upstream.Failure> where Downstream.Input == Upstream.Output
 
-extension NKSubscribers {
+extension PKSubscribers {
     
-    final class SameOutputOperatorSink<Downstream: NKSubscriber, Input, Failure: Error>: InternalSink<Downstream, Input, Failure> where Downstream.Input == Input {
+    final class SameOutputOperatorSink<Downstream: PKSubscriber, Input, Failure: Error>: InternalSink<Downstream, Input, Failure> where Downstream.Input == Input {
         
-        final let receiveCompletion: ((NKSubscribers.Completion<Failure>) -> Void)
+        final let receiveCompletion: ((PKSubscribers.Completion<Failure>) -> Void)
         
-        init(downstream: Downstream, receiveCompletion: @escaping ((NKSubscribers.Completion<Failure>) -> Void)) {
+        init(downstream: Downstream, receiveCompletion: @escaping ((PKSubscribers.Completion<Failure>) -> Void)) {
             self.receiveCompletion = receiveCompletion
             super.init(downstream: downstream)
         }
         
-        override func receive(_ input: Input) -> NKSubscribers.Demand {
+        override func receive(_ input: Input) -> PKSubscribers.Demand {
             guard !isCancelled else { return .none }
             _ = downstream?.receive(input)
             return demand
         }
         
-        override func receive(completion: NKSubscribers.Completion<Failure>) {
+        override func receive(completion: PKSubscribers.Completion<Failure>) {
             guard !isCancelled else { return }
             end()
             receiveCompletion(completion)
@@ -98,19 +98,23 @@ extension NKSubscribers {
 }
 
 // MARK: SAME OPERATOR TYPE
-typealias SameUpstreamOperatorSink<Downstream: NKSubscriber, Upstream: NKPublisher> = NKSubscribers.SameOperatorSink<Downstream, Upstream.Output, Upstream.Failure> where Downstream.Input == Upstream.Output, Downstream.Failure == Upstream.Failure
+typealias SameUpstreamOperatorSink<Downstream: PKSubscriber, Upstream: PKPublisher> = PKSubscribers.SameOperatorSink<Downstream, Upstream.Output, Upstream.Failure> where Downstream.Input == Upstream.Output, Downstream.Failure == Upstream.Failure
 
-extension NKSubscribers {
+extension PKSubscribers {
     
-    class SameOperatorSink<Downstream: NKSubscriber, Input, Failure>: InternalSink<Downstream, Input, Failure> where Downstream.Input == Input, Downstream.Failure == Failure {
+    class SameOperatorSink<Downstream: PKSubscriber, Input, Failure>: InternalSink<Downstream, Input, Failure> where Downstream.Input == Input, Downstream.Failure == Failure {
         
-        override func receive(_ input: Input) -> NKSubscribers.Demand {
+        override func receive(_ input: Input) -> PKSubscribers.Demand {
             guard !isCancelled else { return .none }
             _ = downstream?.receive(input)
             return demand
         }
         
-        override func receive(completion: NKSubscribers.Completion<Failure>) {
+        func receive(input: Input) {
+            _ = receive(input)
+        }
+        
+        override func receive(completion: PKSubscribers.Completion<Failure>) {
             guard !isCancelled else { return }
             end()
             downstream?.receive(completion: completion)

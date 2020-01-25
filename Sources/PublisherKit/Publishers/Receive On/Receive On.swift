@@ -8,9 +8,9 @@
 
 import Foundation
 
-extension NKPublishers {
+extension PKPublishers {
     
-    public struct ReceiveOn<Upstream: NKPublisher>: NKPublisher {
+    public struct ReceiveOn<Upstream: PKPublisher>: PKPublisher {
         
         public typealias Output = Upstream.Output
         
@@ -19,14 +19,14 @@ extension NKPublishers {
         /// The publisher from which this publisher receives elements.
         public let upstream: Upstream
         
-        public let scheduler: NKScheduler
+        public let scheduler: PKScheduler
         
-        public init(upstream: Upstream, on scheduler: NKScheduler) {
+        public init(upstream: Upstream, on scheduler: PKScheduler) {
             self.upstream = upstream
             self.scheduler = scheduler
         }
         
-        public func receive<S: NKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let upstreamSubscriber = UpstreamOperatorSink<S, Upstream>(downstream: subscriber, receiveCompletion: { (completion) in
 

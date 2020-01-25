@@ -8,10 +8,10 @@
 
 import Foundation
 
-extension NKPublishers {
+extension PKPublishers {
 
     /// A publisher that publishes an array containing all the matches of the given regular pattern from the output.
-    public struct Matches<Upstream: NKPublisher>: NKPublisher where Upstream.Output == String {
+    public struct Matches<Upstream: PKPublisher>: PKPublisher where Upstream.Output == String {
 
         public typealias Output = [NSTextCheckingResult]
 
@@ -33,7 +33,7 @@ extension NKPublishers {
             self.matchOptions = matchOptions
         }
         
-        public func receive<S: NKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             var expression: NSRegularExpression?
             var error: Error?
@@ -44,7 +44,7 @@ extension NKPublishers {
                 error = creationError
             }
             
-            typealias Sub = NKSubscribers.OperatorSink<S, Upstream.Output, Failure>
+            typealias Sub = PKSubscribers.OperatorSink<S, Upstream.Output, Failure>
             
             let upstreamSubscriber = Sub(downstream: subscriber, receiveCompletion: { (completion) in
                 
@@ -60,7 +60,7 @@ extension NKPublishers {
                 }
             }
             
-            let superSubscriber = NKSubscribers.OperatorSink<Sub, Upstream.Output, Upstream.Failure>(downstream: upstreamSubscriber, receiveCompletion: { (completion) in
+            let superSubscriber = PKSubscribers.OperatorSink<Sub, Upstream.Output, Upstream.Failure>(downstream: upstreamSubscriber, receiveCompletion: { (completion) in
                 
                 let newCompletion = completion.mapError { $0 as Failure}
                 upstreamSubscriber.receive(completion: newCompletion)

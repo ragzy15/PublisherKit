@@ -10,36 +10,15 @@ import Foundation
 
 extension URLSession {
     
-    /// Returns a publisher that wraps a URL session upload task for a given URL.
-    ///
-    /// The publisher publishes data when the task completes, or terminates if the task fails with an error.
-    /// - Parameter url: The URL for which to create a upload task.
-    /// - Parameter data: The body data for the request.
-    /// - Returns: A publisher that wraps a upload task for the URL.
-    public func nkUploadTaskPublisher(for url: URL, from data: Data?, apiName: String = "") -> NKUploadTaskPublisher {
-        let request = URLRequest(url: url)
-        return NKUploadTaskPublisher(name: apiName, request: request, session: self, from: data)
-    }
-    
-    /// Returns a publisher that wraps a URL session upload task for a given URL.
-    ///
-    /// The publisher publishes data when the task completes, or terminates if the task fails with an error.
-    /// - Parameter url: The URL for which to create a upload task.
-    /// - Parameter file: The URL of the file to upload.
-    /// - Returns: A publisher that wraps a upload task for the URL.
-    public func nkUploadTaskPublisher(for url: URL, from file: URL, apiName: String = "") -> NKUploadTaskPublisher {
-        let request = URLRequest(url: url)
-        return NKUploadTaskPublisher(name: apiName, request: request, session: self, from: file)
-    }
-    
     /// Returns a publisher that wraps a URL session upload task for a given URL request.
     ///
     /// The publisher publishes data when the task completes, or terminates if the task fails with an error.
     /// - Parameter request: The URL request for which to create a upload task.
     /// - Parameter data: The body data for the request.
+    /// - Parameter name: Name for the task. Used for logging purpose only.
     /// - Returns: A publisher that wraps a upload task for the URL request.
-    public func nkUploadTaskPublisher(for request: URLRequest, from data: Data?, apiName: String = "") -> NKUploadTaskPublisher {
-        NKUploadTaskPublisher(name: apiName, request: request, session: self, from: data)
+    public func uploadTaskPublisher(for request: URLRequest, from data: Data?, name: String = "") -> UploadTaskPKPublisher {
+        UploadTaskPKPublisher(name: name, request: request, from: data, session: self)
     }
     
     /// Returns a publisher that wraps a URL session upload task for a given URL request.
@@ -47,15 +26,16 @@ extension URLSession {
     /// The publisher publishes data when the task completes, or terminates if the task fails with an error.
     /// - Parameter request: The URL request for which to create a upload task.
     /// - Parameter file: The URL of the file to upload.
+    /// - Parameter name: Name for the task. Used for logging purpose only.
     /// - Returns: A publisher that wraps a upload task for the URL request.
-    public func nkUploadTaskPublisher(for request: URLRequest, from file: URL, apiName: String = "") -> NKUploadTaskPublisher {
-        NKUploadTaskPublisher(name: apiName, request: request, session: self, from: file)
+    public func uploadTaskPublisher(for request: URLRequest, from file: URL, name: String = "") -> UploadTaskPKPublisher {
+        UploadTaskPKPublisher(name: name, request: request, from: file, session: self)
     }
 }
 
 extension URLSession {
     
-    public struct NKUploadTaskPublisher: NKPublisher {
+    public struct UploadTaskPKPublisher: PKPublisher, Handling {
          
         public typealias Output = (data: Data, response: HTTPURLResponse)
         
@@ -67,53 +47,38 @@ extension URLSession {
         
         public let data: Data?
         
-        public var apiName: String = ""
+        private let fileUrl: URL?
         
-        private let url: URL?
+        public var name: String
         
-        private static let queue = DispatchQueue(label: "com.PublisherKit.task-thread", qos: .utility, attributes: .concurrent, autoreleaseFrequency: .inherit, target: nil)
+        private static let queue = DispatchQueue(label: "com.PublisherKit.upload-task-thread", qos: .utility, attributes: .concurrent)
         
-        public init(name: String = "", request: URLRequest, session: URLSession, from data: Data?) {
-            apiName = name
+        public init(name: String = "", request: URLRequest, from data: Data?, session: URLSession) {
+            self.name = name
             self.request = request
             self.session = session
             self.data = data
-            url = nil
+            fileUrl = nil
         }
         
-        public init(name: String = "", request: URLRequest, session: URLSession, from file: URL) {
-            apiName = name
+        public init(name: String = "", request: URLRequest, from file: URL, session: URLSession) {
+            self.name = name
             self.request = request
             self.session = session
             data = nil
-            url = file
+            fileUrl = file
         }
         
-        public func receive<S: NKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let dataTaskSubscriber = NKSubscribers.DataTaskSink(downstream: subscriber)
+            let dataTaskSubscriber = DataTaskSink(downstream: subscriber)
             
-            let block: (Data?, URLResponse?, Error?) -> Void = { (data, response, error) in
-                
-                guard !dataTaskSubscriber.isCancelled else { return }
-                
-                if let error = error as NSError? {
-                    NKUploadTaskPublisher.queue.async {
-                        dataTaskSubscriber.receive(completion: .failure(error))
-                    }
-                    
-                } else if let response = response as? HTTPURLResponse, let data = data {
-                    NKUploadTaskPublisher.queue.async {
-                        dataTaskSubscriber.receive(input: (data, response))
-                        dataTaskSubscriber.receive(completion: .finished)
-                    }
-                }
-            }
+            let completion = handle(queue: UploadTaskPKPublisher.queue, subscriber: dataTaskSubscriber)
             
-            if let url = url {
-                dataTaskSubscriber.task = session.uploadTask(with: request, fromFile: url, completionHandler: block)
+            if let url = fileUrl {
+                dataTaskSubscriber.task = session.uploadTask(with: request, fromFile: url, completionHandler: completion)
             } else {
-                dataTaskSubscriber.task = session.uploadTask(with: request, from: data, completionHandler: block)
+                dataTaskSubscriber.task = session.uploadTask(with: request, from: data, completionHandler: completion)
             }
             
             subscriber.receive(subscription: dataTaskSubscriber)
@@ -121,8 +86,37 @@ extension URLSession {
             dataTaskSubscriber.task?.resume()
             
             #if DEBUG
-            Logger.default.logAPIRequest(request: request, apiName: apiName)
+            Logger.default.logAPIRequest(request: request, name: name)
             #endif
         }
+    }
+}
+
+protocol Handling {
+    
+}
+extension Handling {
+    
+    
+    func handle<Downstream: PKSubscriber>(queue: DispatchQueue, subscriber: URLSession.DataTaskSink<Downstream, URLSession.DataTaskPKPublisher.Output, URLSession.DataTaskPKPublisher.Failure>) -> (Data?, URLResponse?, Error?) -> Void {
+        
+        let block: (Data?, URLResponse?, Error?) -> Void = { (data, response, error) in
+            
+            guard !subscriber.isCancelled else { return }
+            
+            if let error = error as NSError? {
+                queue.async {
+                    subscriber.receive(completion: .failure(error))
+                }
+                
+            } else if let response = response as? HTTPURLResponse, let data = data {
+                queue.async {
+                    subscriber.receive(input: (data, response))
+                    subscriber.receive(completion: .finished)
+                }
+            }
+        }
+        
+        return block
     }
 }

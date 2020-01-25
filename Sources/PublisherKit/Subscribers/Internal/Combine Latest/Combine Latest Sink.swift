@@ -8,11 +8,14 @@
 
 import Foundation
 
-final class CombineLatestSink<Downstream: NKSubscriber, AInput, BInput, Failure>: ZipSink<Downstream, AInput, BInput, Failure> where Downstream.Input == (AInput, BInput), Downstream.Failure == Failure {
+extension PKPublishers {
     
-    override func checkAndSend() {
-        if let aValue = aOutput, let bValue = bOutput {
-            _ = receive((aValue, bValue))
+    final class CombineLatestSink<Downstream: PKSubscriber, AInput, BInput, Failure>: ZipSink<Downstream, AInput, BInput, Failure> where Downstream.Input == (AInput, BInput), Downstream.Failure == Failure {
+        
+        override func checkAndSend() {
+            if let aValue = aOutput, let bValue = bOutput {
+                _ = receive((aValue, bValue))
+            }
         }
     }
 }

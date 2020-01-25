@@ -8,10 +8,10 @@
 
 import Foundation
 
-extension NKPublishers {
+extension PKPublishers {
 
     /// A publisher that publishes the number of elements received from the upstream publisher.
-    public struct Count<Upstream: NKPublisher>: NKPublisher {
+    public struct Count<Upstream: PKPublisher>: PKPublisher {
 
         public typealias Output = Int
 
@@ -24,7 +24,7 @@ extension NKPublishers {
             self.upstream = upstream
         }
         
-        public func receive<S: NKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             var counter = 0
             

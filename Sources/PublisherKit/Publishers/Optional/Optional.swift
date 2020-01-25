@@ -10,7 +10,7 @@ import Foundation
 
 extension Optional {
     
-    public var nkPublisher: Optional<Wrapped>.NKPublisher {
+    public var pkPublisher: Optional<Wrapped>.PKPublisher {
         .init(self)
     }
 }
@@ -20,7 +20,7 @@ extension Optional {
     /// A publisher that publishes an optional value to each subscriber exactly once, if the optional has a value.
     ///
     /// In contrast with `Just`, an `Optional` publisher may send no value before completion.
-    public struct NKPublisher: PublisherKit.NKPublisher {
+    public struct PKPublisher: PublisherKit.PKPublisher {
         
         public typealias Output = Wrapped
         
@@ -36,9 +36,9 @@ extension Optional {
             self.output = output
         }
         
-        public func receive<S: NKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let optionalSubscriber = NKSubscribers.TopLevelSink<S, Self>(downstream: subscriber)
+            let optionalSubscriber = SameUpstreamOperatorSink<S, Self>(downstream: subscriber)
             
             subscriber.receive(subscription: optionalSubscriber)
             

@@ -10,7 +10,7 @@ import Foundation
 
 extension Result {
     
-    public var nkPublisher: Result<Success, Failure>.NKPublisher {
+    public var pkPublisher: Result<Success, Failure>.PKPublisher {
         .init(self)
     }
 }
@@ -23,7 +23,7 @@ extension Result {
     ///
     /// In contrast with `Just`, a `Once` publisher can terminate with an error instead of sending a value.
     /// In contrast with `Optional`, a `Once` publisher always sends one value (unless it terminates with an error).
-    public struct NKPublisher: PublisherKit.NKPublisher {
+    public struct PKPublisher: PublisherKit.PKPublisher {
 
         public typealias Output = Success
 
@@ -52,9 +52,9 @@ extension Result {
             result = .failure(failure)
         }
         
-        public func receive<S: NKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let resultSubscriber = NKSubscribers.TopLevelSink<S, Self>(downstream: subscriber)
+            let resultSubscriber = SameUpstreamOperatorSink<S, Self>(downstream: subscriber)
             
             subscriber.receive(subscription: resultSubscriber)
             
