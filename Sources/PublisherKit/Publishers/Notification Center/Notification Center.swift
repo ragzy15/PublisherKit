@@ -10,8 +10,13 @@ import Foundation
 
 extension NotificationCenter {
     
-    public func nkPublisher(for name: Notification.Name, object: AnyObject? = nil) -> NotificationCenter.PKPublisher {
+    public func pkPublisher(for name: Notification.Name, object: AnyObject? = nil) -> NotificationCenter.PKPublisher {
         PKPublisher(center: self, name: name, object: object)
+    }
+    
+    @available(*, deprecated, renamed: "pkPublisher")
+    public func nkPublisher(for name: Notification.Name, object: AnyObject? = nil) -> NotificationCenter.PKPublisher {
+        pkPublisher(for: name, object: object)
     }
 }
 
@@ -46,18 +51,37 @@ extension NotificationCenter {
         
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let notificationSubscriber = PKSubscribers.TopLevelSink<S, Self>(downstream: subscriber)
+            let notificationSubscriber = Inner(downstream: subscriber, center: center, name: name, object: object)
 
-            let observer = center.addObserver(forName: name, object: object, queue: nil) { (notification) in
+            notificationSubscriber.observer = center.addObserver(forName: name, object: object, queue: nil) { (notification) in
                 notificationSubscriber.receive(input: notification)
-            }
-
-            notificationSubscriber.cancelBlock = {
-                self.center.removeObserver(observer, name: self.name, object: self.object)
             }
             
             notificationSubscriber.request(.unlimited)
             subscriber.receive(subscription: notificationSubscriber)
+        }
+    }
+    
+    final class Inner<Downstream: PKSubscriber>: SameUpstreamOperatorSink<Downstream, PKPublisher> where Downstream.Failure == PKPublisher.Failure, Downstream.Input == PKPublisher.Output {
+        
+        let center: NotificationCenter
+        let name: Notification.Name
+        let object: AnyObject?
+        
+        var observer: NSObjectProtocol?
+        
+        init(downstream: Downstream, center: NotificationCenter, name: Notification.Name, object: AnyObject?) {
+             self.center = center
+                       self.name = name
+                       self.object = object
+            super.init(downstream: downstream)
+        }
+        
+        override func cancel() {
+            if let observer = observer {
+                center.removeObserver(observer, name: name, object: object)
+            }
+            super.cancel()
         }
     }
 }
