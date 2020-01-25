@@ -35,14 +35,14 @@ final class AddUserViewController: UIViewController {
     
     private func setPublishers() {
         
-        let namePublisher = nameTextField.nkTextPublisher
+        let namePublisher = nameTextField.textChangePublisher
             .handleEvents(receiveOutput: { [weak self] (name) in
                 self?.viewModel.updateName(name)    // update the value from text field in user model
             })
             .allSatisfy { !$0.isEmpty } // check if name is not empty
         
         
-        let avatarPublisher = avatarTextField.nkTextPublisher
+        let avatarPublisher = avatarTextField.textChangePublisher
             .handleEvents(receiveOutput: { [weak self] (avatar) in
                 self?.viewModel.updateAvatar(avatar)    // update the value from text field in user model
             })
@@ -50,7 +50,7 @@ final class AddUserViewController: UIViewController {
             .replaceError(with: false)
         
         
-        let emailPublisher = emailTextField.nkTextPublisher
+        let emailPublisher = emailTextField.textChangePublisher
             .handleEvents(receiveOutput: { [weak self] (email) in
                 self?.viewModel.updateEmail(email)   // update the value from text field in user model
             })

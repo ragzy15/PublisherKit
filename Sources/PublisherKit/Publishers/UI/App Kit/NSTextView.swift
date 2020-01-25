@@ -12,7 +12,7 @@ import AppKit
 
 extension NSTextView {
 
-    public var nkTextPublisher: AnyPKPublisher<String, Never> {
+    public var textChangePublisher: AnyPKPublisher<String, Never> {
         NotificationCenter.default.pkPublisher(for: NSTextView.didChangeNotification, object: self)
             .map { ($0.object as? Self)?.string ?? "" }
             .eraseToAnyPublisher()
