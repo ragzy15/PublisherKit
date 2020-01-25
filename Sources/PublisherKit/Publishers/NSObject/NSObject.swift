@@ -55,14 +55,4 @@ extension NSObject {
             lhs.keyPath == rhs.keyPath && lhs.options == rhs.options
         }
     }
-    
-    final class Inner<Downstream: PKSubscriber, Subject: NSObject, Value>: SameUpstreamOperatorSink<Downstream, KeyValueObservingPKPublisher<Subject, Value>> where Downstream.Failure == Never, Downstream.Input == Value {
-        
-        var observer: NSKeyValueObservation?
-        
-        override func cancel() {
-            observer?.invalidate()
-            super.cancel()
-        }
-    }
 }

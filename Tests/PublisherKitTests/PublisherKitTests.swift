@@ -25,10 +25,9 @@ final class PublisherKitTests: XCTestCase {
             .merge(with: pub1)
             .sink(receiveCompletion: { (completion) in
                 print(completion)
-                expectation.fulfill()
             }) { (value) in
                 print(value ?? [:])
-                self.anyCancellable?.cancel()
+                expectation.fulfill()
         }
         NotificationCenter.default.post(name: .init("test1"), object: nil, userInfo: ["key1": "value1"])
         NotificationCenter.default.post(name: .init("test"), object: nil, userInfo: ["key2": "value2"])
