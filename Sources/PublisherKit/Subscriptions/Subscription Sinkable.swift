@@ -1,5 +1,5 @@
 //
-//  Sinkable.swift
+//  Subscription Sinkable.swift
 //  PublisherKit
 //
 //  Created by Raghav Ahuja on 25/12/19.
@@ -10,7 +10,7 @@ import Foundation
 
 extension PKSubscribers {
     
-    class DataTaskSinkable: Sinkable {
+    class DataTaskSubscriptionSinkable: SubscriptionSinkable {
         
         var task: URLSessionTask?
         
@@ -25,7 +25,7 @@ extension PKSubscribers {
         }
     }
     
-    class Sinkable: Hashable, PKSubscription {
+    class SubscriptionSinkable: Hashable, PKSubscription {
         
         private let uuid = UUID()
         private let date = Date()
@@ -63,7 +63,7 @@ extension PKSubscribers {
             else { return demand - 1 }
         }
         
-        static func == (lhs: Sinkable, rhs: Sinkable) -> Bool {
+        static func == (lhs: SubscriptionSinkable, rhs: SubscriptionSinkable) -> Bool {
             lhs.hashValue == rhs.hashValue
         }
         

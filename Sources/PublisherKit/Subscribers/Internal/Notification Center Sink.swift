@@ -9,7 +9,7 @@ import Foundation
 
 extension NotificationCenter {
     
-    final class Inner<Downstream: PKSubscriber>: SameUpstreamOperatorSink<Downstream, PKPublisher> where Downstream.Failure == PKPublisher.Failure, Downstream.Input == PKPublisher.Output {
+    final class InternalSink<Downstream: PKSubscriber>: SameUpstreamOperatorSink<Downstream, PKPublisher> where Downstream.Failure == PKPublisher.Failure, Downstream.Input == PKPublisher.Output {
         
         let center: NotificationCenter
         let name: Notification.Name

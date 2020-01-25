@@ -8,7 +8,7 @@
 
 import Foundation
 
-class ZipSink3<Downstream: PKSubscriber, AInput, BInput, CInput, Failure>: InternalSink<Downstream, (AInput, BInput, CInput), Failure> where Downstream.Input == (AInput, BInput, CInput), Downstream.Failure == Failure {
+class ZipSink3<Downstream: PKSubscriber, AInput, BInput, CInput, Failure>: Sinkable<Downstream, (AInput, BInput, CInput), Failure> where Downstream.Input == (AInput, BInput, CInput), Downstream.Failure == Failure {
     
     var aOutput: AInput?
     var bOutput: BInput?

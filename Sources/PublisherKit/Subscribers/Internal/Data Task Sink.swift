@@ -10,7 +10,7 @@ import Foundation
 
 extension URLSession {
     
-    final class DataTaskSink<Downstream: PKSubscriber, Input, Failure>: PKSubscribers.DataTaskSinkable, PKSubscriber where Downstream.Input == Input, Downstream.Failure == Failure {
+    final class DataTaskSink<Downstream: PKSubscriber, Input, Failure>: PKSubscribers.DataTaskSubscriptionSinkable, PKSubscriber where Downstream.Input == Input, Downstream.Failure == Failure {
         
         typealias Input = Downstream.Input
         

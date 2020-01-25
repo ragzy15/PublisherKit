@@ -51,7 +51,7 @@ extension NotificationCenter {
         
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let notificationSubscriber = Inner(downstream: subscriber, center: center, name: name, object: object)
+            let notificationSubscriber = InternalSink(downstream: subscriber, center: center, name: name, object: object)
 
             notificationSubscriber.observer = center.addObserver(forName: name, object: object, queue: nil) { (notification) in
                 notificationSubscriber.receive(input: notification)

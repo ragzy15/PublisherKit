@@ -9,7 +9,7 @@ import Foundation
 
 extension NSObject {
     
-    final class Inner<Downstream: PKSubscriber, Subject: NSObject, Value>: SameUpstreamOperatorSink<Downstream, KeyValueObservingPKPublisher<Subject, Value>> where Downstream.Failure == Never, Downstream.Input == Value {
+    final class InternalSink<Downstream: PKSubscriber, Subject: NSObject, Value>: SameUpstreamOperatorSink<Downstream, KeyValueObservingPKPublisher<Subject, Value>> where Downstream.Failure == Never, Downstream.Input == Value {
         
         var observer: NSKeyValueObservation?
         

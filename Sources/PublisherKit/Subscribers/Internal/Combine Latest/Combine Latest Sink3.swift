@@ -10,7 +10,7 @@ import Foundation
 
 extension PKPublishers.CombineLatest3 {
     
-    final class CombineLatestSink3<Downstream: PKSubscriber, AInput, BInput, CInput, Failure>: ZipSink3<Downstream, AInput, BInput, CInput, Failure> where Downstream.Input == (AInput, BInput, CInput), Downstream.Failure == Failure {
+    final class InternalSink<Downstream: PKSubscriber, AInput, BInput, CInput, Failure>: ZipSink3<Downstream, AInput, BInput, CInput, Failure> where Downstream.Input == (AInput, BInput, CInput), Downstream.Failure == Failure {
         
         override func checkAndSend() {
             if let aValue = aOutput, let bValue = bOutput, let cValue = cOutput {

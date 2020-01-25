@@ -1,5 +1,5 @@
 //
-//  Internal Sink.swift
+//  Sinkable.swift
 //  PublisherKit
 //
 //  Created by Raghav Ahuja on 19/12/19.
@@ -8,7 +8,7 @@
 
 import Foundation
 
-class InternalSink<Downstream: PKSubscriber, Input, Failure: Error>: PKSubscribers.Sinkable, PKSubscriber {
+class Sinkable<Downstream: PKSubscriber, Input, Failure: Error>: PKSubscribers.SubscriptionSinkable, PKSubscriber {
     
     var downstream: Downstream?
     

@@ -35,7 +35,7 @@ extension NSObject {
         
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let nsObjectSubscriber = Inner(downstream: subscriber)
+            let nsObjectSubscriber = InternalSink(downstream: subscriber)
             
             nsObjectSubscriber.observer = object.observe(keyPath, options: options) { (object, valueChange) in
                 

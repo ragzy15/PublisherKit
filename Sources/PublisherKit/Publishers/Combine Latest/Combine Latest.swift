@@ -28,7 +28,7 @@ extension PKPublishers {
         
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            typealias Sub = CombineLatestSink<S, A.Output, B.Output, Failure>
+            typealias Sub = InternalSink<S, A.Output, B.Output, Failure>
             
             let upstreamSubscriber = Sub(downstream: subscriber)
 

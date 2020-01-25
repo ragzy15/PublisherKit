@@ -12,7 +12,7 @@ typealias UpstreamOperatorSink<Downstream: PKSubscriber, Upstream: PKPublisher> 
 
 extension PKSubscribers {
     
-    final class OperatorSink<Downstream: PKSubscriber, Input, Failure: Error>: InternalSink<Downstream, Input, Failure> {
+    final class OperatorSink<Downstream: PKSubscriber, Input, Failure: Error>: Sinkable<Downstream, Input, Failure> {
         
         final let receiveValue: ((Input) -> Void)
         
@@ -46,7 +46,7 @@ typealias SameUpstreamFailureOperatorSink<Downstream: PKSubscriber, Upstream: PK
 
 extension PKSubscribers {
     
-    final class SameFailureOperatorSink<Downstream: PKSubscriber, Input, Failure>: InternalSink<Downstream, Input, Failure> where Downstream.Failure == Failure {
+    final class SameFailureOperatorSink<Downstream: PKSubscriber, Input, Failure>: Sinkable<Downstream, Input, Failure> where Downstream.Failure == Failure {
         
         final let receiveValue: ((Input) -> Void)
         
@@ -74,7 +74,7 @@ typealias SameUpstreamOutputOperatorSink<Downstream: PKSubscriber, Upstream: PKP
 
 extension PKSubscribers {
     
-    final class SameOutputOperatorSink<Downstream: PKSubscriber, Input, Failure: Error>: InternalSink<Downstream, Input, Failure> where Downstream.Input == Input {
+    final class SameOutputOperatorSink<Downstream: PKSubscriber, Input, Failure: Error>: Sinkable<Downstream, Input, Failure> where Downstream.Input == Input {
         
         final let receiveCompletion: ((PKSubscribers.Completion<Failure>) -> Void)
         
@@ -102,7 +102,7 @@ typealias SameUpstreamOperatorSink<Downstream: PKSubscriber, Upstream: PKPublish
 
 extension PKSubscribers {
     
-    class SameOperatorSink<Downstream: PKSubscriber, Input, Failure>: InternalSink<Downstream, Input, Failure> where Downstream.Input == Input, Downstream.Failure == Failure {
+    class SameOperatorSink<Downstream: PKSubscriber, Input, Failure>: Sinkable<Downstream, Input, Failure> where Downstream.Input == Input, Downstream.Failure == Failure {
         
         override func receive(_ input: Input) -> PKSubscribers.Demand {
             guard !isCancelled else { return .none }

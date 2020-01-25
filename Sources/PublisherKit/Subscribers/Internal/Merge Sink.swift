@@ -10,7 +10,7 @@ import Foundation
 
 extension PKSubscribers {
     
-    class MergeSink<Downstream: PKSubscriber, Upstream: PKPublisher>: InternalSink<Downstream, Upstream.Output, Upstream.Failure> where Downstream.Input == Upstream.Output, Downstream.Failure == Upstream.Failure {
+    class MergeSink<Downstream: PKSubscriber, Upstream: PKPublisher>: Sinkable<Downstream, Upstream.Output, Upstream.Failure> where Downstream.Input == Upstream.Output, Downstream.Failure == Upstream.Failure {
         
         var subscriptions: [PKSubscription] = []
         

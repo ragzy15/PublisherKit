@@ -8,9 +8,9 @@
 
 import Foundation
 
-extension PKPublishers {
+extension PKPublishers.CombineLatest {
     
-    final class CombineLatestSink<Downstream: PKSubscriber, AInput, BInput, Failure>: ZipSink<Downstream, AInput, BInput, Failure> where Downstream.Input == (AInput, BInput), Downstream.Failure == Failure {
+    final class InternalSink<Downstream: PKSubscriber, AInput, BInput, Failure>: ZipSink<Downstream, AInput, BInput, Failure> where Downstream.Input == (AInput, BInput), Downstream.Failure == Failure {
         
         override func checkAndSend() {
             if let aValue = aOutput, let bValue = bOutput {
