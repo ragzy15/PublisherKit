@@ -8,10 +8,10 @@
 
 import Foundation
 
-public extension NKPublishers {
+public extension PKPublishers {
     
     /// A publisher that republishes all non-`nil` results of calling a closure with each received element.
-    struct CompactMap<Upstream: NKPublisher, Output>: NKPublisher {
+    struct CompactMap<Upstream: PKPublisher, Output>: PKPublisher {
         
         public typealias Failure = Upstream.Failure
         
@@ -26,7 +26,7 @@ public extension NKPublishers {
             self.transform = transform
         }
         
-        public func receive<S: NKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let upstreamSubscriber = SameUpstreamFailureOperatorSink<S, Upstream>(downstream: subscriber) { (output) in
                 
@@ -44,9 +44,9 @@ public extension NKPublishers {
     }
 }
 
-extension NKPublishers.CompactMap {
+extension PKPublishers.CompactMap {
     
-    public func compactMap<T>(_ transform: @escaping (Output) -> T?) -> NKPublishers.CompactMap<Upstream, T> {
+    public func compactMap<T>(_ transform: @escaping (Output) -> T?) -> PKPublishers.CompactMap<Upstream, T> {
         
         let newTransform: (Upstream.Output) -> T? = { output in
             if let newOutput = self.transform(output) {
@@ -56,10 +56,10 @@ extension NKPublishers.CompactMap {
             }
         }
         
-        return NKPublishers.CompactMap<Upstream, T>(upstream: upstream, transform: newTransform)
+        return PKPublishers.CompactMap<Upstream, T>(upstream: upstream, transform: newTransform)
     }
     
-    public func map<T>(_ transform: @escaping (Output) -> T) -> NKPublishers.CompactMap<Upstream, T> {
+    public func map<T>(_ transform: @escaping (Output) -> T) -> PKPublishers.CompactMap<Upstream, T> {
         
         let newTransform: (Upstream.Output) -> T? = { output in
             if let newOutput = self.transform(output) {
@@ -69,6 +69,6 @@ extension NKPublishers.CompactMap {
             }
         }
         
-        return NKPublishers.CompactMap<Upstream, T>(upstream: upstream, transform: newTransform)
+        return PKPublishers.CompactMap<Upstream, T>(upstream: upstream, transform: newTransform)
     }
 }

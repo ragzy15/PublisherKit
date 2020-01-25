@@ -8,10 +8,10 @@
 
 import Foundation
 
-extension NKPublishers {
+extension PKPublishers {
 
     /// A publisher that publishes a single Boolean value that indicates whether all received elements pass a given error-throwing predicate.
-    public struct TryAllSatisfy<Upstream: NKPublisher>: NKPublisher {
+    public struct TryAllSatisfy<Upstream: PKPublisher>: PKPublisher {
 
         public typealias Output = Bool
 
@@ -30,9 +30,9 @@ extension NKPublishers {
             self.predicate = predicate
         }
         
-        public func receive<S: NKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            typealias Subscriber = NKSubscribers.OperatorSink<S, Upstream.Output, Failure>
+            typealias Subscriber = PKSubscribers.OperatorSink<S, Upstream.Output, Failure>
             
             let upstreamSubscriber = Subscriber(downstream: subscriber, receiveCompletion: { (completion) in
                 
@@ -47,7 +47,7 @@ extension NKPublishers {
                 }
             }
             
-            let bridgeSubscriber = NKSubscribers.OperatorSink<Subscriber, Upstream.Output, Upstream.Failure>(downstream: upstreamSubscriber, receiveCompletion: { (completion) in
+            let bridgeSubscriber = PKSubscribers.OperatorSink<Subscriber, Upstream.Output, Upstream.Failure>(downstream: upstreamSubscriber, receiveCompletion: { (completion) in
                 
                 let newCompletion = completion.mapError { $0 as Failure }
                 upstreamSubscriber.receive(completion: newCompletion)

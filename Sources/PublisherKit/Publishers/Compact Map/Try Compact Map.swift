@@ -8,10 +8,10 @@
 
 import Foundation
 
-public extension NKPublishers {
+public extension PKPublishers {
     
     /// A publisher that republishes all non-`nil` results of calling an error-throwing closure with each received element.
-    struct TryCompactMap<Upstream: NKPublisher, Output>: NKPublisher {
+    struct TryCompactMap<Upstream: PKPublisher, Output>: PKPublisher {
         
         public typealias Failure = Error
         
@@ -26,9 +26,9 @@ public extension NKPublishers {
             self.transform = transform
         }
         
-        public func receive<S: NKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            typealias Subscriber = NKSubscribers.OperatorSink<S, Upstream.Output, Failure>
+            typealias Subscriber = PKSubscribers.OperatorSink<S, Upstream.Output, Failure>
             
             let upstreamSubscriber = Subscriber(downstream: subscriber, receiveCompletion: { (completion) in
                 
@@ -46,7 +46,7 @@ public extension NKPublishers {
                 }
             }
             
-            let bridgeSubscriber = NKSubscribers.OperatorSink<Subscriber, Upstream.Output, Upstream.Failure>(downstream: upstreamSubscriber, receiveCompletion: { (completion) in
+            let bridgeSubscriber = PKSubscribers.OperatorSink<Subscriber, Upstream.Output, Upstream.Failure>(downstream: upstreamSubscriber, receiveCompletion: { (completion) in
                 
                 let newCompletion = completion.mapError { $0 as Failure }
                 upstreamSubscriber.receive(completion: newCompletion)
@@ -63,9 +63,9 @@ public extension NKPublishers {
     }
 }
 
-extension NKPublishers.TryCompactMap {
+extension PKPublishers.TryCompactMap {
     
-    public func compactMap<T>(_ transform: @escaping (Output) throws -> T?) -> NKPublishers.TryCompactMap<Upstream, T> {
+    public func compactMap<T>(_ transform: @escaping (Output) throws -> T?) -> PKPublishers.TryCompactMap<Upstream, T> {
         
         let newTransform: (Upstream.Output) throws -> T? = { output in
             if let newOutput = try self.transform(output) {
@@ -75,6 +75,6 @@ extension NKPublishers.TryCompactMap {
             }
         }
         
-        return NKPublishers.TryCompactMap<Upstream, T>(upstream: upstream, transform: newTransform)
+        return PKPublishers.TryCompactMap<Upstream, T>(upstream: upstream, transform: newTransform)
     }
 }

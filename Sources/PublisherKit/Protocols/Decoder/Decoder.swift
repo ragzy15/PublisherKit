@@ -8,7 +8,10 @@
 
 import Foundation
 
-public protocol NKDecoder {
+@available(*, deprecated, renamed: "PKDecoder")
+public typealias NKDecoder = PKDecoder
+
+public protocol PKDecoder {
     
     associatedtype Input
     

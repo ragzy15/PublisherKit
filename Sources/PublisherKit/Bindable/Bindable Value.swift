@@ -29,7 +29,7 @@ fileprivate struct BindableObserver: Hashable {
 }
 
 @propertyWrapper
-public class BindableValue<Value> {
+public final class BindableValue<Value> {
     
     public typealias Listener = (Value) -> Void
     
@@ -37,89 +37,119 @@ public class BindableValue<Value> {
     
     private var observers = Set<BindableObserver>()
     
-    private let uuid = UUID()
-    
     public var wrappedValue: Value {
         didSet {
-            BindableCenter.notificationCenter.post(name: notificationName, object: nil, userInfo: ["value": wrappedValue])
+            sendNotification()
         }
     }
     
     public init(wrappedValue: Value) {
         self.wrappedValue = wrappedValue
-        notificationName = Notification.Name("BindableObject-\(uuid)-\(Date())")
+        notificationName = Notification.Name("BindableValue-\(UUID().uuidString)-\(Date())")
     }
     
     public init(_ wrappedValue: Value) {
         self.wrappedValue = wrappedValue
-        notificationName = Notification.Name("BindableObject-\(uuid)-\(Date())")
+        notificationName = Notification.Name("BindableValue-\(UUID().uuidString)-\(Date())")
     }
 
     deinit {
+        removeAllObservers()
+    }
+    
+    private func sendNotification() {
+        BindableCenter.notificationCenter.post(name: notificationName, object: self, userInfo: ["value": wrappedValue])
+    }
+    
+    public func removeAllObservers() {
         observers.forEach { (observer) in
-            removeObsever(observer)
+            removeObserver(observer)
         }
         
         observers.removeAll()
     }
+    
+    private func removeObserver(_ observer: BindableObserver) {
+        BindableCenter.notificationCenter.removeObserver(observer.observer, name: notificationName, object: self)
+    }
 }
 
 extension BindableValue {
     
-    public func set(_ newValue: Value, on scheduler: NKScheduler) {
+    public func bind(on queue: OperationQueue? = nil, to listner: @escaping Listener) {
+        let notificationObserver = BindableCenter.notificationCenter.addObserver(forName: notificationName, object: self, queue: queue) { (notification) in
+            guard let value = notification.userInfo?["value"] as? Value else {
+                return
+            }
+            
+            listner(value)
+        }
+        
+        observers.insert(
+            BindableObserver(notificationObserver)
+        )
+    }
+    
+    public func bind<Root>(to keypath: ReferenceWritableKeyPath<Root, Value>, on object: Root, queue: OperationQueue? = nil) {
+        let notificationObserver = BindableCenter.notificationCenter.addObserver(forName: notificationName, object: self, queue: queue) { (notification) in
+            guard let value = notification.userInfo?["value"] as? Value else {
+                return
+            }
+            
+            object[keyPath: keypath] = value
+        }
+        
+        observers.insert(
+            BindableObserver(notificationObserver)
+        )
+    }
+    
+    public func bindAndFire(on queue: OperationQueue? = nil, to listner: @escaping Listener) {
+        bind(on: queue, to: listner)
+        if let queue = queue {
+            let value = wrappedValue
+            queue.addOperation {
+                listner(value)
+            }
+        } else {
+            listner(wrappedValue)
+        }
+    }
+}
+
+extension BindableValue {
+    
+    public func send(_ newValue: Value, on scheduler: PKScheduler) {
         scheduler.schedule {
             self.wrappedValue = newValue
         }
     }
     
-    public func set(_ newValue: Value, on scheduler: DispatchQueue) {
-        scheduler.schedule {
-            self.wrappedValue = newValue
-        }
+    public func send(_ newValue: Value) {
+        wrappedValue = newValue
     }
     
+    @available(*, deprecated, renamed: "send")
+    public func set(_ newValue: Value, on scheduler: PKScheduler) {
+        send(newValue, on: scheduler)
+    }
+    
+    @available(*, deprecated, renamed: "send")
     public func set(_ newValue: Value) {
-        self.wrappedValue = newValue
+        send(newValue)
     }
 }
 
-extension BindableValue {
+extension BindableValue where Value == Void {
     
-    public func bind(to listner: @escaping Listener) {
-        let notificationObserver = BindableCenter.notificationCenter.addObserver(forName: notificationName, object: nil, queue: nil) { [weak self] (_) in
-            guard let `self` = self else {
-                return
-            }
-            
-            listner(self.wrappedValue)
+    public func send(on scheduler: PKScheduler) {
+        scheduler.schedule {
+            self.wrappedValue = ()
         }
-        
-        observers.insert(
-            BindableObserver(notificationObserver)
-        )
     }
     
-    public func bind<Root>(to keypath: ReferenceWritableKeyPath<Root, Value>, on object: Root) {
-        let notificationObserver = BindableCenter.notificationCenter.addObserver(forName: notificationName, object: nil, queue: nil) { [weak self] (_) in
-            guard let `self` = self else {
-                return
-            }
-            
-            object[keyPath: keypath] = self.wrappedValue
-        }
-        
-        observers.insert(
-            BindableObserver(notificationObserver)
-        )
-    }
-    
-    public func bindAndFire(to listner: @escaping Listener) {
-        bind(to: listner)
-        listner(wrappedValue)
-    }
-    
-    private func removeObsever(_ observer: BindableObserver) {
-        BindableCenter.notificationCenter.removeObserver(observer.observer, name: notificationName, object: nil)
+    public func send() {
+        wrappedValue = ()
     }
 }
 
@@ -144,11 +174,28 @@ extension BindableValue: Hashable where Value: Hashable {
     }
 }
 
+extension BindableValue: Encodable where Value: Encodable {
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(wrappedValue)
+    }
+}
+
+extension BindableValue: Decodable where Value: Decodable {
+    
+    public convenience init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let wrappedValue = try container.decode(Value.self)
+        self.init(wrappedValue)
+    }
+}
+
 extension BindableValue {
     
     /// The property that can be accessed with the `_` syntax and allows access to the `Publisher`.
-    public var publisher: NKAnyPublisher<Value, Never> {
-        BindableCenter.notificationCenter.nkPublisher(for: notificationName)
+    public var publisher: AnyPKPublisher<Value, Never> {
+        BindableCenter.notificationCenter.pkPublisher(for: notificationName, object: self)
             .map(\.userInfo)
             .compactMap { $0?["value"] as? Value }
             .eraseToAnyPublisher()

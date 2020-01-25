@@ -8,7 +8,7 @@
 
 import Foundation
 
-extension OperationQueue: NKScheduler {
+extension OperationQueue: PKScheduler {
     
     public func schedule(block : @escaping () -> Void) {
         addOperation {

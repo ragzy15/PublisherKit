@@ -17,7 +17,7 @@ final public class Logger {
     public static let `default` = Logger()
     
     /**
-     Creates a `NKLogger`.
+     Creates a `PKLogger`.
      */
     init() { }
     
@@ -55,9 +55,9 @@ final public class Logger {
      Handles APIRequest logging sent by the `PublisherKit`.
      
      - parameter request: URLRequest
-     - parameter apiName: API name.
+     - parameter name: API name.
      */
-    func logAPIRequest(request: URLRequest, apiName: String) {
+    func logAPIRequest(request: URLRequest, name: String) {
         #if DEBUG
         guard isLoggingEnabled else { return }
         
@@ -65,7 +65,7 @@ final public class Logger {
             """
             ------------------------------------------------------------
             API Call Request for:
-            Name: \(apiName)
+            Name: \(name)
             \(request.debugDescription)
             
             """
@@ -77,9 +77,9 @@ final public class Logger {
      Print JSON sent by the `PublisherKit`.
      
      - parameter data: Input Type to be printed
-     - parameter apiName: API name.
+     - parameter name: API name.
      */
-    func printJSON<Input>(data: Input, apiName: String) {
+    func printJSON<Input>(data: Input, name: String) {
         #if DEBUG
         guard isLoggingEnabled else { return }
         guard let data = data as? Data else {

@@ -8,10 +8,10 @@
 
 import Foundation
 
-extension NKPublishers {
+extension PKPublishers {
 
     /// A publisher that attempts to recreate its subscription to a failed upstream publisher.
-    public struct Retry<Upstream: NKPublisher>: NKPublisher {
+    public struct Retry<Upstream: PKPublisher>: PKPublisher {
 
         public typealias Output = Upstream.Output
 
@@ -25,7 +25,7 @@ extension NKPublishers {
         /// If `nil`, this publisher attempts to reconnect with the upstream publisher an unlimited number of times.
         public let retries: Int?
         
-        private let demand: NKSubscribers.Demand
+        private let demand: PKSubscribers.Demand
 
         /// Creates a publisher that attempts to recreate its subscription to a failed upstream publisher.
         ///
@@ -43,7 +43,7 @@ extension NKPublishers {
             }
         }
         
-        public func receive<S: NKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             var retryDemand = demand
             

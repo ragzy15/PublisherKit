@@ -8,19 +8,19 @@
 
 import Foundation
 
-class ZipSink<Downstream: NKSubscriber, AInput, BInput, Failure>: InternalSink<Downstream, (AInput, BInput), Failure> where Downstream.Input == (AInput, BInput), Downstream.Failure == Failure {
+class ZipSink<Downstream: PKSubscriber, AInput, BInput, Failure>: Sinkable<Downstream, (AInput, BInput), Failure> where Downstream.Input == (AInput, BInput), Downstream.Failure == Failure {
     
     var aOutput: AInput?
     var bOutput: BInput?
     
-    var subscriptions: [NKSubscription] = []
+    var subscriptions: [PKSubscription] = []
     
-    override func receive(subscription: NKSubscription) {
+    override func receive(subscription: PKSubscription) {
         guard !isCancelled else { return }
         subscriptions.append(subscription)
     }
     
-    override func receive(_ input: (AInput, BInput)) -> NKSubscribers.Demand {
+    override func receive(_ input: (AInput, BInput)) -> PKSubscribers.Demand {
         guard !isCancelled else { return .none }
         _ = downstream?.receive(input)
         return demand
@@ -45,7 +45,7 @@ class ZipSink<Downstream: NKSubscriber, AInput, BInput, Failure>: InternalSink<D
         }
     }
     
-    override func receive(completion: NKSubscribers.Completion<Failure>) {
+    override func receive(completion: PKSubscribers.Completion<Failure>) {
         guard !isCancelled else { return }
         downstream?.receive(completion: completion)
         end()
@@ -54,5 +54,12 @@ class ZipSink<Downstream: NKSubscriber, AInput, BInput, Failure>: InternalSink<D
     override func end() {
         super.end()
         subscriptions.removeAll()
+    }
+    
+    override func cancel() {
+        super.cancel()
+        subscriptions.forEach { (subscription) in
+            subscription.cancel()
+        }
     }
 }

@@ -8,47 +8,44 @@
 
 import Foundation
 
-extension NKPublishers {
+extension PKPublishers {
 
-    public struct FlatMap<Upstream: NKPublisher, NewPublisher: NKPublisher>: NKPublisher where Upstream.Failure == NewPublisher.Failure {
+    public struct FlatMap<Upstream: PKPublisher, NewPublisher: PKPublisher>: PKPublisher where Upstream.Failure == NewPublisher.Failure {
 
         public typealias Output = NewPublisher.Output
 
         public typealias Failure = Upstream.Failure
         
-        /// The publisher from which this publisher receives elements.
         public let upstream: Upstream
 
-        public let maxPublishers: NKSubscribers.Demand
+        public let maxPublishers: PKSubscribers.Demand
 
         public let transform: (Upstream.Output) -> NewPublisher
 
-        public init(upstream: Upstream, maxPublishers: NKSubscribers.Demand, transform: @escaping (Upstream.Output) -> NewPublisher) {
+        public init(upstream: Upstream, maxPublishers: PKSubscribers.Demand, transform: @escaping (Upstream.Output) -> NewPublisher) {
             self.upstream = upstream
             self.maxPublishers = maxPublishers
             self.transform = transform
         }
         
-        public func receive<S: NKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let upstreamSubscriber = SameUpstreamFailureOperatorSink<S, Upstream>(downstream: subscriber) { (output) in
-                let newPublisher = self.transform(output)
-                
-                let newUpstreamSubscriber = NKSubscribers.OperatorSink<S, Output, Failure>(downstream: subscriber, receiveCompletion: { (completion) in
-                    
-                }) { (newOutput) in
-                    _ = subscriber.receive(newOutput)
+            var upstreamSubscriber: SameUpstreamFailureOperatorSink<S, Upstream>!
+            
+            let newUpstreamSubscriber = SameUpstreamOutputOperatorSink<S, NewPublisher>(downstream: subscriber) { (completion) in
+                if let error = completion.getError() {
+                    subscriber.receive(completion: .failure(error))
                 }
-                
-                subscriber.receive(subscription: newUpstreamSubscriber)
-                newUpstreamSubscriber.request(self.maxPublishers)
+            }
+            
+            upstreamSubscriber = SameUpstreamFailureOperatorSink<S, Upstream>(downstream: subscriber) { (output) in
+                let newPublisher = self.transform(output)
                 newPublisher.subscribe(newUpstreamSubscriber)
             }
             
             subscriber.receive(subscription: upstreamSubscriber)
             upstreamSubscriber.request(maxPublishers)
             upstream.subscribe(upstreamSubscriber)
-            
         }
     }
 }

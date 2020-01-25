@@ -8,9 +8,9 @@
 
 import Foundation
 
-extension NKPublishers {
+extension PKPublishers {
     
-    public struct Just<Output>: NKPublisher {
+    public struct Just<Output>: PKPublisher {
 
         public typealias Failure = Never
 
@@ -24,9 +24,9 @@ extension NKPublishers {
             self.output = output
         }
         
-        public func receive<S: NKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let justSubscriber = NKSubscribers.TopLevelSink<S, Self>(downstream: subscriber)
+            let justSubscriber = SameUpstreamOperatorSink<S, Self>(downstream: subscriber)
             
             subscriber.receive(subscription: justSubscriber)
             

@@ -8,10 +8,10 @@
 
 import Foundation
 
-extension NKPublishers {
+extension PKPublishers {
 
     /// A publisher that ignores all upstream elements, but passes along a completion state (finish or failed).
-    public struct IgnoreOutput<Upstream: NKPublisher>: NKPublisher {
+    public struct IgnoreOutput<Upstream: PKPublisher>: PKPublisher {
 
         public typealias Output = Never
 
@@ -24,7 +24,7 @@ extension NKPublishers {
             self.upstream = upstream
         }
         
-        public func receive<S: NKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let upstreamSubscriber = UpstreamOperatorSink<S, Upstream>(downstream: subscriber, receiveCompletion: { (completion) in
                 subscriber.receive(completion: completion)

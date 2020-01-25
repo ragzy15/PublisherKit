@@ -8,10 +8,10 @@
 
 import Foundation
 
-extension NKPublishers {
+extension PKPublishers {
 
     /// A publisher that publishes a single Boolean value that indicates whether all received elements pass a given predicate.
-    public struct AllSatisfy<Upstream: NKPublisher>: NKPublisher {
+    public struct AllSatisfy<Upstream: PKPublisher>: PKPublisher {
 
         public typealias Output = Bool
 
@@ -30,7 +30,7 @@ extension NKPublishers {
             self.predicate = predicate
         }
 
-        public func receive<S: NKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let upstreamSubscriber = SameUpstreamFailureOperatorSink<S, Upstream>(downstream: subscriber) { (output) in
                 let satisfied = self.predicate(output)

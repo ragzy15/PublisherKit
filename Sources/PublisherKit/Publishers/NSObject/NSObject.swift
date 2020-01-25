@@ -8,14 +8,14 @@
 
 import Foundation
 
-extension NSObject: NSObjectPublisherType {
+extension NSObject: NSObjectPKPublisher {
 }
 
 extension NSObject {
     
 
     /// A publisher that emits events when the value of a KVO-compliant property changes.
-    public struct NKKeyValueObservingPublisher<Subject: NSObject, Value>: Equatable, NKPublisher {
+    public struct KeyValueObservingPKPublisher<Subject: NSObject, Value>: Equatable, PKPublisher {
          
         public typealias Output = Value
         
@@ -33,11 +33,12 @@ extension NSObject {
             self.options = options
         }
         
-        public func receive<S: NKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let nsObjectSubscriber = NKSubscribers.TopLevelSink<S, Self>(downstream: subscriber)
+            let nsObjectSubscriber = InternalSink(downstream: subscriber)
             
-            let observer = object.observe(keyPath, options: options) { (object, valueChange) in
+            nsObjectSubscriber.observer = object.observe(keyPath, options: options) { (object, valueChange) in
+                
                 if let oldValue = valueChange.oldValue {
                     nsObjectSubscriber.receive(input: oldValue)
                 }
@@ -47,14 +48,10 @@ extension NSObject {
                 }
             }
             
-            nsObjectSubscriber.cancelBlock = {
-                observer.invalidate()
-            }
-            
             subscriber.receive(subscription: nsObjectSubscriber)
         }
         
-        public static func == (lhs: NSObject.NKKeyValueObservingPublisher<Subject, Value>, rhs: NSObject.NKKeyValueObservingPublisher<Subject, Value>) -> Bool {
+        public static func == (lhs: NSObject.KeyValueObservingPKPublisher<Subject, Value>, rhs: NSObject.KeyValueObservingPKPublisher<Subject, Value>) -> Bool {
             lhs.keyPath == rhs.keyPath && lhs.options == rhs.options
         }
     }

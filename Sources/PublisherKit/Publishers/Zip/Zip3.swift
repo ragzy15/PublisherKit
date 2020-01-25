@@ -8,10 +8,10 @@
 
 import Foundation
 
-extension NKPublishers {
+extension PKPublishers {
     
     /// A publisher created by applying the zip function to three upstream publishers.
-    public struct Zip3<A: NKPublisher, B: NKPublisher, C: NKPublisher>: NKPublisher where A.Failure == B.Failure, B.Failure == C.Failure {
+    public struct Zip3<A: PKPublisher, B: PKPublisher, C: PKPublisher>: PKPublisher where A.Failure == B.Failure, B.Failure == C.Failure {
 
         public typealias Output = (A.Output, B.Output, C.Output)
 
@@ -29,7 +29,7 @@ extension NKPublishers {
             self.c = c
         }
         
-        public func receive<S: NKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             typealias Sub = ZipSink3<S, A.Output, B.Output, C.Output, Failure>
             
@@ -65,9 +65,9 @@ extension NKPublishers {
     }
 }
 
-extension NKPublishers.Zip3: Equatable where A: Equatable, B: Equatable, C: Equatable {
+extension PKPublishers.Zip3: Equatable where A: Equatable, B: Equatable, C: Equatable {
     
-    public static func == (lhs: NKPublishers.Zip3<A, B, C>, rhs: NKPublishers.Zip3<A, B, C>) -> Bool {
+    public static func == (lhs: PKPublishers.Zip3<A, B, C>, rhs: PKPublishers.Zip3<A, B, C>) -> Bool {
         lhs.a == rhs.a && lhs.b == rhs.b && lhs.c == rhs.c
     }
 }

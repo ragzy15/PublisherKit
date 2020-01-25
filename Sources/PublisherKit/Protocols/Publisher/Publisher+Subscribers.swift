@@ -9,7 +9,7 @@
 import Foundation
 
 // MARK: SUBSCRIBE
-public extension NKPublisher {
+public extension PKPublisher {
     
     /// Attaches the specified subscriber to this publisher.
     ///
@@ -18,29 +18,29 @@ public extension NKPublisher {
     /// - SeeAlso: `receive(subscriber:)`
     /// - Parameters:
     ///     - subscriber: The subscriber to attach to this `Publisher`. After attaching, the subscriber can start to receive values.
-    func subscribe<S: NKSubscriber>(_ subscriber: S) where Failure == S.Failure, Output == S.Input {
+    func subscribe<S: PKSubscriber>(_ subscriber: S) where Failure == S.Failure, Output == S.Input {
         receive(subscriber: subscriber)
     }
 }
 
 // MARK: COMPLETION
-public extension NKPublisher {
+public extension PKPublisher {
     
     /// Attaches a subscriber with closure-based behavior.
     ///
     /// This method creates the subscriber and immediately requests an unlimited number of values, prior to returning the subscriber.
     /// - parameter block: The closure to execute on completion.
     /// - Returns: A cancellable instance; used when you end assignment of the received value. Deallocation of the result will tear down the subscription stream.
-    func completion(_ block: @escaping (Result<Output, Failure>) -> Void) -> NKAnyCancellable {
+    func completion(_ block: @escaping (Result<Output, Failure>) -> Void) -> PKAnyCancellable {
         
-        let subscriber = NKSubscribers.OnCompletion(receiveCompletion: block)
+        let subscriber = PKSubscribers.OnCompletion(receiveCompletion: block)
         subscribe(subscriber)
-        return NKAnyCancellable(subscriber)
+        return PKAnyCancellable(subscriber)
     }
 }
 
 // MARK: SINK
-extension NKPublisher {
+extension PKPublisher {
 
     /// Attaches a subscriber with closure-based behavior.
     ///
@@ -48,42 +48,42 @@ extension NKPublisher {
     /// - parameter receiveComplete: The closure to execute on completion.
     /// - parameter receiveValue: The closure to execute on receipt of a value.
     /// - Returns: A cancellable instance; used when you end assignment of the received value. Deallocation of the result will tear down the subscription stream.
-    public func sink(receiveCompletion: @escaping ((NKSubscribers.Completion<Failure>) -> Void), receiveValue: @escaping ((Output) -> Void)) -> NKAnyCancellable {
+    public func sink(receiveCompletion: @escaping ((PKSubscribers.Completion<Failure>) -> Void), receiveValue: @escaping ((Output) -> Void)) -> PKAnyCancellable {
         
-        let sink = NKSubscribers.Sink<Output, Failure>(receiveCompletion: { (completion) in
+        let sink = PKSubscribers.Sink<Output, Failure>(receiveCompletion: { (completion) in
             receiveCompletion(completion)
         }) { (output) in
             receiveValue(output)
         }
         
         subscribe(sink)
-        return NKAnyCancellable(sink)
+        return PKAnyCancellable(sink)
     }
 }
 
 // MARK: SINK NEVER ERROR
-extension NKPublisher where Self.Failure == Never {
+extension PKPublisher where Self.Failure == Never {
 
     /// Attaches a subscriber with closure-based behavior.
     ///
     /// This method creates the subscriber and immediately requests an unlimited number of values, prior to returning the subscriber.
     /// - parameter receiveValue: The closure to execute on receipt of a value.
     /// - Returns: A cancellable instance; used when you end assignment of the received value. Deallocation of the result will tear down the subscription stream.
-    public func sink(receiveValue: @escaping ((Output) -> Void)) -> NKAnyCancellable {
+    public func sink(receiveValue: @escaping ((Output) -> Void)) -> PKAnyCancellable {
         
-        let sink = NKSubscribers.Sink<Output, Failure>(receiveCompletion: { (_) in
+        let sink = PKSubscribers.Sink<Output, Failure>(receiveCompletion: { (_) in
             
         }) { (output) in
             receiveValue(output)
         }
         
         subscribe(sink)
-        return NKAnyCancellable(sink)
+        return PKAnyCancellable(sink)
     }
 }
 
 // MARK: ASSIGN
-public extension NKPublisher where Self.Failure == Never {
+public extension PKPublisher where Self.Failure == Never {
     
     /// Assigns each element from a Publisher to a property on an object.
     ///
@@ -91,11 +91,11 @@ public extension NKPublisher where Self.Failure == Never {
     ///   - keyPath: The key path of the property to assign.
     ///   - object: The object on which to assign the value.
     /// - Returns: A cancellable instance; used when you end assignment of the received value. Deallocation of the result will tear down the subscription stream.
-    func assign<Root>(to keyPath: ReferenceWritableKeyPath<Root, Self.Output>, on object: Root) -> NKAnyCancellable {
+    func assign<Root>(to keyPath: ReferenceWritableKeyPath<Root, Self.Output>, on object: Root) -> PKAnyCancellable {
         
-        let subscriber = NKSubscribers.Assign(object: object, keyPath: keyPath)
+        let subscriber = PKSubscribers.Assign(object: object, keyPath: keyPath)
         subscribe(subscriber)
-        return NKAnyCancellable(subscriber)
+        return PKAnyCancellable(subscriber)
     }
 }
 

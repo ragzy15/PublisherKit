@@ -15,9 +15,14 @@ extension URLSession {
     /// The publisher publishes data when the task completes, or terminates if the task fails with an error.
     /// - Parameter url: The URL for which to create a data task.
     /// - Returns: A publisher that wraps a data task for the URL.
-    public func nkTaskPublisher(for url: URL, apiName: String = "") -> NKDataTaskPublisher {
+    public func dataTaskPKPublisher(for url: URL, name: String = "") -> DataTaskPKPublisher {
         let request = URLRequest(url: url)
-        return NKDataTaskPublisher(name: apiName, request: request, session: self)
+        return DataTaskPKPublisher(name: name, request: request, session: self)
+    }
+    
+    @available(*, deprecated, renamed: "nkDataTaskPublisher")
+    public func nkTaskPublisher(for url: URL, name: String = "") -> DataTaskPKPublisher {
+        dataTaskPKPublisher(for: url, name: name)
     }
     
     /// Returns a publisher that wraps a URL session data task for a given URL request.
@@ -25,14 +30,22 @@ extension URLSession {
     /// The publisher publishes data when the task completes, or terminates if the task fails with an error.
     /// - Parameter request: The URL request for which to create a data task.
     /// - Returns: A publisher that wraps a data task for the URL request.
-    public func nkTaskPublisher(for request: URLRequest, apiName: String = "") -> NKDataTaskPublisher {
-        NKDataTaskPublisher(name: apiName, request: request, session: self)
+    public func dataTaskPKPublisher(for request: URLRequest, name: String = "") -> DataTaskPKPublisher {
+        DataTaskPKPublisher(name: name, request: request, session: self)
+    }
+    
+    @available(*, deprecated, renamed: "nkDataTaskPublisher")
+    public func nkTaskPublisher(for request: URLRequest, name: String = "") -> DataTaskPKPublisher {
+        dataTaskPKPublisher(for: request, name: name)
     }
 }
 
 extension URLSession {
     
-    public struct NKDataTaskPublisher: NKPublisher {
+    @available(*, deprecated, renamed: "DataTaskPKPublisher")
+    public typealias NKDataTaskPublisher = DataTaskPKPublisher
+    
+    public struct DataTaskPKPublisher: PKPublisher, URLSessionTaskPublisherDelegate {
          
         public typealias Output = (data: Data, response: HTTPURLResponse)
         
@@ -42,60 +55,38 @@ extension URLSession {
         
         public let session: URLSession
         
-        public var apiName: String = ""
+        public var name: String
         
-        private static let queue = DispatchQueue(label: "com.PublisherKit.task-thread", qos: .utility, attributes: .concurrent, autoreleaseFrequency: .inherit, target: nil)
+        private static let queue = DispatchQueue(label: "com.PublisherKit.task-thread", qos: .utility, attributes: .concurrent)
         
-        public init(request: URLRequest, session: URLSession) {
+        public init(name: String = "", request: URLRequest, session: URLSession) {
+            self.name = name
             self.request = request
             self.session = session
         }
         
-        public init(name: String, request: URLRequest, session: URLSession) {
-            apiName = name
-            self.request = request
-            self.session = session
-        }
-        
-        public func receive<S: NKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let dataTaskSubscriber = NKSubscribers.DataTaskSink(downstream: subscriber)
+            let dataTaskSubscriber = DataTaskSink(downstream: subscriber)
             
-            dataTaskSubscriber.task = session.dataTask(with: request) { (data, response, error) in
-                
-                guard !dataTaskSubscriber.isCancelled else { return }
-                
-                if let error = error as NSError? {
-                    NKDataTaskPublisher.queue.async {
-                        dataTaskSubscriber.receive(completion: .failure(error))
-                    }
-                    
-                } else if let response = response as? HTTPURLResponse, let data = data {
-                    NKDataTaskPublisher.queue.async {
-                        dataTaskSubscriber.receive(input: (data, response))
-                        dataTaskSubscriber.receive(completion: .finished)
-                    }
-                }
-            }
+            let completion = handleCompletion(queue: DataTaskPKPublisher.queue, subscriber: dataTaskSubscriber)
             
-            dataTaskSubscriber.cancelBlock = {
-                dataTaskSubscriber.task?.cancel()
-            }
+            dataTaskSubscriber.task = session.dataTask(with: request, completionHandler: completion)
             
             subscriber.receive(subscription: dataTaskSubscriber)
             
             dataTaskSubscriber.task?.resume()
             
             #if DEBUG
-            Logger.default.logAPIRequest(request: request, apiName: apiName)
+            Logger.default.logAPIRequest(request: request, name: name)
             #endif
         }
     }
 }
 
-extension URLSession.NKDataTaskPublisher {
+extension URLSession.DataTaskPKPublisher {
     
-    func validate(shouldCheckForErrorModel flag: Bool, acceptableStatusCodes codes: [Int]) -> NKPublishers.Validate {
-        NKPublishers.Validate(upstream: self, shouldCheckForErrorModel: flag, acceptableStatusCodes: codes)
+    func validate(shouldCheckForErrorModel flag: Bool, acceptableStatusCodes codes: [Int]) -> PKPublishers.Validate {
+        PKPublishers.Validate(upstream: self, shouldCheckForErrorModel: flag, acceptableStatusCodes: codes)
     }
 }

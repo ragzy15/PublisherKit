@@ -1,5 +1,5 @@
 //
-//  Sinkable.swift
+//  Subscription Sinkable.swift
 //  PublisherKit
 //
 //  Created by Raghav Ahuja on 25/12/19.
@@ -8,11 +8,11 @@
 
 import Foundation
 
-extension NKSubscribers {
+extension PKSubscribers {
     
-    class DataTaskSinkable: Sinkable {
+    class DataTaskSubscriptionSinkable: SubscriptionSinkable {
         
-        var task: URLSessionDataTask?
+        var task: URLSessionTask?
         
         override func cancel() {
             task?.cancel()
@@ -25,7 +25,7 @@ extension NKSubscribers {
         }
     }
     
-    class Sinkable: Hashable, NKSubscription {
+    class SubscriptionSinkable: Hashable, PKSubscription {
         
         private let uuid = UUID()
         private let date = Date()
@@ -38,11 +38,11 @@ extension NKSubscribers {
             isEnded || isCancelled
         }
         
-        var subscription: NKSubscription?
+        var subscription: PKSubscription?
         
-        var demand: NKSubscribers.Demand = .unlimited
+        var demand: PKSubscribers.Demand = .unlimited
         
-        func request(_ demand: NKSubscribers.Demand) {
+        func request(_ demand: PKSubscribers.Demand) {
             self.demand = demand
         }
         
@@ -57,13 +57,13 @@ extension NKSubscribers {
             subscription = nil
         }
         
-        final func getDemand() -> NKSubscribers.Demand {
+        final func getDemand() -> PKSubscribers.Demand {
             if demand == .unlimited { return demand }
             else if demand == .none { return .none }
             else { return demand - 1 }
         }
         
-        static func == (lhs: Sinkable, rhs: Sinkable) -> Bool {
+        static func == (lhs: SubscriptionSinkable, rhs: SubscriptionSinkable) -> Bool {
             lhs.hashValue == rhs.hashValue
         }
         

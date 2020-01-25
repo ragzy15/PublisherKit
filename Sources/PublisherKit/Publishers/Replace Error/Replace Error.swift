@@ -8,10 +8,10 @@
 
 import Foundation
 
-public extension NKPublishers {
+public extension PKPublishers {
     
     /// A publisher that replaces any errors in the stream with a provided element.
-    struct ReplaceError<Upstream: NKPublisher>: NKPublisher {
+    struct ReplaceError<Upstream: PKPublisher>: PKPublisher {
         
         public typealias Output = Upstream.Output
         
@@ -28,7 +28,7 @@ public extension NKPublishers {
             self.output = output
         }
         
-        public func receive<S: NKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let upstreamSubscriber = SameUpstreamOutputOperatorSink<S, Upstream>(downstream: subscriber) { (completion) in
                 

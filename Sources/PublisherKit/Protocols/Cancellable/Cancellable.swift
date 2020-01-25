@@ -8,20 +8,24 @@
 
 import Foundation
 
-public protocol NKCancellable {
+@available(*, deprecated, renamed: "PKCancellable")
+public typealias NKCancellable = PKCancellable
+ 
+
+public protocol PKCancellable {
     
     /// Cancel the activity.
     func cancel()
 }
 
-extension NKCancellable {
+extension PKCancellable {
     
     /// Stores this Cancellable in the specified set.
     /// Parameters:
     ///    - collection: The set to store this Cancellable.
-    public func store(in set: inout Set<NKAnyCancellable>) {
+    public func store(in set: inout Set<PKAnyCancellable>) {
         
-        let anyCancellable = NKAnyCancellable(self)
+        let anyCancellable = PKAnyCancellable(self)
         anyCancellable.store(in: &set)
     }
 }

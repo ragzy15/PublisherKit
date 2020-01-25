@@ -13,8 +13,13 @@ import UIKit
 
 extension UITextField {
     
-    public var nkTextPublisher: NKAnyPublisher<String, Never> {
-        NotificationCenter.default.nkPublisher(for: UITextField.textDidChangeNotification, object: self)
+    @available(*, deprecated, renamed: "textChangePublisher")
+    public var nkTextPublisher: AnyPKPublisher<String, Never> {
+        textChangePublisher
+    }
+    
+    public var textChangePublisher: AnyPKPublisher<String, Never> {
+        NotificationCenter.default.pkPublisher(for: UITextField.textDidChangeNotification, object: self)
             .map { ($0.object as? Self)?.text ?? "" }
             .eraseToAnyPublisher()
     }

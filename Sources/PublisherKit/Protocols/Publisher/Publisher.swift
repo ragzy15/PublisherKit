@@ -8,7 +8,10 @@
 
 import Foundation
 
-public protocol NKPublisher {
+@available(*, deprecated, renamed: "PKPublisher")
+public typealias NKPublisher = PKPublisher
+
+public protocol PKPublisher {
 
     /// The kind of values published by this publisher.
     associatedtype Output
@@ -24,5 +27,5 @@ public protocol NKPublisher {
     /// - Parameters:
     ///     - subscriber: The subscriber to attach to this `Publisher`.
     ///                   once attached it can begin to receive values.
-    func receive<S: NKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure
+    func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure
 }

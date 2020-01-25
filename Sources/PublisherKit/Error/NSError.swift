@@ -10,7 +10,7 @@ import Foundation
 
 extension NSError {
 
-    static var publisherKitErrorDomain: String { "NKErrorDomain" }
+    static var publisherKitErrorDomain: String { "PKErrorDomain" }
 
     static func cancelled(for url: URL?) -> NSError {
         var userInfo: [String: Any] = [NSLocalizedDescriptionKey: "User cancelled the task for url: \(url?.absoluteString ?? "nil")."]

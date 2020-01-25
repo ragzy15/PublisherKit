@@ -8,9 +8,9 @@
 
 import Foundation
 
-public extension NKPublishers {
+public extension PKPublishers {
     
-    struct Map<Upstream: NKPublisher, Output>: NKPublisher {
+    struct Map<Upstream: PKPublisher, Output>: PKPublisher {
         
         public typealias Failure = Upstream.Failure
         
@@ -25,7 +25,7 @@ public extension NKPublishers {
             self.transform = transform
         }
         
-        public func receive<S: NKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let upstreamSubscriber = SameUpstreamFailureOperatorSink<S, Upstream>(downstream: subscriber) { (output) in
                 
@@ -41,25 +41,25 @@ public extension NKPublishers {
     }
 }
 
-extension NKPublishers.Map {
+extension PKPublishers.Map {
     
-    public func map<T>(_ transform: @escaping (Output) -> T) -> NKPublishers.Map<Upstream, T> {
+    public func map<T>(_ transform: @escaping (Output) -> T) -> PKPublishers.Map<Upstream, T> {
         
         let newTransform: (Upstream.Output) -> T = { output in
             let newOutput = self.transform(output)
             return transform(newOutput)
         }
         
-        return NKPublishers.Map<Upstream, T>(upstream: upstream, transform: newTransform)
+        return PKPublishers.Map<Upstream, T>(upstream: upstream, transform: newTransform)
     }
     
-    public func tryMap<T>(_ transform: @escaping (Output) throws -> T) -> NKPublishers.TryMap<Upstream, T> {
+    public func tryMap<T>(_ transform: @escaping (Output) throws -> T) -> PKPublishers.TryMap<Upstream, T> {
         
         let newTransform: (Upstream.Output) throws -> T = { output in
             let newOutput = self.transform(output)
             return try transform(newOutput)
         }
         
-        return NKPublishers.TryMap<Upstream, T>(upstream: upstream, transform: newTransform)
+        return PKPublishers.TryMap<Upstream, T>(upstream: upstream, transform: newTransform)
     }
 }

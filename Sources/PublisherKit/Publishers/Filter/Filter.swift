@@ -8,10 +8,10 @@
 
 import Foundation
 
-extension NKPublishers {
+extension PKPublishers {
     
     /// A publisher that republishes all elements that match a provided closure.
-    public struct Filter<Upstream: NKPublisher>: NKPublisher {
+    public struct Filter<Upstream: PKPublisher>: PKPublisher {
         
         public typealias Output = Upstream.Output
         
@@ -28,7 +28,7 @@ extension NKPublishers {
             self.isIncluded = isIncluded
         }
         
-        public func receive<S: NKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let upstreamSubscriber = SameUpstreamFailureOperatorSink<S, Upstream>(downstream: subscriber) { (output) in
                 
@@ -45,9 +45,9 @@ extension NKPublishers {
     }
 }
 
-extension NKPublishers.Filter {
+extension PKPublishers.Filter {
     
-    public func filter(_ isIncluded: @escaping (Output) -> Bool) -> NKPublishers.Filter<Upstream> {
+    public func filter(_ isIncluded: @escaping (Output) -> Bool) -> PKPublishers.Filter<Upstream> {
         
         let newIsIncluded: (Upstream.Output) -> Bool = { output in
             if self.isIncluded(output) {
@@ -57,10 +57,10 @@ extension NKPublishers.Filter {
             }
         }
         
-        return NKPublishers.Filter(upstream: upstream, isIncluded: newIsIncluded)
+        return PKPublishers.Filter(upstream: upstream, isIncluded: newIsIncluded)
     }
     
-    public func tryFilter(_ isIncluded: @escaping (Output) throws -> Bool) -> NKPublishers.TryFilter<Upstream> {
+    public func tryFilter(_ isIncluded: @escaping (Output) throws -> Bool) -> PKPublishers.TryFilter<Upstream> {
         
         let newIsIncluded: (Upstream.Output) throws -> Bool = { output in
             if self.isIncluded(output) {
@@ -70,6 +70,6 @@ extension NKPublishers.Filter {
             }
         }
         
-        return NKPublishers.TryFilter(upstream: upstream, isIncluded: newIsIncluded)
+        return PKPublishers.TryFilter(upstream: upstream, isIncluded: newIsIncluded)
     }
 }

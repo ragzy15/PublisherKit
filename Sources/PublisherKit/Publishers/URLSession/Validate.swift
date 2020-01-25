@@ -8,16 +8,16 @@
 
 import Foundation
 
-public extension NKPublishers {
+public extension PKPublishers {
     
-    struct Validate: NKPublisher {
+    struct Validate: PKPublisher {
         
-        public typealias Output = URLSession.NKDataTaskPublisher.Output
+        public typealias Output = URLSession.DataTaskPKPublisher.Output
         
-        public typealias Failure = URLSession.NKDataTaskPublisher.Failure
+        public typealias Failure = URLSession.DataTaskPKPublisher.Failure
         
         /// The publisher from which this publisher receives elements.
-        public let upstream: URLSession.NKDataTaskPublisher
+        public let upstream: URLSession.DataTaskPKPublisher
         
         /// Check for any business error model on failure.
         public let shouldCheckForErrorModel: Bool
@@ -25,14 +25,14 @@ public extension NKPublishers {
         /// Acceptable HTTP Status codes for the network call.
         public let acceptableStatusCodes: [Int]
         
-        public init(upstream: URLSession.NKDataTaskPublisher, shouldCheckForErrorModel: Bool, acceptableStatusCodes: [Int]) {
+        public init(upstream: URLSession.DataTaskPKPublisher, shouldCheckForErrorModel: Bool, acceptableStatusCodes: [Int]) {
             self.upstream = upstream
             self.shouldCheckForErrorModel = shouldCheckForErrorModel
             
             self.acceptableStatusCodes = acceptableStatusCodes
         }
         
-        public func receive<S: NKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let upstreamSubscriber = SameUpstreamFailureOperatorSink<S, Self>(downstream: subscriber) { (value) in
                 let result = self.doValidation(output: value)
@@ -54,7 +54,7 @@ public extension NKPublishers {
 }
 
 
-extension NKPublishers.Validate {
+extension PKPublishers.Validate {
     
     private func doValidation(output: Output) -> Result<Output, Failure> {
         let url = upstream.request.url!
@@ -114,7 +114,7 @@ extension NKPublishers.Validate {
 }
 
 
-private extension NKPublishers.Validate {
+private extension PKPublishers.Validate {
     
     /// ACCEPTABLE CONTENT TYPE CHECK
     struct MIMEType {

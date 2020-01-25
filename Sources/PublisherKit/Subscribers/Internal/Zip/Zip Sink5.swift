@@ -8,7 +8,7 @@
 
 import Foundation
 
-class ZipSink5<Downstream: NKSubscriber, AInput, BInput, CInput, DInput, EInput, Failure>: InternalSink<Downstream, (AInput, BInput, CInput, DInput, EInput), Failure> where Downstream.Input == (AInput, BInput, CInput, DInput, EInput), Downstream.Failure == Failure {
+class ZipSink5<Downstream: PKSubscriber, AInput, BInput, CInput, DInput, EInput, Failure>: Sinkable<Downstream, (AInput, BInput, CInput, DInput, EInput), Failure> where Downstream.Input == (AInput, BInput, CInput, DInput, EInput), Downstream.Failure == Failure {
     
     var aOutput: AInput?
     var bOutput: BInput?
@@ -16,14 +16,14 @@ class ZipSink5<Downstream: NKSubscriber, AInput, BInput, CInput, DInput, EInput,
     var dOutput: DInput?
     var eOutput: EInput?
     
-    var subscriptions: [NKSubscription] = []
+    var subscriptions: [PKSubscription] = []
     
-    override func receive(subscription: NKSubscription) {
+    override func receive(subscription: PKSubscription) {
         guard !isCancelled else { return }
         subscriptions.append(subscription)
     }
     
-    override func receive(_ input: (AInput, BInput, CInput, DInput, EInput)) -> NKSubscribers.Demand {
+    override func receive(_ input: (AInput, BInput, CInput, DInput, EInput)) -> PKSubscribers.Demand {
         guard !isCancelled else { return .none }
         _ = downstream?.receive(input)
         return demand
@@ -66,7 +66,7 @@ class ZipSink5<Downstream: NKSubscriber, AInput, BInput, CInput, DInput, EInput,
         }
     }
     
-    override func receive(completion: NKSubscribers.Completion<Failure>) {
+    override func receive(completion: PKSubscribers.Completion<Failure>) {
         guard !isCancelled else { return }
         downstream?.receive(completion: completion)
         end()
@@ -75,5 +75,12 @@ class ZipSink5<Downstream: NKSubscriber, AInput, BInput, CInput, DInput, EInput,
     override func end() {
         super.end()
         subscriptions.removeAll()
+    }
+    
+    override func cancel() {
+        super.cancel()
+        subscriptions.forEach { (subscription) in
+            subscription.cancel()
+        }
     }
 }

@@ -8,10 +8,10 @@
 
 import Foundation
 
-extension NKPublishers {
+extension PKPublishers {
     
     /// A publisher created by applying the zip function to two upstream publishers.
-    public struct Zip<A: NKPublisher, B: NKPublisher>: NKPublisher where A.Failure == B.Failure {
+    public struct Zip<A: PKPublisher, B: PKPublisher>: PKPublisher where A.Failure == B.Failure {
 
         public typealias Output = (A.Output, B.Output)
 
@@ -26,7 +26,7 @@ extension NKPublishers {
             self.b = b
         }
         
-        public func receive<S: NKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             typealias Sub = ZipSink<S, A.Output, B.Output, Failure>
             
@@ -55,9 +55,9 @@ extension NKPublishers {
     }
 }
 
-extension NKPublishers.Zip: Equatable where A: Equatable, B: Equatable{
+extension PKPublishers.Zip: Equatable where A: Equatable, B: Equatable{
     
-    public static func == (lhs: NKPublishers.Zip<A, B>, rhs: NKPublishers.Zip<A, B>) -> Bool {
+    public static func == (lhs: PKPublishers.Zip<A, B>, rhs: PKPublishers.Zip<A, B>) -> Bool {
         lhs.a == rhs.a && lhs.b == rhs.b
     }
 }

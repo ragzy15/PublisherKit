@@ -8,10 +8,10 @@
 
 import Foundation
 
-extension NKPublishers {
+extension PKPublishers {
     
     /// A publisher that publishes the values of three key paths as a tuple.
-    public struct MapKeyPath3<Upstream: NKPublisher, Output0, Output1, Output2>: NKPublisher {
+    public struct MapKeyPath3<Upstream: PKPublisher, Output0, Output1, Output2>: PKPublisher {
         
         public typealias Output = (Output0, Output1, Output2)
         
@@ -36,7 +36,7 @@ extension NKPublishers {
             self.keyPath2 = keyPath2
         }
         
-        public func receive<S: NKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let upstreamSubscriber = SameUpstreamFailureOperatorSink<S, Upstream>(downstream: subscriber) { (output) in
                 

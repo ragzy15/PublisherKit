@@ -8,10 +8,10 @@
 
 import Foundation
 
-public extension NKPublishers {
+public extension PKPublishers {
     
     /// A publisher that handles errors from an upstream publisher by replacing the failed publisher with another publisher or optionally producing a new error.
-    struct TryCatch<Upstream: NKPublisher, NewPublisher: NKPublisher>: NKPublisher where Upstream.Output == NewPublisher.Output {
+    struct TryCatch<Upstream: PKPublisher, NewPublisher: PKPublisher>: PKPublisher where Upstream.Output == NewPublisher.Output {
         
         public typealias Output = Upstream.Output
         
@@ -33,9 +33,9 @@ public extension NKPublishers {
             self.handler = handler
         }
         
-        public func receive<S: NKSubscriber>(subscriber: S) where NewPublisher.Output == S.Input, Failure == S.Failure {
+        public func receive<S: PKSubscriber>(subscriber: S) where NewPublisher.Output == S.Input, Failure == S.Failure {
             
-            typealias Subscriber = NKSubscribers.OperatorSink<S, NewPublisher.Output, Failure>
+            typealias Subscriber = PKSubscribers.OperatorSink<S, NewPublisher.Output, Failure>
             
             let upstreamSubscriber = SameUpstreamOutputOperatorSink<S, Upstream>(downstream: subscriber) { (completion) in
                 
@@ -55,7 +55,7 @@ public extension NKPublishers {
                             _ = subscriber.receive(output)
                         }
                         
-                        let bridgeSubscriber = NKSubscribers.OperatorSink<Subscriber, NewPublisher.Output, NewPublisher.Failure>(downstream: newUpstreamSubscriber, receiveCompletion: { (completion) in
+                        let bridgeSubscriber = PKSubscribers.OperatorSink<Subscriber, NewPublisher.Output, NewPublisher.Failure>(downstream: newUpstreamSubscriber, receiveCompletion: { (completion) in
                             
                             let newCompletion = completion.mapError { $0 as Failure }
                             newUpstreamSubscriber.receive(completion: newCompletion)

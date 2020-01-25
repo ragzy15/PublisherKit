@@ -8,10 +8,10 @@
 
 import Foundation
 
-extension NKPublishers {
+extension PKPublishers {
     
     /// A publisher created by applying the merge function to seven upstream publishers.
-    public struct Merge7<A: NKPublisher, B: NKPublisher, C: NKPublisher, D: NKPublisher, E: NKPublisher, F: NKPublisher, G: NKPublisher>: NKPublisher where A.Output == B.Output, A.Failure == B.Failure, B.Output == C.Output, B.Failure == C.Failure, C.Output == D.Output, C.Failure == D.Failure, D.Output == E.Output, D.Failure == E.Failure, E.Output == F.Output, E.Failure == F.Failure, F.Output == G.Output, F.Failure == G.Failure {
+    public struct Merge7<A: PKPublisher, B: PKPublisher, C: PKPublisher, D: PKPublisher, E: PKPublisher, F: PKPublisher, G: PKPublisher>: PKPublisher where A.Output == B.Output, A.Failure == B.Failure, B.Output == C.Output, B.Failure == C.Failure, C.Output == D.Output, C.Failure == D.Failure, D.Output == E.Output, D.Failure == E.Failure, E.Output == F.Output, E.Failure == F.Failure, F.Output == G.Output, F.Failure == G.Failure {
 
         public typealias Output = A.Output
 
@@ -41,8 +41,8 @@ extension NKPublishers {
             self.g = g
         }
         
-        public func receive<S: NKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            typealias Subscriber = NKSubscribers.MergeSink<S, A>
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+            typealias Subscriber = PKSubscribers.MergeSink<S, A>
             
             let upstreamSubscriber = Subscriber(downstream: subscriber)
             
@@ -191,8 +191,8 @@ extension NKPublishers {
             g.subscribe(gUpstreamSubscriber)
         }
         
-        public func merge<P: NKPublisher>(with other: P) -> NKPublishers.Merge8<A, B, C, D, E, F, G, P> {
-            NKPublishers.Merge8(a, b, c, d, e, f, g, other)
+        public func merge<P: PKPublisher>(with other: P) -> PKPublishers.Merge8<A, B, C, D, E, F, G, P> {
+            PKPublishers.Merge8(a, b, c, d, e, f, g, other)
         }
     }
 }

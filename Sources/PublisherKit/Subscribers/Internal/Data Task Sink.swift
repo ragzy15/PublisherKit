@@ -8,17 +8,15 @@
 
 import Foundation
 
-extension NKSubscribers {
+extension URLSession {
     
-    final class DataTaskSink<Downstream: NKSubscriber>: NKSubscribers.DataTaskSinkable, NKSubscriber where Downstream.Input == (data: Data, response: HTTPURLResponse), Downstream.Failure == NSError {
+    final class DataTaskSink<Downstream: PKSubscriber, Input, Failure>: PKSubscribers.DataTaskSubscriptionSinkable, PKSubscriber where Downstream.Input == Input, Downstream.Failure == Failure {
         
         typealias Input = Downstream.Input
         
         typealias Failure = Downstream.Failure
         
         var downstream: Downstream?
-        
-        var cancelBlock: (() -> Void)?
         
         private(set) var isCompleted: Bool = false
         
@@ -27,22 +25,18 @@ extension NKSubscribers {
             super.init()
         }
         
-        deinit {
-            print("Deiniting DataTaskSink")
-        }
-        
-        func receive(subscription: NKSubscription) {
+        func receive(subscription: PKSubscription) {
             guard !isCancelled else { return }
             self.subscription = subscription
         }
         
-        func receive(_ input: Input) -> NKSubscribers.Demand {
+        func receive(_ input: Input) -> PKSubscribers.Demand {
             guard !isCancelled else { return .none }
             _ = downstream?.receive(input)
             return demand
         }
         
-        func receive(completion: NKSubscribers.Completion<Failure>) {
+        func receive(completion: PKSubscribers.Completion<Failure>) {
             guard !isCancelled else { return }
             downstream?.receive(completion: completion)
             end()
@@ -61,12 +55,6 @@ extension NKSubscribers {
                 isCompleted.toggle()
                 receive(completion: .finished)
             }
-        }
-        
-        override func cancel() {
-            super.cancel()
-            cancelBlock?()
-            cancelBlock = nil
         }
     }
 }
