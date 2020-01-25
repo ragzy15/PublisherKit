@@ -45,7 +45,7 @@ extension URLSession {
     @available(*, deprecated, renamed: "DataTaskPKPublisher")
     public typealias NKDataTaskPublisher = DataTaskPKPublisher
     
-    public struct DataTaskPKPublisher: PKPublisher, Handling {
+    public struct DataTaskPKPublisher: PKPublisher, URLSessionTaskPublisherDelegate {
          
         public typealias Output = (data: Data, response: HTTPURLResponse)
         
@@ -69,7 +69,7 @@ extension URLSession {
             
             let dataTaskSubscriber = DataTaskSink(downstream: subscriber)
             
-            let completion = handle(queue: DataTaskPKPublisher.queue, subscriber: dataTaskSubscriber)
+            let completion = handleCompletion(queue: DataTaskPKPublisher.queue, subscriber: dataTaskSubscriber)
             
             dataTaskSubscriber.task = session.dataTask(with: request, completionHandler: completion)
             

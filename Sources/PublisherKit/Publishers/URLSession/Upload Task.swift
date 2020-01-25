@@ -35,7 +35,7 @@ extension URLSession {
 
 extension URLSession {
     
-    public struct UploadTaskPKPublisher: PKPublisher, Handling {
+    public struct UploadTaskPKPublisher: PKPublisher, URLSessionTaskPublisherDelegate {
          
         public typealias Output = (data: Data, response: HTTPURLResponse)
         
@@ -73,7 +73,7 @@ extension URLSession {
             
             let dataTaskSubscriber = DataTaskSink(downstream: subscriber)
             
-            let completion = handle(queue: UploadTaskPKPublisher.queue, subscriber: dataTaskSubscriber)
+            let completion = handleCompletion(queue: UploadTaskPKPublisher.queue, subscriber: dataTaskSubscriber)
             
             if let url = fileUrl {
                 dataTaskSubscriber.task = session.uploadTask(with: request, fromFile: url, completionHandler: completion)
@@ -89,34 +89,5 @@ extension URLSession {
             Logger.default.logAPIRequest(request: request, name: name)
             #endif
         }
-    }
-}
-
-protocol Handling {
-    
-}
-extension Handling {
-    
-    
-    func handle<Downstream: PKSubscriber>(queue: DispatchQueue, subscriber: URLSession.DataTaskSink<Downstream, URLSession.DataTaskPKPublisher.Output, URLSession.DataTaskPKPublisher.Failure>) -> (Data?, URLResponse?, Error?) -> Void {
-        
-        let block: (Data?, URLResponse?, Error?) -> Void = { (data, response, error) in
-            
-            guard !subscriber.isCancelled else { return }
-            
-            if let error = error as NSError? {
-                queue.async {
-                    subscriber.receive(completion: .failure(error))
-                }
-                
-            } else if let response = response as? HTTPURLResponse, let data = data {
-                queue.async {
-                    subscriber.receive(input: (data, response))
-                    subscriber.receive(completion: .finished)
-                }
-            }
-        }
-        
-        return block
     }
 }
