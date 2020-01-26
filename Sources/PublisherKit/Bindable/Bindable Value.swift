@@ -48,9 +48,8 @@ public final class BindableValue<Value> {
         notificationName = Notification.Name("BindableValue-\(UUID().uuidString)-\(Date())")
     }
     
-    public init(_ wrappedValue: Value) {
-        self.wrappedValue = wrappedValue
-        notificationName = Notification.Name("BindableValue-\(UUID().uuidString)-\(Date())")
+    public convenience init(_ wrappedValue: Value) {
+        self.init(wrappedValue: wrappedValue)
     }
 
     deinit {
@@ -187,7 +186,7 @@ extension BindableValue: Decodable where Value: Decodable {
     public convenience init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let wrappedValue = try container.decode(Value.self)
-        self.init(wrappedValue)
+        self.init(wrappedValue: wrappedValue)
     }
 }
 
