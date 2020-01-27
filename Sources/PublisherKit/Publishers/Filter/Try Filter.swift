@@ -35,8 +35,7 @@ extension PKPublishers {
             let upstreamSubscriber = Subscriber(downstream: subscriber) { (output) in
                 
                do {
-                   let include = try self.isIncluded(output)
-                   if include {
+                   if try self.isIncluded(output) {
                        _ = subscriber.receive(output)
                    }
                } catch {
