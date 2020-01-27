@@ -28,31 +28,25 @@ public extension PKPublishers {
         
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            typealias Subscriber = PKSubscribers.OperatorSink<S, Upstream.Output, Failure>
+            typealias Subscriber = PKSubscribers.SameFailureOperatorSink<S, Upstream.Output, Failure>
             
-            let upstreamSubscriber = Subscriber(downstream: subscriber, receiveCompletion: { (completion) in
-                
-                subscriber.receive(completion: completion)
-                
-            }) { (output) in
+            let upstreamSubscriber = Subscriber(downstream: subscriber) { (output) in
                 
                 do {
-                    if let newOutput = try self.transform(output) {
-                        _ = subscriber.receive(newOutput)
+                    guard let newOutput = try self.transform(output) else {
+                        return
                     }
+                    _ = subscriber.receive(newOutput)
                     
                 } catch {
                     subscriber.receive(completion: .failure(error))
                 }
             }
             
-            let bridgeSubscriber = PKSubscribers.OperatorSink<Subscriber, Upstream.Output, Upstream.Failure>(downstream: upstreamSubscriber, receiveCompletion: { (completion) in
+            let bridgeSubscriber = SameUpstreamOutputOperatorSink<Subscriber, Upstream>(downstream: upstreamSubscriber) { (completion) in
                 
                 let newCompletion = completion.mapError { $0 as Failure }
                 upstreamSubscriber.receive(completion: newCompletion)
-                
-            }) { (output) in
-                _ = upstreamSubscriber.receive(output)
             }
             
             subscriber.receive(subscription: upstreamSubscriber)

@@ -192,7 +192,7 @@ extension BindableValue: Decodable where Value: Decodable {
 
 extension BindableValue {
     
-    /// The property that can be accessed with the `_` syntax and allows access to the `Publisher`.
+    /// The property that can be accessed with the `_` syntax and allows access to the `PKPublisher`.
     public var publisher: AnyPKPublisher<Value, Never> {
         BindableCenter.notificationCenter.pkPublisher(for: notificationName, object: self)
             .map(\.userInfo)

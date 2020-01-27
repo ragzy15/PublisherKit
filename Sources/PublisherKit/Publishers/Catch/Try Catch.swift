@@ -35,50 +35,41 @@ public extension PKPublishers {
         
         public func receive<S: PKSubscriber>(subscriber: S) where NewPublisher.Output == S.Input, Failure == S.Failure {
             
-            typealias Subscriber = PKSubscribers.OperatorSink<S, NewPublisher.Output, Failure>
+            typealias Subscriber = PKSubscribers.SameOutputOperatorSink<S, NewPublisher.Output, Failure>
+
+            let newUpstreamSubscriber = Subscriber(downstream: subscriber) { (completion) in
+                
+                subscriber.receive(completion: completion)
+            }
+            
+            let bridgeSubscriber = SameUpstreamOutputOperatorSink<Subscriber, NewPublisher>(downstream: newUpstreamSubscriber) { (completion) in
+                
+                let newCompletion = completion.mapError { $0 as Failure }
+                newUpstreamSubscriber.receive(completion: newCompletion)
+            }
             
             let upstreamSubscriber = SameUpstreamOutputOperatorSink<S, Upstream>(downstream: subscriber) { (completion) in
                 
-                switch completion {
-                    
-                case .finished:
+                guard let error = completion.getError() else {
                     subscriber.receive(completion: .finished)
-                    
-                case .failure(let error):
-                    
-                    do {
-                        let newPublisher = try self.handler(error)
-                        
-                        let newUpstreamSubscriber = Subscriber(downstream: subscriber, receiveCompletion: { (completion) in
-                            subscriber.receive(completion: completion)
-                        }) { (output) in
-                            _ = subscriber.receive(output)
-                        }
-                        
-                        let bridgeSubscriber = PKSubscribers.OperatorSink<Subscriber, NewPublisher.Output, NewPublisher.Failure>(downstream: newUpstreamSubscriber, receiveCompletion: { (completion) in
-                            
-                            let newCompletion = completion.mapError { $0 as Failure }
-                            newUpstreamSubscriber.receive(completion: newCompletion)
-                            
-                        }) { (output) in
-                            _ = newUpstreamSubscriber.receive(output)
-                        }
-                        
-                        subscriber.receive(subscription: newUpstreamSubscriber)
-                        newUpstreamSubscriber.request(.unlimited)
-                        newPublisher.subscribe(bridgeSubscriber)
-                        
-                    } catch let error {
-                        subscriber.receive(completion: .failure(error as Failure))
-                    }
+                    return
                 }
                 
+                do {
+                    let newPublisher = try self.handler(error)
+                    
+                    subscriber.receive(subscription: newUpstreamSubscriber)
+                    newUpstreamSubscriber.request(.unlimited)
+                    newPublisher.subscribe(bridgeSubscriber)
+                    
+                } catch let catchError {
+                    subscriber.receive(completion: .failure(catchError as Failure))
+                }
             }
             
             subscriber.receive(subscription: upstreamSubscriber)
             upstreamSubscriber.request(.unlimited)
             upstream.receive(subscriber: upstreamSubscriber)
-            
         }
     }
 }

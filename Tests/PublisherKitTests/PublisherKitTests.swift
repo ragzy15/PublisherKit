@@ -15,6 +15,29 @@ final class PublisherKitTests: XCTestCase {
     @BindableValue
     var x: Int = 5
     
+    func testRemoveDuplicates() {
+        
+        struct Test {
+            let value: Int
+            let value1: Int
+        }
+        
+        anyCancellable = NotificationCenter.default.pkPublisher(for: .init("test"))
+            .map(\.userInfo)
+            .compactMap({ (dict) -> Test? in
+                dict?["key"] as? Test
+            })
+            .removeDuplicates(at: \.value)
+            .sink(receiveCompletion: { (completion) in
+                print(completion)
+            }) { (value) in
+                print(value)
+        }
+        
+        NotificationCenter.default.post(name: .init("test"), object: nil, userInfo: ["key": Test(value: 10, value1: 10)])
+        NotificationCenter.default.post(name: .init("test"), object: nil, userInfo: ["key": Test(value: 10, value1: 10)])
+    }
+    
     func testMerge() {
         let expectation = XCTestExpectation()
         expectation.expectedFulfillmentCount = 2
@@ -73,9 +96,6 @@ final class PublisherKitTests: XCTestCase {
         
         wait(for: [expectation], timeout: 60)
     }
-    
-    
-    private let input = stride(from: 0, to: 10_000_000, by: 1)
     
     override class var defaultPerformanceMetrics: [XCTPerformanceMetric] {
         return [
