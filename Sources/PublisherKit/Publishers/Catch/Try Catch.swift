@@ -49,23 +49,20 @@ public extension PKPublishers {
             
             let upstreamSubscriber = SameUpstreamOutputOperatorSink<S, Upstream>(downstream: subscriber) { (completion) in
                 
-                switch completion {
-                    
-                case .finished:
+                guard let error = completion.getError() else {
                     subscriber.receive(completion: .finished)
+                    return
+                }
+                
+                do {
+                    let newPublisher = try self.handler(error)
                     
-                case .failure(let error):
+                    subscriber.receive(subscription: newUpstreamSubscriber)
+                    newUpstreamSubscriber.request(.unlimited)
+                    newPublisher.subscribe(bridgeSubscriber)
                     
-                    do {
-                        let newPublisher = try self.handler(error)
-                        
-                        subscriber.receive(subscription: newUpstreamSubscriber)
-                        newUpstreamSubscriber.request(.unlimited)
-                        newPublisher.subscribe(bridgeSubscriber)
-                        
-                    } catch let error {
-                        subscriber.receive(completion: .failure(error as Failure))
-                    }
+                } catch let catchError {
+                    subscriber.receive(completion: .failure(catchError as Failure))
                 }
             }
             

@@ -32,9 +32,11 @@ public extension PKPublishers {
             let upstreamSubscriber = Subscriber(downstream: subscriber) { (output) in
                 
                 do {
-                    if let newOutput = try self.transform(output) {
-                        _ = subscriber.receive(newOutput)
+                    guard let newOutput = try self.transform(output) else {
+                        return
                     }
+                    _ = subscriber.receive(newOutput)
+                    
                 } catch {
                     subscriber.receive(completion: .failure(error))
                 }

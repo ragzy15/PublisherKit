@@ -35,11 +35,8 @@ extension PKPublishers {
             
             let upstreamSubscriber = SameUpstreamFailureOperatorSink<S, Upstream>(downstream: subscriber) { (output) in
                 
-                if let previousValue = previousValue {
-                    let isEqual = self.predicate(previousValue, output)
-                    if isEqual {
-                        return
-                    }
+                if let previousValue = previousValue, self.predicate(previousValue, output) {
+                    return
                 }
                 
                 previousValue = output

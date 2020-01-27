@@ -38,11 +38,8 @@ extension PKPublishers {
             let upstreamSubscriber = Subscriber(downstream: subscriber) { (output) in
                 
                 do {
-                    if let previousValue = previousValue {
-                        let isEqual = try self.predicate(previousValue, output)
-                        if isEqual {
-                            return
-                        }
+                    if let previousValue = previousValue, try self.predicate(previousValue, output) {
+                        return
                     }
                     
                     previousValue = output
