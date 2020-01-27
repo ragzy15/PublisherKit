@@ -12,12 +12,9 @@ import Foundation
 /// THIS EXTENSIONS LISTS ALL OPERATOR METHODS FOR PUBLISHERS
 
 
-
-
-
 // MARK: ALL SATISFY
 extension PKPublisher {
-
+    
     /// Publishes a single Boolean value that indicates whether all received elements pass a given predicate.
     ///
     /// When this publisher receives an element, it runs the predicate against the element. If the predicate returns `false`, the publisher produces a `false` value and finishes. If the upstream publisher finishes normally, this publisher produces a `true` value and finishes.
@@ -28,7 +25,7 @@ extension PKPublisher {
     public func allSatisfy(_ predicate: @escaping (Output) -> Bool) -> PKPublishers.AllSatisfy<Self> {
         PKPublishers.AllSatisfy(upstream: self, predicate: predicate)
     }
-
+    
     /// Publishes a single Boolean value that indicates whether all received elements pass a given error-throwing predicate.
     ///
     /// When this publisher receives an element, it runs the predicate against the element. If the predicate returns `false`, the publisher produces a `false` value and finishes. If the upstream publisher finishes normally, this publisher produces a `true` value and finishes. If the predicate throws an error, the publisher fails, passing the error to its downstream.
@@ -42,7 +39,7 @@ extension PKPublisher {
 }
 
 // MARK: CATCH
-public extension PKPublisher {
+extension PKPublisher {
     
     /// Handles errors from an upstream publisher by replacing it with another publisher.
     ///
@@ -61,10 +58,10 @@ public extension PKPublisher {
     ///     return Just(100)
     /// }
     /// ```
-    /// Backpressure note: This publisher passes through `request` and `cancel` to the upstream. After receiving an error, the publisher sends sends any unfulfilled demand to the new `Publisher`.
+    /// Backpressure note: This publisher passes through `request` and `cancel` to the upstream. After receiving an error, the publisher sends sends any unfulfilled demand to the new `PKPublisher`.
     /// - Parameter handler: A closure that accepts the upstream failure as input and returns a publisher to replace the upstream publisher.
     /// - Returns: A publisher that handles errors from an upstream publisher by replacing the failed publisher with another publisher.
-    func `catch`<P: PKPublisher>(_ handler: @escaping (Failure) -> P) -> PKPublishers.Catch<Self, P> where Output == P.Output {
+    public func `catch`<P: PKPublisher>(_ handler: @escaping (Failure) -> P) -> PKPublishers.Catch<Self, P> where Output == P.Output {
         PKPublishers.Catch(upstream: self, handler: handler)
     }
     
@@ -72,22 +69,22 @@ public extension PKPublisher {
     ///
     /// - Parameter handler: A `throw`ing closure that accepts the upstream failure as input and returns a publisher to replace the upstream publisher or if an error is thrown will send the error downstream.
     /// - Returns: A publisher that handles errors from an upstream publisher by replacing the failed publisher with another publisher.
-    func tryCatch<P: PKPublisher>(_ handler: @escaping (Failure) throws -> P) -> PKPublishers.TryCatch<Self, P> where Output == P.Output {
+    public func tryCatch<P: PKPublisher>(_ handler: @escaping (Failure) throws -> P) -> PKPublishers.TryCatch<Self, P> where Output == P.Output {
         PKPublishers.TryCatch(upstream: self, handler: handler)
     }
 }
 
 // MARK: COMBINE LATEST
 extension PKPublisher {
-
-/// Subscribes to an additional publisher and publishes a tuple upon receiving output from either publisher.
-///
-/// The combined publisher passes through any requests to *all* upstream publishers. However, it still obeys the demand-fulfilling rule of only sending the request amount downstream. If the demand isn’t `.unlimited`, it drops values from upstream publishers. It implements this by using a buffer size of 1 for each upstream, and holds the most recent value in each buffer.
-/// All upstream publishers need to finish for this publisher to finsh. If an upstream publisher never publishes a value, this publisher never finishes.
-/// If any of the combined publishers terminates with a failure, this publisher also fails.
-/// - Parameters:
-///   - other: Another publisher to combine with this one.
-/// - Returns: A publisher that receives and combines elements from this and another publisher.
+    
+    /// Subscribes to an additional publisher and publishes a tuple upon receiving output from either publisher.
+    ///
+    /// The combined publisher passes through any requests to *all* upstream publishers. However, it still obeys the demand-fulfilling rule of only sending the request amount downstream. If the demand isn’t `.unlimited`, it drops values from upstream publishers. It implements this by using a buffer size of 1 for each upstream, and holds the most recent value in each buffer.
+    /// All upstream publishers need to finish for this publisher to finsh. If an upstream publisher never publishes a value, this publisher never finishes.
+    /// If any of the combined publishers terminates with a failure, this publisher also fails.
+    /// - Parameters:
+    ///   - other: Another publisher to combine with this one.
+    /// - Returns: A publisher that receives and combines elements from this and another publisher.
     public func combineLatest<P: PKPublisher>(_ other: P) -> PKPublishers.CombineLatest<Self, P> where Failure == P.Failure {
         PKPublishers.CombineLatest(self, other)
     }
@@ -109,7 +106,7 @@ extension PKPublisher {
     }
     
     // MARK: COMBINE LATEST 3
-
+    
     /// Subscribes to two additional publishers and publishes a tuple upon receiving output from any of the publishers.
     ///
     /// The combined publisher passes through any requests to *all* upstream publishers. However, it still obeys the demand-fulfilling rule of only sending the request amount downstream. If the demand isn’t `.unlimited`, it drops values from upstream publishers. It implements this by using a buffer size of 1 for each upstream, and holds the most recent value in each buffer.
@@ -122,7 +119,7 @@ extension PKPublisher {
     public func combineLatest<P: PKPublisher, Q: PKPublisher>(_ publisher1: P, _ publisher2: Q) -> PKPublishers.CombineLatest3<Self, P, Q> where Failure == P.Failure, P.Failure == Q.Failure {
         PKPublishers.CombineLatest3(self, publisher1, publisher2)
     }
-
+    
     /// Subscribes to two additional publishers and invokes a closure upon receiving output from any of the publishers.
     ///
     /// The combined publisher passes through any requests to *all* upstream publishers. However, it still obeys the demand-fulfilling rule of only sending the request amount downstream. If the demand isn’t `.unlimited`, it drops values from upstream publishers. It implements this by using a buffer size of 1 for each upstream, and holds the most recent value in each buffer.
@@ -141,7 +138,7 @@ extension PKPublisher {
     }
     
     // MARK: COMBINE LATEST 4
-
+    
     /// Subscribes to three additional publishers and publishes a tuple upon receiving output from any of the publishers.
     ///
     /// The combined publisher passes through any requests to *all* upstream publishers. However, it still obeys the demand-fulfilling rule of only sending the request amount downstream. If the demand isn’t `.unlimited`, it drops values from upstream publishers. It implements this by using a buffer size of 1 for each upstream, and holds the most recent value in each buffer.
@@ -155,7 +152,7 @@ extension PKPublisher {
     public func combineLatest<P: PKPublisher, Q: PKPublisher, R: PKPublisher>(_ publisher1: P, _ publisher2: Q, _ publisher3: R) -> PKPublishers.CombineLatest4<Self, P, Q, R> where Failure == P.Failure, P.Failure == Q.Failure, Q.Failure == R.Failure {
         PKPublishers.CombineLatest4(self, publisher1, publisher2, publisher3)
     }
-
+    
     /// Subscribes to three additional publishers and invokes a closure upon receiving output from any of the publishers.
     ///
     /// The combined publisher passes through any requests to *all* upstream publishers. However, it still obeys the demand-fulfilling rule of only sending the request amount downstream. If the demand isn’t `.unlimited`, it drops values from upstream publishers. It implements this by using a buffer size of 1 for each upstream, and holds the most recent value in each buffer.
@@ -176,7 +173,6 @@ extension PKPublisher {
     
     // MARK: COMBINE LATEST 5
     
-    
     /// Subscribes to three additional publishers and publishes a tuple upon receiving output from any of the publishers.
     ///
     /// The combined publisher passes through any requests to *all* upstream publishers. However, it still obeys the demand-fulfilling rule of only sending the request amount downstream. If the demand isn’t `.unlimited`, it drops values from upstream publishers. It implements this by using a buffer size of 1 for each upstream, and holds the most recent value in each buffer.
@@ -191,7 +187,7 @@ extension PKPublisher {
     public func combineLatest<P: PKPublisher, Q: PKPublisher, R: PKPublisher, S: PKPublisher>(_ publisher1: P, _ publisher2: Q, _ publisher3: R, _ publisher4: S) -> PKPublishers.CombineLatest5<Self, P, Q, R, S> where Failure == P.Failure, P.Failure == Q.Failure, Q.Failure == R.Failure, R.Failure == S.Failure {
         PKPublishers.CombineLatest5(self, publisher1, publisher2, publisher3, publisher4)
     }
-
+    
     /// Subscribes to three additional publishers and invokes a closure upon receiving output from any of the publishers.
     ///
     /// The combined publisher passes through any requests to *all* upstream publishers. However, it still obeys the demand-fulfilling rule of only sending the request amount downstream. If the demand isn’t `.unlimited`, it drops values from upstream publishers. It implements this by using a buffer size of 1 for each upstream, and holds the most recent value in each buffer.
@@ -214,7 +210,7 @@ extension PKPublisher {
 
 // MARK: COUNT
 extension PKPublisher {
-
+    
     /// Publishes the number of elements received from the upstream publisher.
     ///
     /// - Returns: A publisher that consumes all elements until the upstream publisher finishes, then emits a single
@@ -225,13 +221,13 @@ extension PKPublisher {
 }
 
 // MARK: COMPACT MAP
-public extension PKPublisher {
+extension PKPublisher {
     
     /// Calls a closure with each received element and publishes any returned optional that has a value.
     ///
     /// - Parameter transform: A closure that receives a value and returns an optional value.
     /// - Returns: A publisher that republishes all non-`nil` results of calling the transform closure.
-    func compactMap<T>(_ transform: @escaping (Output) -> T?) -> PKPublishers.CompactMap<Self, T> {
+    public func compactMap<T>(_ transform: @escaping (Output) -> T?) -> PKPublishers.CompactMap<Self, T> {
         PKPublishers.CompactMap(upstream: self, transform: transform)
     }
     
@@ -240,13 +236,13 @@ public extension PKPublisher {
     /// If the closure throws an error, the publisher cancels the upstream and sends the thrown error to the downstream receiver as a `Failure`.
     /// - Parameter transform: an error-throwing closure that receives a value and returns an optional value.
     /// - Returns: A publisher that republishes all non-`nil` results of calling the transform closure.
-    func tryCompactMap<T>(_ transform: @escaping (Output) throws -> T?) -> PKPublishers.TryCompactMap<Self, T> {
+    public func tryCompactMap<T>(_ transform: @escaping (Output) throws -> T?) -> PKPublishers.TryCompactMap<Self, T> {
         PKPublishers.TryCompactMap(upstream: self, transform: transform)
     }
 }
 
 // MARK: DEBOUNCE
-public extension PKPublisher {
+extension PKPublisher {
     
     /// Publishes elements only after a specified time interval elapses between events.
     ///
@@ -254,26 +250,26 @@ public extension PKPublisher {
     /// - Parameters:
     ///   - dueTime: The time the publisher should wait before publishing an element.
     /// - Returns: A publisher that publishes events only after a specified time elapses.
-    func debounce<S: PKScheduler>(for dueTime: SchedulerTime, on scheduler: S) -> PKPublishers.Debounce<Self, S> {
+    public func debounce<S: PKScheduler>(for dueTime: SchedulerTime, on scheduler: S) -> PKPublishers.Debounce<Self, S> {
         PKPublishers.Debounce(upstream: self, dueTime: dueTime, on: scheduler)
     }
 }
 
 // MARK: DECODE
-public extension PKPublisher {
+extension PKPublisher {
     
     /// Decodes the output from upstream using a specified `PKDecoder`.
     /// For example, use `JSONDecoder`.
     /// - Parameter type: Type to decode into.
     /// - Parameter decoder: `PKDecoder` for decoding output.
-    func decode<Item: Decodable, Decoder: PKDecoder>(type: Item.Type, decoder: Decoder) -> PKPublishers.Decode<Self, Item, Decoder> {
+    public func decode<Item: Decodable, Decoder: PKDecoder>(type: Item.Type, decoder: Decoder) -> PKPublishers.Decode<Self, Item, Decoder> {
         PKPublishers.Decode(upstream: self, decoder: decoder)
     }
     
     /// Decodes the output from upstream using a specified `JSONDecoder`.
     /// - Parameter type: Type to decode into.
     /// - Parameter jsonKeyDecodingStrategy: JSON Key Decoding Strategy. Default value is `.useDefaultKeys`.
-    func decode<Item: Decodable>(type: Item.Type, jsonKeyDecodingStrategy: JSONDecoder.KeyDecodingStrategy = .useDefaultKeys) -> PKPublishers.Decode<Self, Item, JSONDecoder> {
+    public func decode<Item: Decodable>(type: Item.Type, jsonKeyDecodingStrategy: JSONDecoder.KeyDecodingStrategy = .useDefaultKeys) -> PKPublishers.Decode<Self, Item, JSONDecoder> {
         
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = jsonKeyDecodingStrategy
@@ -284,6 +280,7 @@ public extension PKPublisher {
     }
 }
 
+// MARK: ENCODE
 extension PKPublisher where Output: Encodable {
     
     /// Encodes the output from upstream using a specified `PKEncoder`.
@@ -305,7 +302,7 @@ extension PKPublisher where Output: Encodable {
 
 // MARK: ERASE TO ANY
 extension PKPublisher {
-
+    
     /// Wraps this publisher with a type eraser.
     ///
     /// Use `eraseToAnyPublisher()` to expose an instance of AnyPKPublisher to the downstream subscriber, rather than this publisher’s actual type.
@@ -316,7 +313,7 @@ extension PKPublisher {
 
 // MARK: FILTER
 extension PKPublisher {
-
+    
     /// Republishes all elements that match a provided closure.
     ///
     /// - Parameter isIncluded: A closure that takes one element and returns a Boolean value indicating whether to republish the element.
@@ -324,7 +321,7 @@ extension PKPublisher {
     public func filter(_ isIncluded: @escaping (Output) -> Bool) -> PKPublishers.Filter<Self> {
         PKPublishers.Filter(upstream: self, isIncluded: isIncluded)
     }
-
+    
     /// Republishes all elements that match a provided error-throwing closure.
     ///
     /// If the `isIncluded` closure throws an error, the publisher fails with that error.
@@ -338,7 +335,7 @@ extension PKPublisher {
 
 // MARK: FLAT MAP
 extension PKPublisher {
-
+    
     /// Transforms all elements from an upstream publisher into a new or existing publisher.
     ///
     /// `flatMap` merges the output from all returned publishers into a single stream of output.
@@ -352,7 +349,6 @@ extension PKPublisher {
     public func flatMap<T, P: PKPublisher>(maxPublishers: PKSubscribers.Demand = .unlimited, _ transform: @escaping (Output) -> P) -> PKPublishers.FlatMap<Self, P> where T == P.Output, Failure == P.Failure {
         PKPublishers.FlatMap(upstream: self, maxPublishers: maxPublishers, transform: transform)
     }
-        
 }
 
 // MARK: HANDLE EVENTS
@@ -366,6 +362,7 @@ extension PKPublisher {
     ///   - receiveCompletion: A closure that executes when the publisher receives the completion from the upstream publisher. Defaults to `nil`.
     ///   - receiveCancel: A closure that executes when the downstream receiver cancels publishing. Defaults to `nil`.
     ///   - receiveRequest: A closure that executes when the publisher receives a request for more elements. Defaults to `nil`.
+    ///   
     /// - Returns: A publisher that performs the specified closures when publisher events occur.
     public func handleEvents(receiveSubscription: ((PKSubscription) -> Void)? = nil,
                              receiveOutput: ((Output) -> Void)? = nil,
@@ -384,7 +381,7 @@ extension PKPublisher {
 
 // MARK: IGNORE OUTPUT
 extension PKPublisher {
-
+    
     /// Ingores all upstream elements, but passes along a completion state (finished or failed).
     ///
     /// The output type of this publisher is `Never`.
@@ -404,11 +401,10 @@ extension PKPublisher where Output == String {
     public func matches(pattern: String, options: NSRegularExpression.Options = [], matchOptions: NSRegularExpression.MatchingOptions = []) -> PKPublishers.Matches<Self> {
         PKPublishers.Matches(upstream: self, pattern: pattern, options: options, matchOptions: matchOptions)
     }
-    
 }
 
 // MARK: MAP ERROR
-public extension PKPublisher {
+extension PKPublisher {
     
     /// Converts any failure from the upstream publisher into a new error.
     ///
@@ -416,19 +412,19 @@ public extension PKPublisher {
     ///
     /// - Parameter transform: A closure that takes the upstream failure as a parameter and returns a new error for the publisher to terminate with.
     /// - Returns: A publisher that replaces any upstream failure with a new error produced by the `transform` closure.
-    func mapError<E: Error>(_ transform: @escaping (Failure) -> E) -> PKPublishers.MapError<Self, E> {
+    public func mapError<E: Error>(_ transform: @escaping (Failure) -> E) -> PKPublishers.MapError<Self, E> {
         PKPublishers.MapError(upstream: self, transform: transform)
     }
 }
 
 // MARK: MAP
-public extension PKPublisher {
+extension PKPublisher {
     
     /// Transforms all elements from the upstream publisher with a provided closure.
     ///
     /// - Parameter transform: A closure that takes one element as its parameter and returns a new element.
     /// - Returns: A publisher that uses the provided closure to map elements from the upstream publisher to new elements that it then publishes.
-    func map<T>(_ transform: @escaping (Output) -> T) -> PKPublishers.Map<Self, T> {
+    public func map<T>(_ transform: @escaping (Output) -> T) -> PKPublishers.Map<Self, T> {
         PKPublishers.Map(upstream: self, transform: transform)
     }
     
@@ -437,19 +433,19 @@ public extension PKPublisher {
     /// If the `transform` closure throws an error, the publisher fails with the thrown error.
     /// - Parameter transform: A closure that takes one element as its parameter and returns a new element.
     /// - Returns: A publisher that uses the provided closure to map elements from the upstream publisher to new elements that it then publishes.
-    func tryMap<T>(_ transform: @escaping (Output) throws -> T) -> PKPublishers.TryMap<Self, T> {
+    public func tryMap<T>(_ transform: @escaping (Output) throws -> T) -> PKPublishers.TryMap<Self, T> {
         PKPublishers.TryMap(upstream: self, transform: transform)
     }
 }
 
 // MARK: MAP KEYPATH
-public extension PKPublisher {
+extension PKPublisher {
     
     /// Returns a publisher that publishes the value of a key path.
     ///
     /// - Parameter keyPath: The key path of a property on `Output`
     /// - Returns: A publisher that publishes the value of the key path.
-    func map<T>(_ keyPath: KeyPath<Output, T>) -> PKPublishers.MapKeyPath<Self, T> {
+    public func map<T>(_ keyPath: KeyPath<Output, T>) -> PKPublishers.MapKeyPath<Self, T> {
         PKPublishers.MapKeyPath(upstream: self, keyPath: keyPath)
     }
     
@@ -461,7 +457,7 @@ public extension PKPublisher {
     ///   - keyPath0: The key path of a property on `Output`
     ///   - keyPath1: The key path of another property on `Output`
     /// - Returns: A publisher that publishes the values of two key paths as a tuple.
-    func map<T0, T1>(_ keyPath0: KeyPath<Output, T0>, _ keyPath1: KeyPath<Output, T1>) -> PKPublishers.MapKeyPath2<Self, T0, T1> {
+    public func map<T0, T1>(_ keyPath0: KeyPath<Output, T0>, _ keyPath1: KeyPath<Output, T1>) -> PKPublishers.MapKeyPath2<Self, T0, T1> {
         PKPublishers.MapKeyPath2(upstream: self, keyPath0: keyPath0, keyPath1: keyPath1)
     }
     
@@ -474,15 +470,14 @@ public extension PKPublisher {
     ///   - keyPath1: The key path of another property on `Output`
     ///   - keyPath2: The key path of a third  property on `Output`
     /// - Returns: A publisher that publishes the values of three key paths as a tuple.
-    func map<T0, T1, T2>(_ keyPath0: KeyPath<Self.Output, T0>, _ keyPath1: KeyPath<Self.Output, T1>, _ keyPath2: KeyPath<Self.Output, T2>) -> PKPublishers.MapKeyPath3<Self, T0, T1, T2> {
+    public func map<T0, T1, T2>(_ keyPath0: KeyPath<Output, T0>, _ keyPath1: KeyPath<Output, T1>, _ keyPath2: KeyPath<Output, T2>) -> PKPublishers.MapKeyPath3<Self, T0, T1, T2> {
         PKPublishers.MapKeyPath3(upstream: self, keyPath0: keyPath0, keyPath1: keyPath1, keyPath2: keyPath2)
     }
 }
 
-
 // MARK: MERGE
 extension PKPublisher {
-
+    
     /// Combines elements from this publisher with those from another publisher, delivering an interleaved sequence of elements.
     ///
     /// The merged publisher continues to emit elements until all upstream publishers finish. If an upstream publisher produces an error, the merged publisher fails with that error.
@@ -493,7 +488,7 @@ extension PKPublisher {
     }
     
     // MARK: MERGE 3
-
+    
     /// Combines elements from this publisher with those from two other publishers, delivering an interleaved sequence of elements.
     ///
     /// The merged publisher continues to emit elements until all upstream publishers finish. If an upstream publisher produces an error, the merged publisher fails with that error.
@@ -508,7 +503,7 @@ extension PKPublisher {
     }
     
     // MARK: MERGE 4
-
+    
     /// Combines elements from this publisher with those from three other publishers, delivering
     /// an interleaved sequence of elements.
     ///
@@ -524,7 +519,7 @@ extension PKPublisher {
     }
     
     // MARK: MERGE 5
-
+    
     /// Combines elements from this publisher with those from four other publishers, delivering an interleaved sequence of elements.
     ///
     /// The merged publisher continues to emit elements until all upstream publishers finish. If an upstream publisher produces an error, the merged publisher fails with that error.
@@ -540,7 +535,7 @@ extension PKPublisher {
     }
     
     // MARK: MERGE 6
-
+    
     /// Combines elements from this publisher with those from five other publishers, delivering an interleaved sequence of elements.
     ///
     /// The merged publisher continues to emit elements until all upstream publishers finish. If an upstream publisher produces an error, the merged publisher fails with that error.
@@ -557,7 +552,7 @@ extension PKPublisher {
     }
     
     // MARK: MERGE 7
-
+    
     /// Combines elements from this publisher with those from six other publishers, delivering an interleaved sequence of elements.
     ///
     /// The merged publisher continues to emit elements until all upstream publishers finish. If an upstream publisher produces an error, the merged publisher fails with that error.
@@ -575,7 +570,7 @@ extension PKPublisher {
     }
     
     // MARK: MERGE 8
-
+    
     /// Combines elements from this publisher with those from seven other publishers, delivering an interleaved sequence of elements.
     ///
     /// The merged publisher continues to emit elements until all upstream publishers finish. If an upstream publisher produces an error, the merged publisher fails with that error.
@@ -592,7 +587,7 @@ extension PKPublisher {
     public func merge<B, C, D, E, F, G, H>(with b: B, _ c: C, _ d: D, _ e: E, _ f: F, _ g: G, _ h: H) -> PKPublishers.Merge8<Self, B, C, D, E, F, G, H> {
         PKPublishers.Merge8(self, b, c, d, e, f, g, h)
     }
-
+    
     /// Combines elements from this publisher with those from another publisher of the same type, delivering an interleaved sequence of elements.
     ///
     /// - Parameter other: Another publisher of this publisher's type.
@@ -603,9 +598,8 @@ extension PKPublisher {
     }
 }
 
-
 // MARK: RECEIVE ON
-public extension PKPublisher {
+extension PKPublisher {
     
     /// Shifts operation from current queue to provided queue.
     ///
@@ -613,52 +607,90 @@ public extension PKPublisher {
     /// - Parameters:
     ///   - queue: The queue on which rest of the operations will be performed unless again changed.
     /// - Returns: A publisher that delivers elements using the specified scheduler.
-    func receive(on scheduler: PKScheduler) -> PKPublishers.ReceiveOn<Self> {
+    public func receive(on scheduler: PKScheduler) -> PKPublishers.ReceiveOn<Self> {
         PKPublishers.ReceiveOn(upstream: self, on: scheduler)
     }
 }
 
+// MARK: REMOVE DUPLICATES
+extension PKPublisher {
+    
+    /// Publishes only elements that don’t match the previous element, as evaluated by a provided closure.
+    /// - Parameter predicate: A closure to evaluate whether two elements are equivalent, for purposes of filtering. Return `true` from this closure to indicate that the second element is a duplicate of the first.
+    public func removeDuplicates(by predicate: @escaping (Output, Output) -> Bool) -> PKPublishers.RemoveDuplicates<Self> {
+        PKPublishers.RemoveDuplicates(upstream: self, predicate: predicate)
+    }
+    
+    /// Publishes only elements that don’t match the previous element, as evaluated by a provided error-throwing closure.
+    /// - Parameter predicate: A closure to evaluate whether two elements are equivalent, for purposes of filtering. Return `true` from this closure to indicate that the second element is a duplicate of the first. If this closure throws an error, the publisher terminates with the thrown error.
+    public func tryRemoveDuplicates(by predicate: @escaping (Output, Output) throws -> Bool) -> PKPublishers.TryRemoveDuplicates<Self> {
+        PKPublishers.TryRemoveDuplicates(upstream: self, predicate: predicate)
+    }
+    
+    /// Publishes only elements that don’t match the previous element at the provided keypath, by equating.
+    /// - Parameter keyPath: The keypath of the element that serves the basis of evaluating.
+    public func removeDuplicates<Value: Equatable>(at keyPath: KeyPath<Output, Value>) -> PKPublishers.RemoveDuplicates<Self> {
+        PKPublishers.RemoveDuplicates(upstream: self, predicate: { $0[keyPath: keyPath] == $1[keyPath: keyPath] })
+    }
+    
+    /// Publishes only elements that don’t match the previous element at the provided keypath, by equating.
+    /// - Parameter keyPath: The keypath of the element that serves the basis of evaluating.
+    public func removeDuplicates<Root, Value: Equatable>(at keyPath: KeyPath<Root, Value>) -> PKPublishers.RemoveDuplicates<Self> where Output == Optional<Root> {
+        PKPublishers.RemoveDuplicates(upstream: self, predicate: { $0?[keyPath: keyPath] == $1?[keyPath: keyPath] })
+    }
+}
+
+extension PKPublisher where Output: Equatable {
+    
+    /// Publishes only elements that don’t match the previous element.
+    ///
+    /// - Returns: A publisher that consumes — rather than publishes — duplicate elements.
+    public func removeDuplicates() -> PKPublishers.RemoveDuplicates<Self> {
+        PKPublishers.RemoveDuplicates(upstream: self, predicate: { $0 == $1 })
+    }
+}
+
 // MARK: REPLACE EMPTY
-public extension PKPublisher {
+extension PKPublisher {
     
     /// Replaces an empty stream with the provided element.
     ///
     /// If the upstream publisher finishes without producing any elements, this publisher emits the provided element, then finishes normally.
     /// - Parameter output: An element to emit when the upstream publisher finishes without emitting any elements.
     /// - Returns: A publisher that replaces an empty stream with the provided output element.
-    func replaceEmpty(with output: Output) -> PKPublishers.ReplaceEmpty<Self> {
+    public func replaceEmpty(with output: Output) -> PKPublishers.ReplaceEmpty<Self> {
         PKPublishers.ReplaceEmpty(upstream: self, output: output)
     }
 }
 
 // MARK: REPLACE ERROR
-public extension PKPublisher {
+extension PKPublisher {
     
     /// Replaces any errors in the stream with the provided element.
     ///
     /// If the upstream publisher fails with an error, this publisher emits the provided element, then finishes normally.
     /// - Parameter output: An element to emit when the upstream publisher fails.
     /// - Returns: A publisher that replaces an error from the upstream publisher with the provided output element.
-    func replaceError(with output: Output) -> PKPublishers.ReplaceError<Self> {
+    public func replaceError(with output: Output) -> PKPublishers.ReplaceError<Self> {
         PKPublishers.ReplaceError(upstream: self, output: output)
     }
 }
 
 // MARK: REPLACE NIL
-public extension PKPublisher {
+extension PKPublisher {
     
     /// Replaces nil elements in the stream with the proviced element.
     ///
     /// - Parameter output: The element to use when replacing `nil`.
     /// - Returns: A publisher that replaces `nil` elements from the upstream publisher with the provided element.
-    func replaceNil<T>(with output: T) -> PKPublishers.Map<Self, T> where Output == T? {
+    public func replaceNil<T>(with output: T) -> PKPublishers.Map<Self, T> where Output == T? {
         PKPublishers.Map(upstream: self) { _ in output }
     }
 }
 
 // MARK: RETRY
 extension PKPublisher {
-
+    
     /// Attempts to recreate a failed subscription with the upstream publisher using a specified number of attempts to establish the connection.
     ///
     /// After exceeding the specified number of retries, the publisher passes the failure to the downstream receiver.
@@ -671,19 +703,19 @@ extension PKPublisher {
 
 // MARK: SHARE
 extension PKPublisher {
-
+    
     /// Returns a publisher as a class instance.
     ///
     /// The downstream subscriber receieves elements and completion states unchanged from the upstream publisher. Use this operator when you want to use reference semantics, such as storing a publisher instance in a property.
     ///
     /// - Returns: A class instance that republishes its upstream publisher.
     public func share() -> PKPublishers.Share<Self> {
-         PKPublishers.Share(upstream: self)
+        PKPublishers.Share(upstream: self)
     }
 }
 
 // MARK: ZIP
-public extension PKPublisher {
+extension PKPublisher {
     
     /// Combine elements from another publisher and deliver pairs of elements as tuples.
     ///
@@ -693,7 +725,7 @@ public extension PKPublisher {
     ///
     /// - Parameter other: Another publisher.
     /// - Returns: A publisher that emits pairs of elements from the upstream publishers as tuples.
-    func zip<P: PKPublisher>(_ other: P) -> PKPublishers.Zip<Self, P> where Failure == P.Failure {
+    public func zip<P: PKPublisher>(_ other: P) -> PKPublishers.Zip<Self, P> where Failure == P.Failure {
         PKPublishers.Zip(self, other)
     }
     
@@ -706,7 +738,7 @@ public extension PKPublisher {
     /// - Parameter other: Another publisher.
     ///   - transform: A closure that receives the most recent value from each publisher and returns a new value to publish.
     /// - Returns: A publisher that emits pairs of elements from the upstream publishers as tuples.
-    func zip<P: PKPublisher, T>(_ other: P, _ transform: @escaping (Output, P.Output) -> T) -> PKPublishers.Map<PKPublishers.Zip<Self, P>, T> where Failure == P.Failure {
+    public func zip<P: PKPublisher, T>(_ other: P, _ transform: @escaping (Output, P.Output) -> T) -> PKPublishers.Map<PKPublishers.Zip<Self, P>, T> where Failure == P.Failure {
         
         let publisher = PKPublishers.Zip(self, other)
         let map = PKPublishers.Map(upstream: publisher, transform: transform)
@@ -714,7 +746,7 @@ public extension PKPublisher {
     }
     
     // MARK: ZIP 3
-
+    
     /// Combine elements from two other publishers and deliver groups of elements as tuples.
     ///
     /// The returned publisher waits until all three publishers have emitted an event, then delivers the oldest unconsumed event from each publisher as a tuple to the subscriber.
@@ -725,10 +757,10 @@ public extension PKPublisher {
     ///   - publisher1: A second publisher.
     ///   - publisher2: A third publisher.
     /// - Returns: A publisher that emits groups of elements from the upstream publishers as tuples.
-    func zip<P: PKPublisher, Q: PKPublisher>(_ publisher1: P, _ publisher2: Q) -> PKPublishers.Zip3<Self, P, Q> where Failure == P.Failure, P.Failure == Q.Failure {
+    public func zip<P: PKPublisher, Q: PKPublisher>(_ publisher1: P, _ publisher2: Q) -> PKPublishers.Zip3<Self, P, Q> where Failure == P.Failure, P.Failure == Q.Failure {
         PKPublishers.Zip3(self, publisher1, publisher2)
     }
-
+    
     /// Combine elements from two other publishers and deliver a transformed output.
     ///
     /// The returned publisher waits until all three publishers have emitted an event, then delivers the oldest unconsumed event from each publisher as a tuple to the subscriber.
@@ -740,7 +772,7 @@ public extension PKPublisher {
     ///   - publisher2: A third publisher.
     ///   - transform: A closure that receives the most recent value from each publisher and returns a new value to publish.
     /// - Returns: A publisher that emits groups of elements from the upstream publishers as tuples.
-    func zip<P: PKPublisher, Q: PKPublisher, T>(_ publisher1: P, _ publisher2: Q, _ transform: @escaping (Output, P.Output, Q.Output) -> T) -> PKPublishers.Map<PKPublishers.Zip3<Self, P, Q>, T> where Failure == P.Failure, P.Failure == Q.Failure {
+    public func zip<P: PKPublisher, Q: PKPublisher, T>(_ publisher1: P, _ publisher2: Q, _ transform: @escaping (Output, P.Output, Q.Output) -> T) -> PKPublishers.Map<PKPublishers.Zip3<Self, P, Q>, T> where Failure == P.Failure, P.Failure == Q.Failure {
         
         let publisher = PKPublishers.Zip3(self, publisher1, publisher2)
         let map = PKPublishers.Map(upstream: publisher, transform: transform)
@@ -748,7 +780,7 @@ public extension PKPublisher {
     }
     
     // MARK: ZIP 4
-
+    
     /// Combine elements from three other publishers and deliver groups of elements as tuples.
     ///
     /// The returned publisher waits until all four publishers have emitted an event, then delivers the oldest unconsumed event from each publisher as a tuple to the subscriber.
@@ -760,10 +792,10 @@ public extension PKPublisher {
     ///   - publisher2: A third publisher.
     ///   - publisher3: A fourth publisher.
     /// - Returns: A publisher that emits groups of elements from the upstream publishers as tuples.
-    func zip<P: PKPublisher, Q: PKPublisher, R: PKPublisher>(_ publisher1: P, _ publisher2: Q, _ publisher3: R) -> PKPublishers.Zip4<Self, P, Q, R> where Failure == P.Failure, P.Failure == Q.Failure, Q.Failure == R.Failure {
+    public func zip<P: PKPublisher, Q: PKPublisher, R: PKPublisher>(_ publisher1: P, _ publisher2: Q, _ publisher3: R) -> PKPublishers.Zip4<Self, P, Q, R> where Failure == P.Failure, P.Failure == Q.Failure, Q.Failure == R.Failure {
         PKPublishers.Zip4(self, publisher1, publisher2, publisher3)
     }
-
+    
     /// Combine elements from three other publishers and deliver a transformed output.
     ///
     /// The returned publisher waits until all four publishers have emitted an event, then delivers the oldest unconsumed event from each publisher as a tuple to the subscriber.
@@ -776,7 +808,7 @@ public extension PKPublisher {
     ///   - publisher3: A fourth publisher.
     ///   - transform: A closure that receives the most recent value from each publisher and returns a new value to publish.
     /// - Returns: A publisher that emits groups of elements from the upstream publishers as tuples.
-    func zip<P, Q, R, T>(_ publisher1: P, _ publisher2: Q, _ publisher3: R, _ transform: @escaping (Output, P.Output, Q.Output, R.Output) -> T) -> PKPublishers.Map<PKPublishers.Zip4<Self, P, Q, R>, T> where Failure == P.Failure, P.Failure == Q.Failure, Q.Failure == R.Failure {
+    public func zip<P, Q, R, T>(_ publisher1: P, _ publisher2: Q, _ publisher3: R, _ transform: @escaping (Output, P.Output, Q.Output, R.Output) -> T) -> PKPublishers.Map<PKPublishers.Zip4<Self, P, Q, R>, T> where Failure == P.Failure, P.Failure == Q.Failure, Q.Failure == R.Failure {
         
         let publisher = PKPublishers.Zip4(self, publisher1, publisher2, publisher3)
         let map = PKPublishers.Map(upstream: publisher, transform: transform)
@@ -797,11 +829,11 @@ public extension PKPublisher {
     ///   - publisher3: A fourth publisher.
     ///   - publisher4: A fifth publisher.
     /// - Returns: A publisher that emits groups of elements from the upstream publishers as tuples.
-    func zip<P: PKPublisher, Q: PKPublisher, R: PKPublisher, S: PKPublisher>(_ publisher1: P, _ publisher2: Q, _ publisher3: R, _ publisher4: S) -> PKPublishers.Zip5<Self, P, Q, R, S> where Failure == P.Failure, P.Failure == Q.Failure, Q.Failure == R.Failure, R.Failure == S.Failure {
+    public func zip<P: PKPublisher, Q: PKPublisher, R: PKPublisher, S: PKPublisher>(_ publisher1: P, _ publisher2: Q, _ publisher3: R, _ publisher4: S) -> PKPublishers.Zip5<Self, P, Q, R, S> where Failure == P.Failure, P.Failure == Q.Failure, Q.Failure == R.Failure, R.Failure == S.Failure {
         
         PKPublishers.Zip5(self, publisher1, publisher2, publisher3, publisher4)
     }
-
+    
     /// Combine elements from four other publishers and deliver a transformed output.
     ///
     /// The returned publisher waits until all four publishers have emitted an event, then delivers the oldest unconsumed event from each publisher as a tuple to the subscriber.
@@ -815,7 +847,7 @@ public extension PKPublisher {
     ///   - publisher4: A fifth publisher.
     ///   - transform: A closure that receives the most recent value from each publisher and returns a new value to publish.
     /// - Returns: A publisher that emits groups of elements from the upstream publishers as tuples.
-    func zip<P: PKPublisher, Q: PKPublisher, R: PKPublisher, S: PKPublisher, T>(_ publisher1: P, _ publisher2: Q, _ publisher3: R, _ publisher4: S, _ transform: @escaping (Output, P.Output, Q.Output, R.Output, S.Output) -> T) -> PKPublishers.Map<PKPublishers.Zip5<Self, P, Q, R, S>, T> where Failure == P.Failure, P.Failure == Q.Failure, Q.Failure == R.Failure, R.Failure == S.Failure {
+    public func zip<P: PKPublisher, Q: PKPublisher, R: PKPublisher, S: PKPublisher, T>(_ publisher1: P, _ publisher2: Q, _ publisher3: R, _ publisher4: S, _ transform: @escaping (Output, P.Output, Q.Output, R.Output, S.Output) -> T) -> PKPublishers.Map<PKPublishers.Zip5<Self, P, Q, R, S>, T> where Failure == P.Failure, P.Failure == Q.Failure, Q.Failure == R.Failure, R.Failure == S.Failure {
         
         let publisher = PKPublishers.Zip5(self, publisher1, publisher2, publisher3, publisher4)
         let map = PKPublishers.Map(upstream: publisher, transform: transform)

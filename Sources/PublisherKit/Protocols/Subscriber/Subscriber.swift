@@ -36,6 +36,6 @@ public protocol PKSubscriber {
     /// Tells the subscriber that the publisher has completed publishing, either normally or with an error.
     ///
     /// - Parameter completion: A `Completion` case indicating whether publishing completed normally or with an error.
-    func receive(completion: PKSubscribers.Completion<Self.Failure>)
+    func receive(completion: PKSubscribers.Completion<Failure>)
 
 }

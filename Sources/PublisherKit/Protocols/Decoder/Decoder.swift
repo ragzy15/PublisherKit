@@ -15,5 +15,5 @@ public protocol PKDecoder {
     
     associatedtype Input
     
-    func decode<T: Decodable>(_ type: T.Type, from: Self.Input) throws -> T 
+    func decode<T: Decodable>(_ type: T.Type, from: Input) throws -> T 
 }

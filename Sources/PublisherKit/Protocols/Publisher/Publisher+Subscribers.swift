@@ -9,29 +9,29 @@
 import Foundation
 
 // MARK: SUBSCRIBE
-public extension PKPublisher {
+extension PKPublisher {
     
     /// Attaches the specified subscriber to this publisher.
     ///
     /// Always call this function instead of `receive(subscriber:)`.
-    /// Adopters of `Publisher` must implement `receive(subscriber:)`. The implementation of `subscribe(_:)` in this extension calls through to `receive(subscriber:)`.
+    /// Adopters of `PKPublisher` must implement `receive(subscriber:)`. The implementation of `subscribe(_:)` in this extension calls through to `receive(subscriber:)`.
     /// - SeeAlso: `receive(subscriber:)`
     /// - Parameters:
-    ///     - subscriber: The subscriber to attach to this `Publisher`. After attaching, the subscriber can start to receive values.
-    func subscribe<S: PKSubscriber>(_ subscriber: S) where Failure == S.Failure, Output == S.Input {
+    ///     - subscriber: The subscriber to attach to this `PKPublisher`. After attaching, the subscriber can start to receive values.
+    public func subscribe<S: PKSubscriber>(_ subscriber: S) where Failure == S.Failure, Output == S.Input {
         receive(subscriber: subscriber)
     }
 }
 
 // MARK: COMPLETION
-public extension PKPublisher {
+extension PKPublisher {
     
     /// Attaches a subscriber with closure-based behavior.
     ///
     /// This method creates the subscriber and immediately requests an unlimited number of values, prior to returning the subscriber.
     /// - parameter block: The closure to execute on completion.
     /// - Returns: A cancellable instance; used when you end assignment of the received value. Deallocation of the result will tear down the subscription stream.
-    func completion(_ block: @escaping (Result<Output, Failure>) -> Void) -> PKAnyCancellable {
+    public func completion(_ block: @escaping (Result<Output, Failure>) -> Void) -> PKAnyCancellable {
         
         let subscriber = PKSubscribers.OnCompletion(receiveCompletion: block)
         subscribe(subscriber)
@@ -61,8 +61,7 @@ extension PKPublisher {
     }
 }
 
-// MARK: SINK NEVER ERROR
-extension PKPublisher where Self.Failure == Never {
+extension PKPublisher where Failure == Never {
 
     /// Attaches a subscriber with closure-based behavior.
     ///
@@ -80,10 +79,8 @@ extension PKPublisher where Self.Failure == Never {
         subscribe(sink)
         return PKAnyCancellable(sink)
     }
-}
-
-// MARK: ASSIGN
-public extension PKPublisher where Self.Failure == Never {
+    
+    // MARK: ASSIGN
     
     /// Assigns each element from a Publisher to a property on an object.
     ///
@@ -91,11 +88,10 @@ public extension PKPublisher where Self.Failure == Never {
     ///   - keyPath: The key path of the property to assign.
     ///   - object: The object on which to assign the value.
     /// - Returns: A cancellable instance; used when you end assignment of the received value. Deallocation of the result will tear down the subscription stream.
-    func assign<Root>(to keyPath: ReferenceWritableKeyPath<Root, Self.Output>, on object: Root) -> PKAnyCancellable {
+    public func assign<Root>(to keyPath: ReferenceWritableKeyPath<Root, Output>, on object: Root) -> PKAnyCancellable {
         
         let subscriber = PKSubscribers.Assign(object: object, keyPath: keyPath)
         subscribe(subscriber)
         return PKAnyCancellable(subscriber)
     }
 }
-

@@ -14,6 +14,7 @@ extension URLSession {
     ///
     /// The publisher publishes data when the task completes, or terminates if the task fails with an error.
     /// - Parameter url: The URL for which to create a data task.
+    /// - Parameter name: Name for the task. Used for logging purpose only.
     /// - Returns: A publisher that wraps a data task for the URL.
     public func dataTaskPKPublisher(for url: URL, name: String = "") -> DataTaskPKPublisher {
         let request = URLRequest(url: url)
@@ -29,6 +30,7 @@ extension URLSession {
     ///
     /// The publisher publishes data when the task completes, or terminates if the task fails with an error.
     /// - Parameter request: The URL request for which to create a data task.
+    /// - Parameter name: Name for the task. Used for logging purpose only. 
     /// - Returns: A publisher that wraps a data task for the URL request.
     public func dataTaskPKPublisher(for request: URLRequest, name: String = "") -> DataTaskPKPublisher {
         DataTaskPKPublisher(name: name, request: request, session: self)
@@ -57,7 +59,7 @@ extension URLSession {
         
         public var name: String
         
-        private static let queue = DispatchQueue(label: "com.PublisherKit.task-thread", qos: .utility, attributes: .concurrent)
+        private static let queue = DispatchQueue(label: "com.PublisherKit.data-task-thread", qos: .utility, attributes: .concurrent)
         
         public init(name: String = "", request: URLRequest, session: URLSession) {
             self.name = name

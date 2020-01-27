@@ -27,13 +27,10 @@ public extension PKPublishers {
         
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            typealias Subscriber = PKSubscribers.OperatorSink<S, Upstream.Output, Failure>
+            typealias Subscriber = PKSubscribers.SameFailureOperatorSink<S, Upstream.Output, Failure>
             
-            let upstreamSubscriber = Subscriber(downstream: subscriber, receiveCompletion: { (completion) in
+            let upstreamSubscriber = Subscriber(downstream: subscriber) { (output) in
                 
-                subscriber.receive(completion: completion)
-                
-            }) { (output) in
                do {
                    let newOutput = try self.transform(output)
                    _ = subscriber.receive(newOutput)
@@ -43,13 +40,11 @@ public extension PKPublishers {
                }
             }
             
-            let bridgeSubscriber = PKSubscribers.OperatorSink<Subscriber, Upstream.Output, Upstream.Failure>(downstream: upstreamSubscriber, receiveCompletion: { (completion) in
+            let bridgeSubscriber = SameUpstreamOutputOperatorSink<Subscriber, Upstream>(downstream: upstreamSubscriber) { (completion) in
                 
                 let newCompletion = completion.mapError { $0 as Failure }
                 upstreamSubscriber.receive(completion: newCompletion)
                 
-            }) { (output) in
-                _ = upstreamSubscriber.receive(output)
             }
             
             subscriber.receive(subscription: upstreamSubscriber)

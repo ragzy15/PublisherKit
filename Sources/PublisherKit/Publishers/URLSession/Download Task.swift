@@ -14,6 +14,7 @@ extension URLSession {
     ///
     /// The publisher publishes file URL when the task completes, or terminates if the task fails with an error.
     /// - Parameter url: The URL for which to create a download task.
+    /// - Parameter name: Name for the task. Used for logging purpose only.
     /// - Returns: A publisher that wraps a download task for the URL.
     public func downloadTaskPKPublisher(for url: URL, name: String = "") -> DownloadTaskPKPublisher {
         let request = URLRequest(url: url)
@@ -24,9 +25,20 @@ extension URLSession {
     ///
     /// The publisher publishes file URL when the task completes, or terminates if the task fails with an error.
     /// - Parameter request: The URL request for which to create a download task.
+    /// - Parameter name: Name for the task. Used for logging purpose only.
     /// - Returns: A publisher that wraps a download task for the URL request.
     public func downloadTaskPKPublisher(for request: URLRequest, name: String = "") -> DownloadTaskPKPublisher {
         DownloadTaskPKPublisher(name: name, request: request, session: self)
+    }
+    
+    /// Returns a publisher that wraps a URL session download task for a given URL request.
+    ///
+    /// The publisher publishes file URL when the task completes, or terminates if the task fails with an error.
+    /// - Parameter data: A data object that provides the data necessary to resume the download.
+    /// - Parameter name: Name for the task. Used for logging purpose only. 
+    /// - Returns: A publisher that wraps a download task for the URL request.
+    public func downloadTaskPKPublisher(withResumeData data: Data, name: String = "") -> DownloadTaskPKPublisher {
+        DownloadTaskPKPublisher(name: name, withResumeData: data, session: self)
     }
 }
 

@@ -16,8 +16,8 @@ extension PKSubscribers {
     /// - max: A request for a maximum number of items.
     public struct Demand: Equatable, Comparable, Hashable, Codable {
         
-        /// Requests as many values as the `Publisher` can produce.
-        public static let unlimited: PKSubscribers.Demand = .init(9898921)
+        /// Requests as many values as the `PKPublisher` can produce.
+        public static let unlimited: PKSubscribers.Demand = .init(Int.max)
 
         /// A demand for no items.
         ///
@@ -25,10 +25,10 @@ extension PKSubscribers {
         public static let none: PKSubscribers.Demand = .max(0)
 
         /// Limits the maximum number of values.
-        /// The `Publisher` may send fewer than the requested number.
+        /// The `PKPublisher` may send fewer than the requested number.
         /// Negative values will result in a `fatalError`.
         public static func max(_ value: Int) -> PKSubscribers.Demand {
-            if value < 0 { fatalError() }
+            if value < 0 { fatalError("Maximum demand value cannot be less than 0") }
             return .init(value)
         }
         
