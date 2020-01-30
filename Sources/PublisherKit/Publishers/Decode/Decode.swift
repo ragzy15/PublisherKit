@@ -9,13 +9,14 @@ import Foundation
 
 public extension PKPublishers {
     
+    /// A publisher that decodes elements received from an upstream publisher into the specified type.
     struct Decode<Upstream: PKPublisher, Output: Decodable, Decoder: PKDecoder>: PKPublisher where Upstream.Output == Decoder.Input {
         
         public typealias Failure = Error
         
-        /// The publisher that this publisher receives elements from.
         public let upstream: Upstream
         
+        /// The decoder used for decoding the elements received from the upstream publisher.
         private let decoder: Decoder
         
         public init(upstream: Upstream, decoder: Decoder) {

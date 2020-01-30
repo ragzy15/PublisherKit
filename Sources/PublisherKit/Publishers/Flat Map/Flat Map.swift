@@ -9,6 +9,7 @@ import Foundation
 
 extension PKPublishers {
     
+    /// A publisher that transforms elements from an upstream publisher into a publisher of that element’s type.
     public struct FlatMap<Upstream: PKPublisher, NewPublisher: PKPublisher>: PKPublisher where Upstream.Failure == NewPublisher.Failure {
         
         public typealias Output = NewPublisher.Output
@@ -17,8 +18,10 @@ extension PKPublishers {
         
         public let upstream: Upstream
         
+        /// The maximum number of publishers produced by this method.
         public let maxPublishers: PKSubscribers.Demand
         
+        /// A closure that takes an element as a parameter and returns a publisher
         public let transform: (Upstream.Output) -> NewPublisher
         
         public init(upstream: Upstream, maxPublishers: PKSubscribers.Demand, transform: @escaping (Upstream.Output) -> NewPublisher) {

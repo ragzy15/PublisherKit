@@ -9,15 +9,16 @@ import Foundation
 
 public extension PKPublishers {
     
+    /// A publisher that encodes elements received from an upstream publisher using the specified encoder.
     struct Encode<Upstream: PKPublisher, Encoder: PKEncoder>: PKPublisher where Upstream.Output: Encodable {
         
         public typealias Output = Encoder.Output
         
         public typealias Failure = Error
         
-        /// The publisher that this publisher receives elements from.
         public let upstream: Upstream
         
+        /// The encoder that encodes values received from the upstream publisher.
         private let encoder: Encoder
         
         public init(upstream: Upstream, encoder: Encoder) {

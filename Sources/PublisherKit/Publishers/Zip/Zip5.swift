@@ -16,14 +16,19 @@ extension PKPublishers {
         
         public typealias Failure = A.Failure
         
+        /// A publisher.
         public let a: A
         
+        /// A second publisher.
         public let b: B
         
+        /// A third publisher.
         public let c: C
         
+        /// A fourth publisher.
         public let d: D
         
+        /// A fifth publisher.
         public let e: E
         
         public init(_ a: A, _ b: B, _ c: C, _ d: D, _ e: E) {

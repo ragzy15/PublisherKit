@@ -27,7 +27,7 @@ extension NotificationCenter {
         
         public typealias Failure = Never
         
-        /// The notification center this publisher uses as a source.
+        /// The notification center used by this publisher.
         public let center: NotificationCenter
         
         /// The name of notifications published by this publisher.

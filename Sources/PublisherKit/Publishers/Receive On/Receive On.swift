@@ -9,6 +9,7 @@ import Foundation
 
 extension PKPublishers {
     
+    /// A publisher that publishes elements to its downstream subscriber on a specific scheduler.
     public struct ReceiveOn<Upstream: PKPublisher>: PKPublisher {
         
         public typealias Output = Upstream.Output
@@ -17,6 +18,7 @@ extension PKPublishers {
         
         public let upstream: Upstream
         
+        /// The scheduler on which elements are published.
         public let scheduler: PKScheduler
         
         public init(upstream: Upstream, on scheduler: PKScheduler) {

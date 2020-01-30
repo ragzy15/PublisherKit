@@ -41,7 +41,7 @@ extension PKPublishers {
 
 extension PKPublishers.AllSatisfy {
     
-    // MARK: ALLSATIFY SINK
+    // MARK: ALL SATISFY SINK
     private final class InternalSink<Downstream: PKSubscriber>: UpstreamSinkable<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private let predicate: (Upstream.Output) -> Bool

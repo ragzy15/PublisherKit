@@ -14,7 +14,6 @@ public extension PKPublishers {
         
         public typealias Failure = Error
         
-        /// The publisher that this publisher receives elements from.
         public let upstream: Upstream
         
         /// The closure that transforms elements from the upstream publisher.

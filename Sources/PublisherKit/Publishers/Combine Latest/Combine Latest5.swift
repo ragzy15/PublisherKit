@@ -9,21 +9,26 @@ import Foundation
 
 extension PKPublishers {
     
-    /// A publisher created by applying the zip function to two upstream publishers.
+    /// A publisher that receives and combines the latest elements from five publishers.
     public struct CombineLatest5<A: PKPublisher, B: PKPublisher, C: PKPublisher, D: PKPublisher, E: PKPublisher>: PKPublisher where A.Failure == B.Failure, B.Failure == C.Failure, C.Failure == D.Failure, D.Failure == E.Failure {
         
         public typealias Output = (A.Output, B.Output, C.Output, D.Output, E.Output)
         
         public typealias Failure = A.Failure
         
+        /// A publisher.
         public let a: A
         
+        /// A second publisher.
         public let b: B
         
+        /// A third publisher.
         public let c: C
         
+        /// A fourth publisher.
         public let d: D
         
+        /// A fifth publisher.
         public let e: E
         
         public init(_ a: A, _ b: B, _ c: C, _ d: D, _ e: E) {

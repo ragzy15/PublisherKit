@@ -9,11 +9,11 @@ import Foundation
 
 public extension PKPublishers {
     
+    /// A publisher that transforms all elements received from an upstream publisher with a specified error-throwing closure.
     struct TryMap<Upstream: PKPublisher, Output>: PKPublisher {
         
         public typealias Failure = Error
         
-        /// The publisher that this publisher receives elements from.
         public let upstream: Upstream
         
         /// The closure that transforms elements from the upstream publisher.

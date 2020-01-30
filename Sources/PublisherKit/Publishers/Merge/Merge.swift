@@ -9,15 +9,17 @@ import Foundation
 
 extension PKPublishers {
     
-    /// A publisher created by applying the merge function to two upstream publishers.
+    /// A publisher created by applying the merge function to two upstream publishers. Combines elements from all upstream publisher delivering an interleaved sequence of elements.
     public struct Merge<A: PKPublisher, B: PKPublisher>: PKPublisher where A.Output == B.Output, A.Failure == B.Failure {
         
         public typealias Output = A.Output
         
         public typealias Failure = A.Failure
         
+        /// A publisher.
         public let a: A
         
+        /// A second publisher.
         public let b: B
         
         public init(_ a: A, _ b: B) {

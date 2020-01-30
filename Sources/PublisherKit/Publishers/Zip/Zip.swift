@@ -16,8 +16,10 @@ extension PKPublishers {
         
         public typealias Failure = A.Failure
         
+        /// A publisher.
         public let a: A
         
+        /// A second publisher.
         public let b: B
         
         public init(_ a: A, _ b: B) {
