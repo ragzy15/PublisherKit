@@ -3,15 +3,14 @@
 //  PublisherKit
 //
 //  Created by Raghav Ahuja on 18/11/19.
-//  Copyright © 2019 Raghav Ahuja. All rights reserved.
 //
 
 import Foundation
 
-public extension NKPublishers {
+public extension PKPublishers {
     
     /// A publisher that replaces any errors in the stream with a provided element.
-    struct ReplaceError<Upstream: NKPublisher>: NKPublisher {
+    struct ReplaceError<Upstream: PKPublisher>: PKPublisher {
         
         public typealias Output = Upstream.Output
         
@@ -20,7 +19,6 @@ public extension NKPublishers {
         /// The element with which to replace errors from the upstream publisher.
         public let output: Upstream.Output
         
-        /// The publisher from which this publisher receives elements.
         public let upstream: Upstream
         
         public init(upstream: Upstream, output: Output) {
@@ -28,22 +26,44 @@ public extension NKPublishers {
             self.output = output
         }
         
-        public func receive<S: NKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let upstreamSubscriber = SameUpstreamOutputOperatorSink<S, Upstream>(downstream: subscriber) { (completion) in
-                
-                if let error = completion.getError() {
-                    #if DEBUG
-                    Logger.default.log(error: error)
-                    #endif
-                    _ = subscriber.receive(self.output)
-                }
-                subscriber.receive(completion: .finished)
+            let replaceErrorSubscriber = InternalSink(downstream: subscriber)
+            
+            replaceErrorSubscriber.onError = { (downstream) in
+                downstream?.receive(input: self.output)
             }
             
-            subscriber.receive(subscription: upstreamSubscriber)
-            upstreamSubscriber.request(.unlimited)
-            upstream.subscribe(upstreamSubscriber)
+            subscriber.receive(subscription: replaceErrorSubscriber)
+            replaceErrorSubscriber.request(.unlimited)
+            upstream.subscribe(replaceErrorSubscriber)
+        }
+    }
+}
+
+extension PKPublishers.ReplaceError {
+    
+    // MARK: REPLACE ERROR SINK
+    private final class InternalSink<Downstream: PKSubscriber>: UpstreamSinkable<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+        
+        var onError: ((Downstream?) -> Void)?
+        
+        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
+            guard !isCancelled else { return .none }
+            downstream?.receive(input: input)
+            return demand
+        }
+        
+        override func receive(completion: PKSubscribers.Completion<Upstream.Failure>) {
+            guard !isCancelled else { return }
+            end()
+            
+            if let error = completion.getError() {
+                Logger.default.log(error: error)
+                onError?(downstream)
+            }
+            
+            downstream?.receive(completion: .finished)
         }
     }
 }

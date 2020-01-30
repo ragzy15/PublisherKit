@@ -3,15 +3,14 @@
 //  PublisherKit
 //
 //  Created by Raghav Ahuja on 26/11/19.
-//  Copyright © 2019 Raghav Ahuja. All rights reserved.
 //
 
 import Foundation
 
-public extension NKPublishers {
+public extension PKPublishers {
     
     /// A publisher that republishes all non-`nil` results of calling a closure with each received element.
-    struct CompactMap<Upstream: NKPublisher, Output>: NKPublisher {
+    struct CompactMap<Upstream: PKPublisher, Output>: PKPublisher {
         
         public typealias Failure = Upstream.Failure
         
@@ -26,27 +25,20 @@ public extension NKPublishers {
             self.transform = transform
         }
         
-        public func receive<S: NKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let upstreamSubscriber = SameUpstreamFailureOperatorSink<S, Upstream>(downstream: subscriber) { (output) in
-                
-                let newOutput = self.transform(output)
-                
-                if let value = newOutput {
-                    _ = subscriber.receive(value)
-                }
-            }
+            let compactMapSubscriber = InternalSink(downstream: subscriber, transform: transform)
             
-            subscriber.receive(subscription: upstreamSubscriber)
-            upstreamSubscriber.request(.unlimited)
-            upstream.subscribe(upstreamSubscriber)
+            subscriber.receive(subscription: compactMapSubscriber)
+            compactMapSubscriber.request(.unlimited)
+            upstream.subscribe(compactMapSubscriber)
         }
     }
 }
 
-extension NKPublishers.CompactMap {
+extension PKPublishers.CompactMap {
     
-    public func compactMap<T>(_ transform: @escaping (Output) -> T?) -> NKPublishers.CompactMap<Upstream, T> {
+    public func compactMap<T>(_ transform: @escaping (Output) -> T?) -> PKPublishers.CompactMap<Upstream, T> {
         
         let newTransform: (Upstream.Output) -> T? = { output in
             if let newOutput = self.transform(output) {
@@ -56,10 +48,10 @@ extension NKPublishers.CompactMap {
             }
         }
         
-        return NKPublishers.CompactMap<Upstream, T>(upstream: upstream, transform: newTransform)
+        return PKPublishers.CompactMap<Upstream, T>(upstream: upstream, transform: newTransform)
     }
     
-    public func map<T>(_ transform: @escaping (Output) -> T) -> NKPublishers.CompactMap<Upstream, T> {
+    public func map<T>(_ transform: @escaping (Output) -> T) -> PKPublishers.CompactMap<Upstream, T> {
         
         let newTransform: (Upstream.Output) -> T? = { output in
             if let newOutput = self.transform(output) {
@@ -69,6 +61,37 @@ extension NKPublishers.CompactMap {
             }
         }
         
-        return NKPublishers.CompactMap<Upstream, T>(upstream: upstream, transform: newTransform)
+        return PKPublishers.CompactMap<Upstream, T>(upstream: upstream, transform: newTransform)
+    }
+}
+
+extension PKPublishers.CompactMap {
+    
+    // MARK: COMPACTMAP SINK
+    private final class InternalSink<Downstream: PKSubscriber>: UpstreamSinkable<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+        
+        private let transform: (Upstream.Output) -> Output?
+        
+        init(downstream: Downstream, transform: @escaping (Upstream.Output) -> Output?) {
+            self.transform = transform
+            super.init(downstream: downstream)
+        }
+        
+        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
+            guard !isCancelled else { return .none }
+            
+            let output = self.transform(input)
+            if let value = output {
+                downstream?.receive(input: value)
+            }
+            
+            return demand
+        }
+        
+        override func receive(completion: PKSubscribers.Completion<Upstream.Failure>) {
+            guard !isCancelled else { return }
+            end()
+            downstream?.receive(completion: completion)
+        }
     }
 }

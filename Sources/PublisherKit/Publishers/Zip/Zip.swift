@@ -3,61 +3,93 @@
 //  PublisherKit
 //
 //  Created by Raghav Ahuja on 19/12/19.
-//  Copyright © 2019 Raghav Ahuja. All rights reserved.
 //
 
 import Foundation
 
-extension NKPublishers {
+extension PKPublishers {
     
     /// A publisher created by applying the zip function to two upstream publishers.
-    public struct Zip<A: NKPublisher, B: NKPublisher>: NKPublisher where A.Failure == B.Failure {
-
+    public struct Zip<A: PKPublisher, B: PKPublisher>: PKPublisher where A.Failure == B.Failure {
+        
         public typealias Output = (A.Output, B.Output)
-
+        
         public typealias Failure = A.Failure
-
+        
         public let a: A
-
+        
         public let b: B
-
+        
         public init(_ a: A, _ b: B) {
             self.a = a
             self.b = b
         }
         
-        public func receive<S: NKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            typealias Sub = ZipSink<S, A.Output, B.Output, Failure>
+            let zipSubscriber = InternalSink(downstream: subscriber)
             
-            let upstreamSubscriber = Sub(downstream: subscriber)
-
-            let aUpstreamSubscriber = SameUpstreamFailureOperatorSink<Sub, A>(downstream: upstreamSubscriber) { (output) in
-                upstreamSubscriber.receive(a: output)
-            }
-
-            let bUpstreamSubscriber = SameUpstreamFailureOperatorSink<Sub, B>(downstream: upstreamSubscriber) { (output) in
-                upstreamSubscriber.receive(b: output)
-            }
+            zipSubscriber.receiveSubscription()
             
-            upstreamSubscriber.receive(subscription: aUpstreamSubscriber)
-            upstreamSubscriber.receive(subscription: bUpstreamSubscriber)
+            subscriber.receive(subscription: zipSubscriber)
             
-            subscriber.receive(subscription: upstreamSubscriber)
+            zipSubscriber.sendRequest()
             
-            upstreamSubscriber.request(.unlimited)
-            aUpstreamSubscriber.request(.unlimited)
-            bUpstreamSubscriber.request(.unlimited)
-            
-            b.subscribe(bUpstreamSubscriber)
-            a.subscribe(aUpstreamSubscriber)
+            b.subscribe(zipSubscriber.bSubscriber)
+            a.subscribe(zipSubscriber.aSubscriber)
         }
     }
 }
 
-extension NKPublishers.Zip: Equatable where A: Equatable, B: Equatable{
+extension PKPublishers.Zip: Equatable where A: Equatable, B: Equatable{
     
-    public static func == (lhs: NKPublishers.Zip<A, B>, rhs: NKPublishers.Zip<A, B>) -> Bool {
+    public static func == (lhs: PKPublishers.Zip<A, B>, rhs: PKPublishers.Zip<A, B>) -> Bool {
         lhs.a == rhs.a && lhs.b == rhs.b
+    }
+}
+
+extension PKPublishers.Zip {
+    
+    // MARK: ZIP SINK
+    final class InternalSink<Downstream: PKSubscriber>: CombineSink<Downstream> where Downstream.Input == Output {
+        
+        private(set) lazy var aSubscriber = PKSubscribers.FinalOperatorSink<CombineSink<Downstream>, A.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        
+        private(set) lazy var bSubscriber = PKSubscribers.FinalOperatorSink<CombineSink<Downstream>, B.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        
+        private var aOutputs: [A.Output] = []
+        private var bOutputs: [B.Output] = []
+        
+        override func receiveSubscription() {
+            receive(subscription: aSubscriber)
+            receive(subscription: bSubscriber)
+        }
+        
+        override func sendRequest() {
+            request(.unlimited)
+            aSubscriber.request(.unlimited)
+            bSubscriber.request(.unlimited)
+        }
+        
+        private func receive(a input: A.Output, downstream: CombineSink<Downstream>?) {
+            aOutputs.append(input)
+            checkAndSend()
+        }
+        
+        private func receive(b input: B.Output, downstream: CombineSink<Downstream>?) {
+            bOutputs.append(input)
+            checkAndSend()
+        }
+        
+        override func checkAndSend() {
+            guard !aOutputs.isEmpty, !bOutputs.isEmpty else {
+                return
+            }
+            
+            let aOutput = aOutputs.removeFirst()
+            let bOutput = bOutputs.removeFirst()
+            
+            receive(input: (aOutput, bOutput))
+        }
     }
 }

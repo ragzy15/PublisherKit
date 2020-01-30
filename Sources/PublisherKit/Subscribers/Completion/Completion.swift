@@ -3,17 +3,16 @@
 //  PublisherKit
 //
 //  Created by Raghav Ahuja on 19/12/19.
-//  Copyright © 2019 Raghav Ahuja. All rights reserved.
 //
 
 import Foundation
 
-public extension NKSubscribers {
+public extension PKSubscribers {
     
     enum Completion<Failure: Error> {
-
+        
         case finished
-
+        
         case failure(Failure)
         
         func mapError<NewFailure: Error>(_ transform: (Failure) -> NewFailure) -> Completion<NewFailure> {

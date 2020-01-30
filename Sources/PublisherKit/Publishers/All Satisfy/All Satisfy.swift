@@ -3,43 +3,65 @@
 //  PublisherKit
 //
 //  Created by Raghav Ahuja on 25/12/19.
-//  Copyright © 2019 Raghav Ahuja. All rights reserved.
 //
 
 import Foundation
 
-extension NKPublishers {
-
+extension PKPublishers {
+    
     /// A publisher that publishes a single Boolean value that indicates whether all received elements pass a given predicate.
-    public struct AllSatisfy<Upstream: NKPublisher>: NKPublisher {
-
+    public struct AllSatisfy<Upstream: PKPublisher>: PKPublisher {
+        
         public typealias Output = Bool
-
+        
         public typealias Failure = Upstream.Failure
-
-        /// The publisher from which this publisher receives elements.
+        
         public let upstream: Upstream
-
+        
         /// A closure that evaluates each received element.
         ///
         ///  Return `true` to continue, or `false` to cancel the upstream and finish.
         public let predicate: (Upstream.Output) -> Bool
-
+        
         public init(upstream: Upstream, predicate: @escaping (Upstream.Output) -> Bool) {
             self.upstream = upstream
             self.predicate = predicate
         }
+        
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+            
+            let allSatisfySubscriber = InternalSink(downstream: subscriber, predicate: predicate)
+            
+            subscriber.receive(subscription: allSatisfySubscriber)
+            allSatisfySubscriber.request(.unlimited)
+            upstream.subscribe(allSatisfySubscriber)
+        }
+    }
+}
 
-        public func receive<S: NKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            
-            let upstreamSubscriber = SameUpstreamFailureOperatorSink<S, Upstream>(downstream: subscriber) { (output) in
-                let satisfied = self.predicate(output)
-                _ = subscriber.receive(satisfied)
-            }
-            
-            subscriber.receive(subscription: upstreamSubscriber)
-            upstreamSubscriber.request(.unlimited)
-            upstream.subscribe(upstreamSubscriber)
+extension PKPublishers.AllSatisfy {
+    
+    // MARK: ALLSATIFY SINK
+    private final class InternalSink<Downstream: PKSubscriber>: UpstreamSinkable<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+        
+        private let predicate: (Upstream.Output) -> Bool
+        
+        init(downstream: Downstream, predicate: @escaping (Upstream.Output) -> Bool) {
+            self.predicate = predicate
+            super.init(downstream: downstream)
+        }
+        
+        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
+            guard !isCancelled else { return .none }
+            let output = self.predicate(input)
+            downstream?.receive(input: output)
+            return demand
+        }
+        
+        override func receive(completion: PKSubscribers.Completion<Upstream.Failure>) {
+            guard !isCancelled else { return }
+            end()
+            downstream?.receive(completion: completion)
         }
     }
 }

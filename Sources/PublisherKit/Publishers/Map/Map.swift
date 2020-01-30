@@ -3,14 +3,13 @@
 //  PublisherKit
 //
 //  Created by Raghav Ahuja on 18/11/19.
-//  Copyright © 2019 Raghav Ahuja. All rights reserved.
 //
 
 import Foundation
 
-public extension NKPublishers {
+public extension PKPublishers {
     
-    struct Map<Upstream: NKPublisher, Output>: NKPublisher {
+    struct Map<Upstream: PKPublisher, Output>: PKPublisher {
         
         public typealias Failure = Upstream.Failure
         
@@ -25,41 +24,65 @@ public extension NKPublishers {
             self.transform = transform
         }
         
-        public func receive<S: NKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let upstreamSubscriber = SameUpstreamFailureOperatorSink<S, Upstream>(downstream: subscriber) { (output) in
-                
-                let newOutput = self.transform(output)
-                _ = subscriber.receive(newOutput)
-                
-            }
+            let mapSubscriber = InternalSink(downstream: subscriber, transform: transform)
             
-            subscriber.receive(subscription: upstreamSubscriber)
-            upstreamSubscriber.request(.unlimited)
-            upstream.subscribe(upstreamSubscriber)
+            subscriber.receive(subscription: mapSubscriber)
+            mapSubscriber.request(.unlimited)
+            upstream.subscribe(mapSubscriber)
         }
     }
 }
 
-extension NKPublishers.Map {
+extension PKPublishers.Map {
     
-    public func map<T>(_ transform: @escaping (Output) -> T) -> NKPublishers.Map<Upstream, T> {
+    public func map<T>(_ transform: @escaping (Output) -> T) -> PKPublishers.Map<Upstream, T> {
         
         let newTransform: (Upstream.Output) -> T = { output in
             let newOutput = self.transform(output)
             return transform(newOutput)
         }
         
-        return NKPublishers.Map<Upstream, T>(upstream: upstream, transform: newTransform)
+        return PKPublishers.Map<Upstream, T>(upstream: upstream, transform: newTransform)
     }
     
-    public func tryMap<T>(_ transform: @escaping (Output) throws -> T) -> NKPublishers.TryMap<Upstream, T> {
+    public func tryMap<T>(_ transform: @escaping (Output) throws -> T) -> PKPublishers.TryMap<Upstream, T> {
         
         let newTransform: (Upstream.Output) throws -> T = { output in
             let newOutput = self.transform(output)
             return try transform(newOutput)
         }
         
-        return NKPublishers.TryMap<Upstream, T>(upstream: upstream, transform: newTransform)
+        return PKPublishers.TryMap<Upstream, T>(upstream: upstream, transform: newTransform)
+    }
+}
+
+extension PKPublishers.Map {
+    
+    // MARK: MAP SINK
+    private final class InternalSink<Downstream: PKSubscriber>: UpstreamSinkable<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+        
+        private let transform: (Upstream.Output) -> Output
+        
+        init(downstream: Downstream, transform: @escaping (Upstream.Output) -> Output) {
+            self.transform = transform
+            super.init(downstream: downstream)
+        }
+        
+        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
+            guard !isCancelled else { return .none }
+            
+            let output = transform(input)
+            downstream?.receive(input: output)
+            
+            return demand
+        }
+        
+        override func receive(completion: PKSubscribers.Completion<Upstream.Failure>) {
+            guard !isCancelled else { return }
+            end()
+            downstream?.receive(completion: completion)
+        }
     }
 }

@@ -3,12 +3,11 @@
 //  PublisherKit
 //
 //  Created by Raghav Ahuja on 25/12/19.
-//  Copyright © 2019 Raghav Ahuja. All rights reserved.
 //
 
 import Foundation
 
-extension OperationQueue: NKScheduler {
+extension OperationQueue: PKScheduler {
     
     public func schedule(block : @escaping () -> Void) {
         addOperation {

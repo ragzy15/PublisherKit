@@ -3,7 +3,6 @@
 //  PublisherKit
 //
 //  Created by Raghav Ahuja on 25/12/19.
-//  Copyright © 2019 Raghav Ahuja. All rights reserved.
 //
 
 import Foundation
@@ -14,88 +13,104 @@ extension URLSession {
     ///
     /// The publisher publishes data when the task completes, or terminates if the task fails with an error.
     /// - Parameter url: The URL for which to create a data task.
+    /// - Parameter name: Name for the task. Used for logging purpose only.
     /// - Returns: A publisher that wraps a data task for the URL.
-    public func nkTaskPublisher(for url: URL, apiName: String = "") -> NKDataTaskPublisher {
+    public func dataTaskPKPublisher(for url: URL, name: String = "") -> DataTaskPKPublisher {
         let request = URLRequest(url: url)
-        return NKDataTaskPublisher(name: apiName, request: request, session: self)
+        return DataTaskPKPublisher(name: name, request: request, session: self)
+    }
+    
+    @available(*, deprecated, renamed: "nkDataTaskPublisher")
+    public func nkTaskPublisher(for url: URL, name: String = "") -> DataTaskPKPublisher {
+        dataTaskPKPublisher(for: url, name: name)
     }
     
     /// Returns a publisher that wraps a URL session data task for a given URL request.
     ///
     /// The publisher publishes data when the task completes, or terminates if the task fails with an error.
     /// - Parameter request: The URL request for which to create a data task.
+    /// - Parameter name: Name for the task. Used for logging purpose only. 
     /// - Returns: A publisher that wraps a data task for the URL request.
-    public func nkTaskPublisher(for request: URLRequest, apiName: String = "") -> NKDataTaskPublisher {
-        NKDataTaskPublisher(name: apiName, request: request, session: self)
+    public func dataTaskPKPublisher(for request: URLRequest, name: String = "") -> DataTaskPKPublisher {
+        DataTaskPKPublisher(name: name, request: request, session: self)
+    }
+    
+    @available(*, deprecated, renamed: "nkDataTaskPublisher")
+    public func nkTaskPublisher(for request: URLRequest, name: String = "") -> DataTaskPKPublisher {
+        dataTaskPKPublisher(for: request, name: name)
     }
 }
 
 extension URLSession {
     
-    public struct NKDataTaskPublisher: NKPublisher {
-         
+    @available(*, deprecated, renamed: "DataTaskPKPublisher")
+    public typealias NKDataTaskPublisher = DataTaskPKPublisher
+    
+    public struct DataTaskPKPublisher: PKPublisher, URLSessionTaskPublisherDelegate {
+        
         public typealias Output = (data: Data, response: HTTPURLResponse)
         
-        public typealias Failure = NSError
+        public typealias Failure = Error
         
         public let request: URLRequest
         
         public let session: URLSession
         
-        public var apiName: String = ""
+        public var name: String
         
-        private static let queue = DispatchQueue(label: "com.PublisherKit.task-thread", qos: .utility, attributes: .concurrent, autoreleaseFrequency: .inherit, target: nil)
+        private static let queue = DispatchQueue(label: "com.PublisherKit.data-task-thread", qos: .utility, attributes: .concurrent)
         
-        public init(request: URLRequest, session: URLSession) {
+        public init(name: String = "", request: URLRequest, session: URLSession) {
+            self.name = name
             self.request = request
             self.session = session
         }
         
-        public init(name: String, request: URLRequest, session: URLSession) {
-            apiName = name
-            self.request = request
-            self.session = session
-        }
-        
-        public func receive<S: NKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let dataTaskSubscriber = NKSubscribers.DataTaskSink(downstream: subscriber)
-            
-            dataTaskSubscriber.task = session.dataTask(with: request) { (data, response, error) in
-                
-                guard !dataTaskSubscriber.isCancelled else { return }
-                
-                if let error = error as NSError? {
-                    NKDataTaskPublisher.queue.async {
-                        dataTaskSubscriber.receive(completion: .failure(error))
-                    }
-                    
-                } else if let response = response as? HTTPURLResponse, let data = data {
-                    NKDataTaskPublisher.queue.async {
-                        dataTaskSubscriber.receive(input: (data, response))
-                        dataTaskSubscriber.receive(completion: .finished)
-                    }
-                }
-            }
-            
-            dataTaskSubscriber.cancelBlock = {
-                dataTaskSubscriber.task?.cancel()
-            }
+            let dataTaskSubscriber = InternalSink(downstream: subscriber)
             
             subscriber.receive(subscription: dataTaskSubscriber)
             
-            dataTaskSubscriber.task?.resume()
+            dataTaskSubscriber.resume(with: request, in: session)
             
-            #if DEBUG
-            Logger.default.logAPIRequest(request: request, apiName: apiName)
-            #endif
+            Logger.default.logAPIRequest(request: request, name: name)
         }
     }
 }
 
-extension URLSession.NKDataTaskPublisher {
+extension URLSession.DataTaskPKPublisher {
     
-    func validate(shouldCheckForErrorModel flag: Bool, acceptableStatusCodes codes: [Int]) -> NKPublishers.Validate {
-        NKPublishers.Validate(upstream: self, shouldCheckForErrorModel: flag, acceptableStatusCodes: codes)
+    /// Validates that the response has a status code acceptable in the specified range, and that the response has a content type in the specified sequence.
+    /// - Parameters:
+    ///   - acceptableStatusCodes: The range of acceptable status codes. Default range of 200...299.
+    ///   - acceptableContentTypes: The acceptable content types, which may specify wildcard types and/or subtypes. If provided `nil`, content type is not validated. Providing an empty Array uses default behaviour. By default the content type matches any specified in the **Accept** HTTP header field.
+    public func validate(acceptableStatusCodes: [Int] = Array(200 ..< 300), acceptableContentTypes: [String]? = []) -> PKPublishers.Validate<Self> {
+        PKPublishers.Validate(upstream: self, acceptableStatusCodes: acceptableStatusCodes, acceptableContentTypes: acceptableContentTypes)
+    }
+}
+
+extension URLSession.DataTaskPKPublisher {
+    
+    // MARK: DATA TASK SINK
+    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.InternalSink<Downstream, Output, Failure>, URLSessionTaskPublisherDelegate where Output == Downstream.Input, Failure == Downstream.Failure {
+        
+        private var task: URLSessionTask?
+        
+        func resume(with request: URLRequest, in session: URLSession) {
+            let completion = handleCompletion(queue: URLSession.DataTaskPKPublisher.queue, subscriber: self)
+            task = session.dataTask(with: request, completionHandler: completion)
+            task?.resume()
+        }
+        
+        override func end() {
+            task = nil
+            super.end()
+        }
+        
+        override func cancel() {
+            task?.cancel()
+            super.cancel()
+        }
     }
 }

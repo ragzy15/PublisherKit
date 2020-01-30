@@ -1,0 +1,73 @@
+//
+//  Encode.swift
+//  PublisherKit
+//
+//  Created by Raghav Ahuja on 25/01/20.
+//
+
+import Foundation
+
+public extension PKPublishers {
+    
+    struct Encode<Upstream: PKPublisher, Encoder: PKEncoder>: PKPublisher where Upstream.Output: Encodable {
+        
+        public typealias Output = Encoder.Output
+        
+        public typealias Failure = Error
+        
+        /// The publisher that this publisher receives elements from.
+        public let upstream: Upstream
+        
+        private let encoder: Encoder
+        
+        public init(upstream: Upstream, encoder: Encoder) {
+            self.upstream = upstream
+            self.encoder = encoder
+        }
+        
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+            
+            let encodeSubscriber = InternalSink(downstream: subscriber, encoder: encoder)
+            
+            subscriber.receive(subscription: encodeSubscriber)
+            encodeSubscriber.request(.unlimited)
+            upstream.subscribe(encodeSubscriber)
+        }
+    }
+}
+
+extension PKPublishers.Encode {
+    
+    // MARK: ENCODE SINK
+    private final class InternalSink<Downstream: PKSubscriber, Encoder: PKEncoder>: UpstreamSinkable<Downstream, Upstream> where Encoder.Output == Downstream.Input, Failure == Downstream.Failure, Upstream.Output: Encodable {
+        
+        private let encoder: Encoder
+        
+        init(downstream: Downstream, encoder: Encoder) {
+            self.encoder = encoder
+            super.init(downstream: downstream)
+        }
+        
+        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
+            guard !isCancelled else { return .none }
+            
+            do {
+                let output = try encoder.encode(input)
+                downstream?.receive(input: output)
+                
+            } catch {
+                downstream?.receive(completion: .failure(error))
+            }
+            
+            return demand
+        }
+        
+        override func receive(completion: PKSubscribers.Completion<Upstream.Failure>) {
+            guard !isCancelled else { return }
+            end()
+            
+            let completion = completion.mapError { $0 as Downstream.Failure }
+            downstream?.receive(completion: completion)
+        }
+    }
+}

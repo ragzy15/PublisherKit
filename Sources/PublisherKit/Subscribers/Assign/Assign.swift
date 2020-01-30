@@ -3,18 +3,14 @@
 //  PublisherKit
 //
 //  Created by Raghav Ahuja on 19/12/19.
-//  Copyright © 2019 Raghav Ahuja. All rights reserved.
 //
 
 import Foundation
 
-extension NKSubscribers {
+extension PKSubscribers {
     
-    final public class Assign<Root, Input>: NKSubscriber, NKCancellable {
-
-        /// The kind of errors this subscriber might receive.
-        ///
-        /// Use `Never` if this `Subscriber` cannot receive errors.
+    final public class Assign<Root, Input>: PKSubscriber, PKCancellable {
+        
         public typealias Failure = Never
         
         /// The object that contains the property to assign.
@@ -22,7 +18,7 @@ extension NKSubscribers {
         
         private var _object: Root?
         
-        private var subscription: NKSubscription?
+        private var subscription: PKSubscription?
         
         private var isCancelled = false
         
@@ -37,19 +33,19 @@ extension NKSubscribers {
             self._object = object
             self.keyPath = keyPath
         }
-
-        final public func receive(subscription: NKSubscription) {
+        
+        final public func receive(subscription: PKSubscription) {
             guard !isCancelled else { return }
             self.subscription = subscription
         }
         
-        final public func receive(_ value: Input) -> NKSubscribers.Demand {
+        final public func receive(_ value: Input) -> PKSubscribers.Demand {
             guard !isCancelled else { return .none }
             _object?[keyPath: keyPath] = value
             return .unlimited
         }
         
-        final public func receive(completion: NKSubscribers.Completion<Never>) {
+        final public func receive(completion: PKSubscribers.Completion<Never>) {
             guard !isCancelled else { return }
             end()
         }
@@ -58,8 +54,7 @@ extension NKSubscribers {
             subscription?.cancel()
             subscription = nil
         }
-
-        /// Cancel the activity.
+        
         final public func cancel() {
             isCancelled = true
             _object = nil

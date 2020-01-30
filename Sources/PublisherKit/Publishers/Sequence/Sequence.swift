@@ -3,30 +3,29 @@
 //  PublisherKit
 //
 //  Created by Raghav Ahuja on 25/12/19.
-//  Copyright © 2019 Raghav Ahuja. All rights reserved.
 //
 
 import Foundation
 
 extension Sequence {
     
-    public var nkPublisher: NKPublishers.Sequence<Self, Never> {
-        NKPublishers.Sequence(sequence: self)
+    public var pkPublisher: PKPublishers.Sequence<Self, Never> {
+        PKPublishers.Sequence(sequence: self)
     }
 }
 
-extension NKPublishers {
-
+extension PKPublishers {
+    
     /// A publisher that publishes a given sequence of elements.
     ///
     /// When the publisher exhausts the elements in the sequence, the next request causes the publisher to finish.
-    public struct Sequence<Elements: Swift.Sequence, Failure: Error>: NKPublisher {
-
+    public struct Sequence<Elements: Swift.Sequence, Failure: Error>: PKPublisher {
+        
         public typealias Output = Elements.Element
-
+        
         /// The sequence of elements to publish.
         public let sequence: Elements
-
+        
         /// Creates a publisher for a sequence of elements.
         ///
         /// - Parameter sequence: The sequence of elements to publish.
@@ -34,18 +33,27 @@ extension NKPublishers {
             self.sequence = sequence
         }
         
-        public func receive<S: NKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let sequenceSubscriber = NKSubscribers.TopLevelSink<S, Self>(downstream: subscriber)
+            let sequenceSubscriber = InternalSink(downstream: subscriber)
             
             subscriber.receive(subscription: sequenceSubscriber)
             
             for element in sequence {
-                if sequenceSubscriber.isCancelled { return }
+                if sequenceSubscriber.isCancelled { break }
                 sequenceSubscriber.receive(input: element)
             }
             
-            subscriber.receive(completion: .finished)
+            if !sequenceSubscriber.isCancelled {
+                subscriber.receive(completion: .finished)
+            }
         }
+    }
+}
+
+extension PKPublishers.Sequence {
+
+    // MARK: SEQUENCE SINK
+    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.InternalSink<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
     }
 }

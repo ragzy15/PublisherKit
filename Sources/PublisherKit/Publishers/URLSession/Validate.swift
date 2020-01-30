@@ -3,118 +3,144 @@
 //  PublisherKit
 //
 //  Created by Raghav Ahuja on 18/11/19.
-//  Copyright © 2019 Raghav Ahuja. All rights reserved.
 //
 
 import Foundation
 
-public extension NKPublishers {
+extension PKPublishers {
     
-    struct Validate: NKPublisher {
+    public struct Validate<Upstream: PKPublisher>: PKPublisher where Upstream.Output == (data: Data, response: HTTPURLResponse) {
         
-        public typealias Output = URLSession.NKDataTaskPublisher.Output
+        public typealias Output = Upstream.Output
         
-        public typealias Failure = URLSession.NKDataTaskPublisher.Failure
+        public typealias Failure = Error
         
-        /// The publisher from which this publisher receives elements.
-        public let upstream: URLSession.NKDataTaskPublisher
-        
-        /// Check for any business error model on failure.
-        public let shouldCheckForErrorModel: Bool
+        public let upstream: Upstream
         
         /// Acceptable HTTP Status codes for the network call.
         public let acceptableStatusCodes: [Int]
         
-        public init(upstream: URLSession.NKDataTaskPublisher, shouldCheckForErrorModel: Bool, acceptableStatusCodes: [Int]) {
+        /// Acceptable Content Types codes for the network call.
+        ///
+        /// If provided `nil` then content type is not validated.
+        ///
+        /// If provided an empty Array, defaults to default behavious.
+        ///
+        /// By default the content type matches any specified in the **Accept** HTTP header field.
+        public let acceptableContentTypes: [String]?
+        
+        /// Validates that the response has a status code acceptable in the specified range, and that the response has a content type in the specified sequence.
+        /// - Parameters:
+        ///   - upstream: A URLSession task publisher.
+        ///   - acceptableStatusCodes: The range of acceptable status codes.
+        ///   - acceptableContentTypes: The acceptable content types, which may specify wildcard types and/or subtypes. If provided `nil`, content type is not validated. Providing an empty Array uses default behaviour. By default the content type matches any specified in the **Accept** HTTP header field.
+        public init(upstream: Upstream, acceptableStatusCodes: [Int], acceptableContentTypes: [String]?) {
             self.upstream = upstream
-            self.shouldCheckForErrorModel = shouldCheckForErrorModel
-            
             self.acceptableStatusCodes = acceptableStatusCodes
+            self.acceptableContentTypes = acceptableContentTypes
         }
         
-        public func receive<S: NKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let upstreamSubscriber = SameUpstreamFailureOperatorSink<S, Self>(downstream: subscriber) { (value) in
-                let result = self.doValidation(output: value)
-                
-                switch result {
-                case .success(let newOutput):
-                    _ = subscriber.receive(newOutput)
-                    
-                case .failure(let error):
-                    subscriber.receive(completion: .failure(error))
-                }
-            }
+            let validationSubscriber = InternalSink(downstream: subscriber, acceptableStatusCodes: acceptableStatusCodes, acceptableContentTypes: acceptableContentTypes)
             
-            subscriber.receive(subscription: upstreamSubscriber)
-            upstreamSubscriber.request(.max(1))
-            upstream.subscribe(upstreamSubscriber)
+            subscriber.receive(subscription: validationSubscriber)
+            validationSubscriber.request(.max(1))
+            upstream.subscribe(validationSubscriber)
         }
     }
 }
 
-
-extension NKPublishers.Validate {
+extension PKPublishers.Validate {
     
-    private func doValidation(output: Output) -> Result<Output, Failure> {
-        let url = upstream.request.url!
-        let (data, response) = output
+    // MARK: VALIDATE SINK
+    fileprivate final class InternalSink<Downstream: PKSubscriber>: UpstreamSinkable<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        if acceptableStatusCodes.contains(response.statusCode) {
+        private let acceptableStatusCodes: [Int]
+        private let acceptableContentTypes: [String]?
+        
+        init(downstream: Downstream, acceptableStatusCodes: [Int], acceptableContentTypes: [String]?) {
+            self.acceptableStatusCodes = acceptableStatusCodes
+            self.acceptableContentTypes = acceptableContentTypes
+            super.init(downstream: downstream)
+        }
+        
+        override func receive(_ input: (data: Data, response: HTTPURLResponse)) -> PKSubscribers.Demand {
+            let result = validate(input: input)
             
-            guard !data.isEmpty else {
-                return .failure(.zeroByteResource(for: url))
-            }
-            
-            var acceptableContentTypes: [String] {
-                if let accept = upstream.request.value(forHTTPHeaderField: "Accept") {
-                    return accept.components(separatedBy: ",")
-                }
+            switch result {
+            case .success(let newOutput):
+                downstream?.receive(input: newOutput)
                 
-                return ["*/*"]
+            case .failure(let error):
+                end()
+                downstream?.receive(completion: .failure(error))
             }
             
-            guard let responseContentType = response.mimeType, let responseMIMEType = MIMEType(responseContentType) else {
-                for contentType in acceptableContentTypes {
-                    if let mimeType = MIMEType(contentType), mimeType.isWildcard {
-                        return .success((data, response))
-                    }
-                }
-                return .failure(.cannotDecodeContentData(for: url))
-            }
-            
-            for contentType in acceptableContentTypes {
-                if let acceptableMIMEType = MIMEType(contentType), acceptableMIMEType.matches(responseMIMEType) {
-                    return .success((data, response))
-                }
-            }
-            
-            return .failure(.cannotDecodeContentData(for: url))
-            
-        } else {
-            // On Failure it checks if it a business error.
-            
-            if shouldCheckForErrorModel, !data.isEmpty {
-                
-                let model = try? JSONDecoder().decode(ErrorModel.self, from: data)
-                if let errorModel = model {
-                    let error = NSError(domain: NSError.publisherKitErrorDomain, code: errorModel.code ?? response.statusCode, userInfo: [NSLocalizedDescriptionKey: model?.message ?? "null", NSURLErrorFailingURLErrorKey: url])
-                    return .failure(error)
-                }
-            }
+            return demand
+        }
+    }
+}
+
+private extension PKPublishers.Validate.InternalSink {
+    
+    func validate(input: Input) -> Result<Downstream.Input, Downstream.Failure> {
+        
+        let (data, response) = input
+        
+        guard acceptableStatusCodes.contains(response.statusCode) else {
             
             // else throw http or url error
             if let httpError = HTTPStatusCode(rawValue: response.statusCode) {
-                return .failure(httpError as NSError)
+                return .failure(httpError)
             } else {
-                return .failure(.badServerResponse(for: url))
+                return .failure(URLError.badServerResponse())
             }
         }
+        
+        guard !data.isEmpty else {
+            return .success((data, response))
+        }
+        
+        var acceptableContentTypes: [String] {
+            if let contentTypes = self.acceptableContentTypes {
+                return contentTypes
+            }
+            
+            if #available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *) {
+                if let accept = response.value(forHTTPHeaderField: "Accept") {
+                    return accept.components(separatedBy: ",")
+                }
+            } else {
+                if let accept = response.allHeaderFields["Accept"] as? String {
+                    return accept.components(separatedBy: ",")
+                }
+            }
+            
+            return ["*/*"]
+        }
+        
+        guard let responseContentType = response.mimeType, let responseMIMEType = MIMEType(responseContentType) else {
+            for contentType in acceptableContentTypes {
+                if let mimeType = MIMEType(contentType), mimeType.isWildcard {
+                    return .success((data, response))
+                }
+            }
+            return .failure(URLError.cannotDecodeContentData()) // did not response header for response mime type
+        }
+        
+        for contentType in acceptableContentTypes {
+            if let acceptableMIMEType = MIMEType(contentType), acceptableMIMEType.matches(responseMIMEType) {
+                return .success((data, response))
+            }
+        }
+        
+        return .failure(URLError.cannotDecodeContentData())
     }
 }
 
 
-private extension NKPublishers.Validate {
+private extension PKPublishers.Validate.InternalSink {
     
     /// ACCEPTABLE CONTENT TYPE CHECK
     struct MIMEType {
