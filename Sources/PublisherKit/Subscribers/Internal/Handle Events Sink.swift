@@ -9,7 +9,7 @@ import Foundation
 
 extension PKPublishers.HandleEvents {
     
-    final class HandleEventsSink<Downstream: PKSubscriber, Upstream: PKPublisher>: Sinkable<Downstream, Upstream.Output, Upstream.Failure> where Downstream.Input == Upstream.Output, Downstream.Failure == Upstream.Failure {
+    final class HandleEventsSink<Downstream: PKSubscriber, Upstream: PKPublisher>: PKSubscribers.Sinkable<Downstream, Upstream.Output, Upstream.Failure> where Downstream.Input == Upstream.Output, Downstream.Failure == Upstream.Failure {
         
         final let receiveOutput: ((Input) -> Void)?
         

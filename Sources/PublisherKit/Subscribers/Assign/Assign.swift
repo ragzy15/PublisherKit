@@ -10,10 +10,7 @@ import Foundation
 extension PKSubscribers {
     
     final public class Assign<Root, Input>: PKSubscriber, PKCancellable {
-
-        /// The kind of errors this subscriber might receive.
-        ///
-        /// Use `Never` if this `Subscriber` cannot receive errors.
+        
         public typealias Failure = Never
         
         /// The object that contains the property to assign.
@@ -36,7 +33,7 @@ extension PKSubscribers {
             self._object = object
             self.keyPath = keyPath
         }
-
+        
         final public func receive(subscription: PKSubscription) {
             guard !isCancelled else { return }
             self.subscription = subscription
@@ -57,8 +54,7 @@ extension PKSubscribers {
             subscription?.cancel()
             subscription = nil
         }
-
-        /// Cancel the activity.
+        
         final public func cancel() {
             isCancelled = true
             _object = nil

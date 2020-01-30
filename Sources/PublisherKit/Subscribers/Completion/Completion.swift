@@ -10,9 +10,9 @@ import Foundation
 public extension PKSubscribers {
     
     enum Completion<Failure: Error> {
-
+        
         case finished
-
+        
         case failure(Failure)
         
         func mapError<NewFailure: Error>(_ transform: (Failure) -> NewFailure) -> Completion<NewFailure> {

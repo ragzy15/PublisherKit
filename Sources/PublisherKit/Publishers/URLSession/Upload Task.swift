@@ -35,10 +35,10 @@ extension URLSession {
 extension URLSession {
     
     public struct UploadTaskPKPublisher: PKPublisher, URLSessionTaskPublisherDelegate {
-         
+        
         public typealias Output = (data: Data, response: HTTPURLResponse)
         
-        public typealias Failure = NSError
+        public typealias Failure = Error
         
         public let request: URLRequest
         
@@ -70,23 +70,62 @@ extension URLSession {
         
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let dataTaskSubscriber = DataTaskSink(downstream: subscriber)
+            let uploadTaskSubscriber = InternalSink(downstream: subscriber)
             
-            let completion = handleCompletion(queue: UploadTaskPKPublisher.queue, subscriber: dataTaskSubscriber)
+            subscriber.receive(subscription: uploadTaskSubscriber)
             
             if let url = fileUrl {
-                dataTaskSubscriber.task = session.uploadTask(with: request, fromFile: url, completionHandler: completion)
+                uploadTaskSubscriber.resume(with: request, fromFile: url, in: session)
             } else {
-                dataTaskSubscriber.task = session.uploadTask(with: request, from: data, completionHandler: completion)
+                uploadTaskSubscriber.resume(with: request, from: data, in: session)
             }
             
-            subscriber.receive(subscription: dataTaskSubscriber)
-            
-            dataTaskSubscriber.task?.resume()
-            
-            #if DEBUG
             Logger.default.logAPIRequest(request: request, name: name)
-            #endif
+        }
+    }
+}
+
+extension URLSession.UploadTaskPKPublisher {
+    
+    /// Validates that the response has a status code acceptable in the specified range, and that the response has a content type in the specified sequence.
+    /// - Parameters:
+    ///   - acceptableStatusCodes: The range of acceptable status codes. Default range of 200...299.
+    ///   - acceptableContentTypes: The acceptable content types, which may specify wildcard types and/or subtypes. If provided `nil`, content type is not validated. Providing an empty Array uses default behaviour. By default the content type matches any specified in the **Accept** HTTP header field.
+    public func validate(acceptableStatusCodes codes: [Int] = Array(200 ..< 300), acceptableContentTypes: [String]? = []) -> PKPublishers.Validate<Self> {
+        PKPublishers.Validate(upstream: self, acceptableStatusCodes: codes, acceptableContentTypes: acceptableContentTypes)
+    }
+}
+
+extension URLSession.UploadTaskPKPublisher {
+    
+    // MARK: UPLOAD TASK SINK
+    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.InternalSink<Downstream, Output, Failure>, URLSessionTaskPublisherDelegate where Output == Downstream.Input, Failure == Downstream.Failure {
+        
+        private var task: URLSessionUploadTask?
+        
+        func resume(with request: URLRequest, from data: Data?, in session: URLSession) {
+            task = session.uploadTask(with: request, from: data, completionHandler: getCompletion())
+            task?.resume()
+        }
+        
+        func resume(with request: URLRequest, fromFile fileUrl: URL, in session: URLSession) {
+            task = session.uploadTask(with: request, fromFile: fileUrl, completionHandler: getCompletion())
+            task?.resume()
+        }
+        
+        @inline(__always)
+        private func getCompletion() -> (Data?, URLResponse?, Error?) -> Void {
+            handleCompletion(queue: URLSession.UploadTaskPKPublisher.queue, subscriber: self)
+        }
+        
+        override func end() {
+            task = nil
+            super.end()
+        }
+        
+        override func cancel() {
+            task?.cancel()
+            super.cancel()
         }
     }
 }

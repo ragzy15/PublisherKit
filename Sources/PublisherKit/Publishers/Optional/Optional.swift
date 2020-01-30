@@ -37,14 +37,34 @@ extension Optional {
         
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let optionalSubscriber = SameUpstreamOperatorSink<S, Self>(downstream: subscriber)
+            let optionalSubscriber = InternalSink(downstream: subscriber)
             
             subscriber.receive(subscription: optionalSubscriber)
             
             if let output = output {
                 optionalSubscriber.receive(input: output)
             }
+            
             optionalSubscriber.receive(completion: .finished)
+        }
+    }
+}
+
+extension Optional.PKPublisher {
+    
+    // MARK: OPTIONAL SINK
+    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.Sinkable<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
+        
+        override func receive(_ input: Output) -> PKSubscribers.Demand {
+            guard !isCancelled else { return .none }
+            downstream?.receive(input: input)
+            return demand
+        }
+        
+        override func receive(completion: PKSubscribers.Completion<Failure>) {
+            guard !isCancelled else { return }
+            end()
+            downstream?.receive(completion: completion)
         }
     }
 }

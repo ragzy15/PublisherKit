@@ -16,7 +16,6 @@ extension PKPublishers {
         
         public typealias Failure = Upstream.Failure
         
-        /// The publisher from which this publisher receives elements.
         public let upstream: Upstream
         
         /// A closure that indicates whether to republish an element.
@@ -29,17 +28,11 @@ extension PKPublishers {
         
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let upstreamSubscriber = SameUpstreamFailureOperatorSink<S, Upstream>(downstream: subscriber) { (output) in
-                
-                let include = self.isIncluded(output)
-                if include {
-                    _ = subscriber.receive(output)
-                }
-            }
+            let filterSubscriber = InternalSink(downstream: subscriber, isIncluded: isIncluded)
             
-            subscriber.receive(subscription: upstreamSubscriber)
-            upstreamSubscriber.request(.unlimited)
-            upstream.subscribe(upstreamSubscriber)
+            subscriber.receive(subscription: filterSubscriber)
+            filterSubscriber.request(.unlimited)
+            upstream.subscribe(filterSubscriber)
         }
     }
 }
@@ -70,5 +63,29 @@ extension PKPublishers.Filter {
         }
         
         return PKPublishers.TryFilter(upstream: upstream, isIncluded: newIsIncluded)
+    }
+}
+
+extension PKPublishers.Filter {
+
+    // MARK: FILTER SINK
+    private final class InternalSink<Downstream: PKSubscriber>: UpstreamInternalSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+        
+        private let isIncluded: (Upstream.Output) -> Bool
+        
+        init(downstream: Downstream, isIncluded: @escaping (Upstream.Output) -> Bool) {
+            self.isIncluded = isIncluded
+            super.init(downstream: downstream)
+        }
+        
+        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
+            guard !isCancelled else { return .none }
+            
+            if isIncluded(input) {
+                downstream?.receive(input: input)
+            }
+            
+            return demand
+        }
     }
 }

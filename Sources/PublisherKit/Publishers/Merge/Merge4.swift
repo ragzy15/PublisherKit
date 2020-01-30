@@ -15,15 +15,15 @@ extension PKPublishers {
         public typealias Output = A.Output
         
         public typealias Failure = A.Failure
-
+        
         public let a: A
-
+        
         public let b: B
-
+        
         public let c: C
-
+        
         public let d: D
-
+        
         public init(_ a: A, _ b: B, _ c: C, _ d: D) {
             self.a = a
             self.b = b
@@ -32,97 +32,80 @@ extension PKPublishers {
         }
         
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            typealias Subscriber = PKSubscribers.MergeSink<S, A>
             
-            let upstreamSubscriber = Subscriber(downstream: subscriber)
+            let mergeSubscriber = InternalSink(downstream: subscriber)
             
-            var aUpstreamSubscriber: SameUpstreamOutputOperatorSink<Subscriber, A>!
-            var bUpstreamSubscriber: SameUpstreamOutputOperatorSink<Subscriber, A>!
-            var cUpstreamSubscriber: SameUpstreamOutputOperatorSink<Subscriber, A>!
-            var dUpstreamSubscriber: SameUpstreamOutputOperatorSink<Subscriber, A>!
+            mergeSubscriber.receiveSubscription()
             
-            aUpstreamSubscriber = .init(downstream: upstreamSubscriber, receiveCompletion: { (completion) in
-                switch completion {
-                case .finished:
-                    if bUpstreamSubscriber.isOver, cUpstreamSubscriber.isOver, dUpstreamSubscriber.isOver {
-                        upstreamSubscriber.receive(completion: .finished)
-                    }
-                case .failure(let error):
-                    bUpstreamSubscriber?.cancel()
-                    cUpstreamSubscriber?.cancel()
-                    dUpstreamSubscriber?.cancel()
-                    
-                    upstreamSubscriber.receive(completion: .failure(error))
-                }
-            })
+            subscriber.receive(subscription: mergeSubscriber)
             
-            bUpstreamSubscriber = .init(downstream: upstreamSubscriber, receiveCompletion: { (completion) in
-                switch completion {
-                case .finished:
-                    if aUpstreamSubscriber.isOver, cUpstreamSubscriber.isOver, dUpstreamSubscriber.isOver {
-                        upstreamSubscriber.receive(completion: .finished)
-                    }
-                case .failure(let error):
-                    aUpstreamSubscriber?.cancel()
-                    cUpstreamSubscriber?.cancel()
-                    dUpstreamSubscriber?.cancel()
-                    
-                    upstreamSubscriber.receive(completion: .failure(error))
-                }
-            })
+            mergeSubscriber.sendRequest()
             
-            cUpstreamSubscriber = .init(downstream: upstreamSubscriber, receiveCompletion: { (completion) in
-                switch completion {
-                case .finished:
-                    if aUpstreamSubscriber.isOver, bUpstreamSubscriber.isOver, dUpstreamSubscriber.isOver {
-                        upstreamSubscriber.receive(completion: .finished)
-                    }
-                case .failure(let error):
-                    aUpstreamSubscriber?.cancel()
-                    bUpstreamSubscriber?.cancel()
-                    dUpstreamSubscriber?.cancel()
-                    
-                    upstreamSubscriber.receive(completion: .failure(error))
-                }
-            })
-            
-            dUpstreamSubscriber = .init(downstream: upstreamSubscriber, receiveCompletion: { (completion) in
-                switch completion {
-                case .finished:
-                    if aUpstreamSubscriber.isOver, bUpstreamSubscriber.isOver, cUpstreamSubscriber.isOver {
-                        upstreamSubscriber.receive(completion: .finished)
-                    }
-                case .failure(let error):
-                    aUpstreamSubscriber?.cancel()
-                    bUpstreamSubscriber?.cancel()
-                    cUpstreamSubscriber?.cancel()
-                    
-                    upstreamSubscriber.receive(completion: .failure(error))
-                }
-            })
-            
-            subscriber.receive(subscription: upstreamSubscriber)
-            
-            a.subscribe(aUpstreamSubscriber)
-            b.subscribe(bUpstreamSubscriber)
-            c.subscribe(cUpstreamSubscriber)
-            d.subscribe(dUpstreamSubscriber)
+            a.subscribe(mergeSubscriber.aSubscriber)
+            b.subscribe(mergeSubscriber.bSubscriber)
+            c.subscribe(mergeSubscriber.cSubscriber)
+            d.subscribe(mergeSubscriber.dSubscriber)
         }
         
         public func merge<P: PKPublisher>(with other: P) -> PKPublishers.Merge5<A, B, C, D, P> {
             PKPublishers.Merge5(a, b, c, d, other)
         }
-
+        
         public func merge<P: PKPublisher, Q: PKPublisher>(with p: P, _ q: Q) -> PKPublishers.Merge6<A, B, C, D, P, Q> {
             PKPublishers.Merge6(a, b, c, d, p, q)
         }
-
+        
         public func merge<P: PKPublisher, Q: PKPublisher, R: PKPublisher>(with p: P, _ q: Q, _ r: R) -> PKPublishers.Merge7<A, B, C, D, P, Q, R> {
             PKPublishers.Merge7(a, b, c, d, p, q, r)
         }
-
+        
         public func merge<P: PKPublisher, Q: PKPublisher, R: PKPublisher, S: PKPublisher>(with p: P, _ q: Q, _ r: R, _ s: S) -> PKPublishers.Merge8<A, B, C, D, P, Q, R, S> {
             PKPublishers.Merge8(a, b, c, d, p, q, r, s)
+        }
+    }
+}
+
+extension PKPublishers.Merge4 {
+    
+    // MARK: MERGE4 SINK
+    private final class InternalSink<Downstream: PKSubscriber>: CombineSink<Downstream> where Downstream.Input == Output {
+        
+        private(set) lazy var aSubscriber = PKSubscribers.FinalOperatorSink<CombineSink<Downstream>, Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        
+        private(set) lazy var bSubscriber = PKSubscribers.FinalOperatorSink<CombineSink<Downstream>, Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        
+        private(set) lazy var cSubscriber = PKSubscribers.FinalOperatorSink<CombineSink<Downstream>, Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        
+        private(set) lazy var dSubscriber = PKSubscribers.FinalOperatorSink<CombineSink<Downstream>, Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        
+        override func receiveSubscription() {
+            receive(subscription: aSubscriber)
+            receive(subscription: bSubscriber)
+            receive(subscription: cSubscriber)
+            receive(subscription: dSubscriber)
+        }
+        
+        override func sendRequest() {
+            request(.unlimited)
+            aSubscriber.request(.unlimited)
+            bSubscriber.request(.unlimited)
+            cSubscriber.request(.unlimited)
+            dSubscriber.request(.unlimited)
+        }
+        
+        override func receive(completion: PKSubscribers.Completion<Failure>) {
+            guard !isCancelled else { return }
+            
+            switch completion {
+            case .finished:
+                if aSubscriber.isOver && bSubscriber.isOver && cSubscriber.isOver && dSubscriber.isOver {
+                    downstream?.receive(completion: .finished)
+                }
+                
+            case .failure(let error):
+                end()
+                downstream?.receive(completion: .failure(error))
+            }
         }
     }
 }

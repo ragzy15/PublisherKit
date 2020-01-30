@@ -66,7 +66,6 @@ extension PKPublishers.Sequence {
     }
     
     public func drop(while predicate: (Elements.Element) -> Bool) -> PKPublishers.Sequence<DropWhileSequence<Elements>, Failure> {
-        
         let newSequence = sequence.drop(while: predicate)
         return PKPublishers.Sequence(sequence: newSequence)
     }
@@ -77,7 +76,6 @@ extension PKPublishers.Sequence {
     }
     
     public func filter(_ isIncluded: (Output) -> Bool) -> PKPublishers.Sequence<[Output], Failure> {
-        
         let newSequence = sequence.filter { isIncluded($0) }
         return PKPublishers.Sequence(sequence: newSequence)
     }
@@ -144,7 +142,6 @@ extension PKPublishers.Sequence where Elements.Element: Equatable {
     }
     
     public func contains(_ output: Elements.Element) -> Result<Bool, Failure>.PKPublisher {
-        
         let contains = sequence.contains(output)
         return Result.PKPublisher(contains)
     }
@@ -235,31 +232,28 @@ extension PKPublishers.Sequence where Elements: RandomAccessCollection {
 
 extension PKPublishers.Sequence where Elements: RangeReplaceableCollection {
     
-    //    public func prepend(_ elements: Output...) -> PKPublishers.Sequence<Elements, Failure>
+    public func prepend(_ elements: Output...) -> PKPublishers.Sequence<Elements, Failure> {
+        PKPublishers.Sequence(sequence: elements + sequence)
+    }
     
-    //    public func prepend<S: Swift.Sequence>(_ elements: S) -> PKPublishers.Sequence<Elements, Failure> where Elements.Element == S.Element
+    public func prepend<S: Swift.Sequence>(_ elements: S) -> PKPublishers.Sequence<Elements, Failure> where Elements.Element == S.Element {
+        PKPublishers.Sequence(sequence: elements + sequence)
+    }
     
-    //    public func prepend(_ publisher: PKPublishers.Sequence<Elements, Failure>) -> PKPublishers.Sequence<Elements, Failure>
+    public func prepend(_ publisher: PKPublishers.Sequence<Elements, Failure>) -> PKPublishers.Sequence<Elements, Failure> {
+        PKPublishers.Sequence(sequence: publisher.sequence + sequence)
+    }
     
     public func append(_ elements: Output...) -> PKPublishers.Sequence<Elements, Failure> {
-        var newSequence = sequence
-        newSequence.append(contentsOf: elements)
-        
-        return PKPublishers.Sequence(sequence: newSequence)
+        PKPublishers.Sequence(sequence: sequence + elements)
     }
     
     public func append<S: Sequence>(_ elements: S) -> PKPublishers.Sequence<Elements, Failure> where Elements.Element == S.Element {
-        var newSequence = sequence
-        newSequence.append(contentsOf: elements)
-        
-        return PKPublishers.Sequence(sequence: newSequence)
+        PKPublishers.Sequence(sequence: sequence + elements)
     }
     
     public func append(_ publisher: PKPublishers.Sequence<Elements, Failure>) -> PKPublishers.Sequence<Elements, Failure> {
-        var newSequence = sequence
-        newSequence.append(contentsOf: publisher.sequence)
-        
-        return PKPublishers.Sequence(sequence: newSequence)
+        PKPublishers.Sequence(sequence: sequence + publisher.sequence)
     }
 }
 

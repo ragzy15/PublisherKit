@@ -50,7 +50,7 @@ public final class BindableValue<Value> {
     public convenience init(_ wrappedValue: Value) {
         self.init(wrappedValue: wrappedValue)
     }
-
+    
     deinit {
         removeAllObservers()
     }

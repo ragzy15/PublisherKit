@@ -31,34 +31,53 @@ extension PKPublishers {
         
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            typealias Subscriber = SameUpstreamFailureOperatorSink<S, Self>
+            let tryDuplicatesSubscriber = InternalSink(downstream: subscriber, predicate: predicate)
             
-            var previousValue: Output? = nil
+            subscriber.receive(subscription: tryDuplicatesSubscriber)
+            tryDuplicatesSubscriber.request(.unlimited)
+            upstream.subscribe(tryDuplicatesSubscriber)
+        }
+    }
+}
+
+extension PKPublishers.TryRemoveDuplicates {
+    
+    // MARK: TRY REMOVE DUPLICATES SINK
+    private final class InternalSink<Downstream: PKSubscriber>: UpstreamSinkable<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+        
+        private var previousValue: Output? = nil
+        private let predicate: (Output, Output) throws -> Bool
+        
+        init(downstream: Downstream, predicate: @escaping (Output, Output) throws -> Bool) {
+            self.predicate = predicate
+            super.init(downstream: downstream)
+        }
+        
+        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
+            guard !isCancelled else { return .none }
             
-            let upstreamSubscriber = Subscriber(downstream: subscriber) { (output) in
-                
-                do {
-                    if let previousValue = previousValue, try self.predicate(previousValue, output) {
-                        return
-                    }
-                    
-                    previousValue = output
-                    _ = subscriber.receive(output)
-                    
-                } catch {
-                    subscriber.receive(completion: .failure(error))
+            do {
+                if let previousValue = previousValue, try predicate(previousValue, input) {
+                    return demand
                 }
+                
+                previousValue = input
+                downstream?.receive(input: input)
+                
+            } catch {
+                end()
+                downstream?.receive(completion: .failure(error))
             }
             
-            let bridgeSubscriber = SameUpstreamOutputOperatorSink<Subscriber, Upstream>(downstream: upstreamSubscriber) { (completion) in
-                let newCompletion = completion.mapError { $0 as Failure }
-                upstreamSubscriber.receive(completion: newCompletion)
-            }
+            return demand
+        }
+        
+        override func receive(completion: PKSubscribers.Completion<Upstream.Failure>) {
+            guard !isCancelled else { return }
+            end()
             
-            subscriber.receive(subscription: upstreamSubscriber)
-            upstreamSubscriber.request(.unlimited)
-            bridgeSubscriber.request(.unlimited)
-            upstream.receive(subscriber: bridgeSubscriber)
+            let completion = completion.mapError { $0 as Downstream.Failure }
+            downstream?.receive(completion: completion)
         }
     }
 }

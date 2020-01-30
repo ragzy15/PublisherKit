@@ -32,43 +32,63 @@ public extension PKPublishers {
             self.handler = handler
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where NewPublisher.Output == S.Input, Failure == S.Failure {
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            typealias Subscriber = PKSubscribers.SameOutputOperatorSink<S, NewPublisher.Output, Failure>
+            let tryCatchSubscriber = InternalSink(downstream: subscriber, handler: handler)
+            
+            subscriber.receive(subscription: tryCatchSubscriber)
+            tryCatchSubscriber.request(.unlimited)
+            upstream.receive(subscriber: tryCatchSubscriber)
+        }
+    }
+}
 
-            let newUpstreamSubscriber = Subscriber(downstream: subscriber) { (completion) in
-                
-                subscriber.receive(completion: completion)
+extension PKPublishers.TryCatch {
+    
+    // MARK: TRY CATCH SINK
+    private final class InternalSink<Downstream: PKSubscriber>: UpstreamSinkable<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+        
+        private let handler: (Upstream.Failure) throws -> NewPublisher
+        
+        private lazy var subscriber = PKSubscribers.FinalOperatorSink<Downstream, Upstream.Output, NewPublisher.Failure>(downstream: downstream!, receiveCompletion: { (completion, downstream) in
+            
+            let completion = completion.mapError { $0 as Downstream.Failure }
+            downstream?.receive(completion: completion)
+            
+        }) { (input, downstream) in
+            downstream?.receive(input: input)
+        }
+        
+        init(downstream: Downstream, handler: @escaping (Upstream.Failure) throws -> NewPublisher) {
+            self.handler = handler
+            super.init(downstream: downstream)
+        }
+        
+        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
+            guard !isCancelled else { return .none }
+            downstream?.receive(input: input)
+            return demand
+        }
+        
+        override func receive(completion: PKSubscribers.Completion<Upstream.Failure>) {
+            guard !isCancelled else { return }
+            end()
+            
+            guard let error = completion.getError() else {
+                downstream?.receive(completion: .finished)
+                return
             }
             
-            let bridgeSubscriber = SameUpstreamOutputOperatorSink<Subscriber, NewPublisher>(downstream: newUpstreamSubscriber) { (completion) in
+            do {
+                let newPublisher = try handler(error)
                 
-                let newCompletion = completion.mapError { $0 as Failure }
-                newUpstreamSubscriber.receive(completion: newCompletion)
+                downstream?.receive(subscription: subscriber)
+                subscriber.request(demand)
+                newPublisher.subscribe(subscriber)
+                
+            } catch let catchError {
+                downstream?.receive(completion: .failure(catchError as Downstream.Failure))
             }
-            
-            let upstreamSubscriber = SameUpstreamOutputOperatorSink<S, Upstream>(downstream: subscriber) { (completion) in
-                
-                guard let error = completion.getError() else {
-                    subscriber.receive(completion: .finished)
-                    return
-                }
-                
-                do {
-                    let newPublisher = try self.handler(error)
-                    
-                    subscriber.receive(subscription: newUpstreamSubscriber)
-                    newUpstreamSubscriber.request(.unlimited)
-                    newPublisher.subscribe(bridgeSubscriber)
-                    
-                } catch let catchError {
-                    subscriber.receive(completion: .failure(catchError as Failure))
-                }
-            }
-            
-            subscriber.receive(subscription: upstreamSubscriber)
-            upstreamSubscriber.request(.unlimited)
-            upstream.receive(subscriber: upstreamSubscriber)
         }
     }
 }

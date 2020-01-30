@@ -14,7 +14,6 @@ public extension PKPublishers {
         
         public typealias Failure = Upstream.Failure
         
-        /// The publisher from which this publisher receives elements.
         public let upstream: Upstream
         
         /// The key path of a property to publish.
@@ -27,15 +26,41 @@ public extension PKPublishers {
         
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let upstreamSubscriber = SameUpstreamFailureOperatorSink<S, Upstream>(downstream: subscriber) { (output) in
-                
-                let newOutput = output[keyPath: self.keyPath]
-                _ = subscriber.receive(newOutput)
-            }
+            let mapKeypathSubscriber = InternalSink(downstream: subscriber, keyPath: keyPath)
             
-            subscriber.receive(subscription: upstreamSubscriber)
-            upstreamSubscriber.request(.unlimited)
-            upstream.subscribe(upstreamSubscriber)
+            subscriber.receive(subscription: mapKeypathSubscriber)
+            mapKeypathSubscriber.request(.unlimited)
+            upstream.subscribe(mapKeypathSubscriber)
+        }
+    }
+}
+
+extension PKPublishers.MapKeyPath {
+    
+    // MARK: MAPKEYPATH SINK
+    private final class InternalSink<Downstream: PKSubscriber>: UpstreamSinkable<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+        
+        private let keyPath: KeyPath<Upstream.Output, Output>
+        
+        init(downstream: Downstream, keyPath: KeyPath<Upstream.Output, Output>) {
+            self.keyPath = keyPath
+            super.init(downstream: downstream)
+        }
+        
+        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
+            guard !isCancelled else { return .none }
+            
+            let output = input[keyPath: keyPath]
+            
+            downstream?.receive(input: output)
+            
+            return demand
+        }
+        
+        override func receive(completion: PKSubscribers.Completion<Failure>) {
+            guard !isCancelled else { return }
+            end()
+            downstream?.receive(completion: completion)
         }
     }
 }

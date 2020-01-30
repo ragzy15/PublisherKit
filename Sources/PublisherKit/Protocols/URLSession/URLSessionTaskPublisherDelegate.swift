@@ -12,13 +12,13 @@ protocol URLSessionTaskPublisherDelegate {
 
 extension URLSessionTaskPublisherDelegate {
     
-    func handleCompletion<Downstream: PKSubscriber>(queue: DispatchQueue, subscriber: URLSession.DataTaskSink<Downstream, URLSession.DataTaskPKPublisher.Output, URLSession.DataTaskPKPublisher.Failure>) -> (Data?, URLResponse?, Error?) -> Void {
+    func handleCompletion<Downstream: PKSubscriber>(queue: DispatchQueue, subscriber: PKSubscribers.InternalSink<Downstream, URLSession.DataTaskPKPublisher.Output, URLSession.DataTaskPKPublisher.Failure>) -> (Data?, URLResponse?, Error?) -> Void {
         
-        let block: (Data?, URLResponse?, Error?) -> Void = { (data, response, error) in
+        let completion: (Data?, URLResponse?, Error?) -> Void = { (data, response, error) in
             
             guard !subscriber.isCancelled else { return }
             
-            if let error = error as NSError? {
+            if let error = error {
                 queue.async {
                     subscriber.receive(completion: .failure(error))
                 }
@@ -31,6 +31,6 @@ extension URLSessionTaskPublisherDelegate {
             }
         }
         
-        return block
+        return completion
     }
 }

@@ -27,29 +27,16 @@ extension PKPublishers {
         
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            typealias Sub = InternalSink<S, A.Output, B.Output, Failure>
+            let combineLatestSubscriber = InternalSink(downstream: subscriber)
             
-            let upstreamSubscriber = Sub(downstream: subscriber)
-
-            let aUpstreamSubscriber = SameUpstreamFailureOperatorSink<Sub, A>(downstream: upstreamSubscriber) { (output) in
-                upstreamSubscriber.receive(a: output)
-            }
-
-            let bUpstreamSubscriber = SameUpstreamFailureOperatorSink<Sub, B>(downstream: upstreamSubscriber) { (output) in
-                upstreamSubscriber.receive(b: output)
-            }
+            combineLatestSubscriber.receiveSubscription()
             
-            upstreamSubscriber.receive(subscription: aUpstreamSubscriber)
-            upstreamSubscriber.receive(subscription: bUpstreamSubscriber)
+            subscriber.receive(subscription: combineLatestSubscriber)
             
-            subscriber.receive(subscription: upstreamSubscriber)
+            combineLatestSubscriber.sendRequest()
             
-            upstreamSubscriber.request(.unlimited)
-            aUpstreamSubscriber.request(.unlimited)
-            bUpstreamSubscriber.request(.unlimited)
-            
-            b.subscribe(bUpstreamSubscriber)
-            a.subscribe(aUpstreamSubscriber)
+            b.subscribe(combineLatestSubscriber.bSubscriber)
+            a.subscribe(combineLatestSubscriber.aSubscriber)
         }
     }
 }
@@ -61,3 +48,59 @@ extension PKPublishers.CombineLatest: Equatable where A: Equatable, B: Equatable
     }
 }
 
+extension PKPublishers.CombineLatest {
+    
+    // MARK: COMBINELATEST SINK
+    private final class InternalSink<Downstream: PKSubscriber>: CombineSink<Downstream> where Downstream.Input == Output {
+        
+        private(set) lazy var aSubscriber = PKSubscribers.FinalOperatorSink<InternalSink, A.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        
+        private(set) lazy var bSubscriber = PKSubscribers.FinalOperatorSink<InternalSink, B.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        
+        private var aOutput: A.Output?
+        private var bOutput: B.Output?
+        
+        override func receiveSubscription() {
+            receive(subscription: aSubscriber)
+            receive(subscription: bSubscriber)
+        }
+        
+        override func sendRequest() {
+            request(.unlimited)
+            aSubscriber.request(.unlimited)
+            bSubscriber.request(.unlimited)
+        }
+        
+        private func receive(a input: A.Output, downstream: InternalSink?) {
+            aOutput = input
+            checkAndSend()
+        }
+        
+        private func receive(b input: B.Output, downstream: InternalSink?) {
+            bOutput = input
+            checkAndSend()
+        }
+        
+        override func checkAndSend() {
+            guard let aOutput = aOutput, let bOutput = bOutput else {
+                return
+            }
+            
+            receive(input: (aOutput, bOutput))
+        }
+        
+        override func receive(completion: PKSubscribers.Completion<Failure>) {
+            guard !isCancelled else { return }
+            
+            if let error = completion.getError() {
+                end()
+                downstream?.receive(completion: .failure(error))
+            }
+            
+            if aSubscriber.isOver && bSubscriber.isOver {
+                end()
+                downstream?.receive(completion: .finished)
+            }
+        }
+    }
+}

@@ -26,30 +26,11 @@ public extension PKPublishers {
         
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            typealias Subscriber = PKSubscribers.SameFailureOperatorSink<S, Upstream.Output, Failure>
+            let tryMapSubscriber = InternalSink(downstream: subscriber, transform: transform)
             
-            let upstreamSubscriber = Subscriber(downstream: subscriber) { (output) in
-                
-               do {
-                   let newOutput = try self.transform(output)
-                   _ = subscriber.receive(newOutput)
-                   
-               } catch {
-                   subscriber.receive(completion: .failure(error))
-               }
-            }
-            
-            let bridgeSubscriber = SameUpstreamOutputOperatorSink<Subscriber, Upstream>(downstream: upstreamSubscriber) { (completion) in
-                
-                let newCompletion = completion.mapError { $0 as Failure }
-                upstreamSubscriber.receive(completion: newCompletion)
-                
-            }
-            
-            subscriber.receive(subscription: upstreamSubscriber)
-            upstreamSubscriber.request(.unlimited)
-            bridgeSubscriber.request(.unlimited)
-            upstream.receive(subscriber: bridgeSubscriber)
+            subscriber.receive(subscription: tryMapSubscriber)
+            tryMapSubscriber.request(.unlimited)
+            upstream.receive(subscriber: tryMapSubscriber)
         }
     }
 }
@@ -74,5 +55,42 @@ extension PKPublishers.TryMap {
         }
         
         return PKPublishers.TryMap<Upstream, T>(upstream: upstream, transform: newTransform)
+    }
+}
+
+extension PKPublishers.TryMap {
+    
+    // MARK: TRY MAP SINK
+    private final class InternalSink<Downstream: PKSubscriber>: UpstreamSinkable<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+        
+        private let transform: (Upstream.Output) throws -> Output
+        
+        init(downstream: Downstream, transform: @escaping (Upstream.Output) throws -> Output) {
+            self.transform = transform
+            super.init(downstream: downstream)
+        }
+        
+        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
+            guard !isCancelled else { return .none }
+            
+            do {
+                let output = try transform(input)
+                downstream?.receive(input: output)
+                
+            } catch {
+                end()
+                downstream?.receive(completion: .failure(error))
+            }
+            
+            return demand
+        }
+        
+        override func receive(completion: PKSubscribers.Completion<Upstream.Failure>) {
+            guard !isCancelled else { return }
+            end()
+            
+            let completion = completion.mapError { $0 as Downstream.Failure }
+            downstream?.receive(completion: completion)
+        }
     }
 }
