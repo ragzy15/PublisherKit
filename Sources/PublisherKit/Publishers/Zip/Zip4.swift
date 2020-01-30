@@ -11,19 +11,19 @@ extension PKPublishers {
     
     /// A publisher created by applying the zip function to four upstream publishers.
     public struct Zip4<A: PKPublisher, B: PKPublisher, C: PKPublisher, D: PKPublisher>: PKPublisher where A.Failure == B.Failure, B.Failure == C.Failure, C.Failure == D.Failure {
-
+        
         public typealias Output = (A.Output, B.Output, C.Output, D.Output)
-
+        
         public typealias Failure = A.Failure
-
+        
         public let a: A
-
+        
         public let b: B
-
+        
         public let c: C
-
+        
         public let d: D
-
+        
         public init(_ a: A, _ b: B, _ c: C, _ d: D) {
             self.a = a
             self.b = b
@@ -33,43 +33,18 @@ extension PKPublishers {
         
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            typealias Sub = ZipSink4<S, A.Output, B.Output, C.Output, D.Output, Failure>
+            let zipSubscriber = InternalSink(downstream: subscriber)
             
-            let upstreamSubscriber = Sub(downstream: subscriber)
-
-            let aUpstreamSubscriber = SameUpstreamFailureOperatorSink<Sub, A>(downstream: upstreamSubscriber) { (output) in
-                upstreamSubscriber.receive(a: output)
-            }
-
-            let bUpstreamSubscriber = SameUpstreamFailureOperatorSink<Sub, B>(downstream: upstreamSubscriber) { (output) in
-                upstreamSubscriber.receive(b: output)
-            }
+            zipSubscriber.receiveSubscription()
             
-            let cUpstreamSubscriber = SameUpstreamFailureOperatorSink<Sub, C>(downstream: upstreamSubscriber) { (output) in
-                upstreamSubscriber.receive(c: output)
-            }
+            subscriber.receive(subscription: zipSubscriber)
             
-            let dUpstreamSubscriber = SameUpstreamFailureOperatorSink<Sub, D>(downstream: upstreamSubscriber) { (output) in
-                upstreamSubscriber.receive(d: output)
-            }
+            zipSubscriber.sendRequest()
             
-            upstreamSubscriber.receive(subscription: aUpstreamSubscriber)
-            upstreamSubscriber.receive(subscription: bUpstreamSubscriber)
-            upstreamSubscriber.receive(subscription: cUpstreamSubscriber)
-            upstreamSubscriber.receive(subscription: dUpstreamSubscriber)
-            
-            subscriber.receive(subscription: upstreamSubscriber)
-            
-            upstreamSubscriber.request(.unlimited)
-            aUpstreamSubscriber.request(.unlimited)
-            bUpstreamSubscriber.request(.unlimited)
-            cUpstreamSubscriber.request(.unlimited)
-            dUpstreamSubscriber.request(.unlimited)
-            
-            d.subscribe(dUpstreamSubscriber)
-            c.subscribe(cUpstreamSubscriber)
-            b.subscribe(bUpstreamSubscriber)
-            a.subscribe(aUpstreamSubscriber)
+            d.subscribe(zipSubscriber.dSubscriber)
+            c.subscribe(zipSubscriber.cSubscriber)
+            b.subscribe(zipSubscriber.bSubscriber)
+            a.subscribe(zipSubscriber.aSubscriber)
         }
     }
 }
@@ -78,5 +53,73 @@ extension PKPublishers.Zip4: Equatable where A: Equatable, B: Equatable, C: Equa
     
     public static func == (lhs: PKPublishers.Zip4<A, B, C, D>, rhs: PKPublishers.Zip4<A, B, C, D>) -> Bool {
         lhs.a == rhs.a && lhs.b == rhs.b && lhs.c == rhs.c && lhs.d == rhs.d
+    }
+}
+
+extension PKPublishers.Zip4 {
+    
+    // MARK: ZIP4 SINK
+    private final class InternalSink<Downstream: PKSubscriber>: CombineSink<Downstream> where Downstream.Input == Output {
+        
+        private(set) lazy var aSubscriber = PKSubscribers.FinalOperatorSink<CombineSink<Downstream>, A.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        
+        private(set) lazy var bSubscriber = PKSubscribers.FinalOperatorSink<CombineSink<Downstream>, B.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        
+        private(set) lazy var cSubscriber = PKSubscribers.FinalOperatorSink<CombineSink<Downstream>, C.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        
+        private(set) lazy var dSubscriber = PKSubscribers.FinalOperatorSink<CombineSink<Downstream>, D.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        
+        private var aOutputs: [A.Output] = []
+        private var bOutputs: [B.Output] = []
+        private var cOutputs: [C.Output] = []
+        private var dOutputs: [D.Output] = []
+        
+        override func receiveSubscription() {
+            receive(subscription: aSubscriber)
+            receive(subscription: bSubscriber)
+            receive(subscription: cSubscriber)
+            receive(subscription: dSubscriber)
+        }
+        
+        override func sendRequest() {
+            request(.unlimited)
+            aSubscriber.request(.unlimited)
+            bSubscriber.request(.unlimited)
+            cSubscriber.request(.unlimited)
+            dSubscriber.request(.unlimited)
+        }
+        
+        private func receive(a input: A.Output, downstream: CombineSink<Downstream>?) {
+            aOutputs.append(input)
+            checkAndSend()
+        }
+        
+        private func receive(b input: B.Output, downstream: CombineSink<Downstream>?) {
+            bOutputs.append(input)
+            checkAndSend()
+        }
+        
+        private func receive(c input: C.Output, downstream: CombineSink<Downstream>?) {
+            cOutputs.append(input)
+            checkAndSend()
+        }
+        
+        private func receive(d input: D.Output, downstream: CombineSink<Downstream>?) {
+            dOutputs.append(input)
+            checkAndSend()
+        }
+        
+        override func checkAndSend() {
+            guard !aOutputs.isEmpty, !bOutputs.isEmpty, !cOutputs.isEmpty, !dOutputs.isEmpty else {
+                return
+            }
+            
+            let aOutput = aOutputs.removeFirst()
+            let bOutput = bOutputs.removeFirst()
+            let cOutput = cOutputs.removeFirst()
+            let dOutput = dOutputs.removeFirst()
+            
+            receive(input: (aOutput, bOutput, cOutput, dOutput))
+        }
     }
 }

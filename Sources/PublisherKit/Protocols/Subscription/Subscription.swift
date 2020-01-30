@@ -15,3 +15,8 @@ public protocol PKSubscription: PKCancellable {
     /// Tells a publisher that it may send more values to the subscriber.
     func request(_ demand: PKSubscribers.Demand)
 }
+
+extension PKSubscription {
+    
+    func end() {}
+}

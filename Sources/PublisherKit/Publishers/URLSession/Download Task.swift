@@ -44,10 +44,10 @@ extension URLSession {
 extension URLSession {
     
     public struct DownloadTaskPKPublisher: PKPublisher {
-         
+        
         public typealias Output = (url: URL, response: HTTPURLResponse)
         
-        public typealias Failure = NSError
+        public typealias Failure = Error
         
         public let request: URLRequest?
         
@@ -75,38 +75,72 @@ extension URLSession {
         
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let dataTaskSubscriber = DataTaskSink(downstream: subscriber)
+            let downloadTaskSubscriber = InternalSink(downstream: subscriber)
             
-            let completion: (URL?, URLResponse?, Error?) -> Void = { (url, response, error) in
+            subscriber.receive(subscription: downloadTaskSubscriber)
+            
+            if let request = request {
+                downloadTaskSubscriber.resume(with: request, in: session)
+                Logger.default.logAPIRequest(request: request, name: name)
+            } else if let data = resumeData {
+                downloadTaskSubscriber.resume(withResumeData: data, in: session)
+            }
+        }
+    }
+}
+
+extension URLSession.DownloadTaskPKPublisher {
+    
+    // MARK: DOWNLOAD TASK SINK
+    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.InternalSink<Downstream, Output, Failure>, URLSessionTaskPublisherDelegate where Output == Downstream.Input, Failure == Downstream.Failure {
+        
+        private var task: URLSessionDownloadTask?
+        
+        override init(downstream: Downstream) {
+            super.init(downstream: downstream)
+        }
+        
+        func resume(with request: URLRequest, in session: URLSession) {
+            task = session.downloadTask(with: request, completionHandler: getCompletion())
+            task?.resume()
+        }
+        
+        func resume(withResumeData data: Data, in session: URLSession) {
+            task = session.downloadTask(withResumeData: data, completionHandler: getCompletion())
+            task?.resume()
+        }
+        
+        @inline(__always)
+        private func getCompletion() -> (URL?, URLResponse?, Error?) -> Void {
+            
+            let completion: (URL?, URLResponse?, Error?) -> Void = { [weak self] (url, response, error) in
                 
-                guard !dataTaskSubscriber.isCancelled else { return }
+                guard let `self` = self, !self.isCancelled else { return }
                 
                 if let error = error as NSError? {
-                    DownloadTaskPKPublisher.queue.async {
-                        dataTaskSubscriber.receive(completion: .failure(error))
+                    URLSession.DownloadTaskPKPublisher.queue.async {
+                        self.receive(completion: .failure(error))
                     }
                     
                 } else if let response = response as? HTTPURLResponse, let url = url {
-                    DownloadTaskPKPublisher.queue.async {
-                        dataTaskSubscriber.receive(input: (url, response))
-                        dataTaskSubscriber.receive(completion: .finished)
+                    URLSession.DownloadTaskPKPublisher.queue.async {
+                        self.receive(input: (url, response))
+                        self.receive(completion: .finished)
                     }
                 }
             }
             
-            if let request = request {
-                dataTaskSubscriber.task = session.downloadTask(with: request, completionHandler: completion)
-            } else if let data = resumeData {
-                dataTaskSubscriber.task = session.downloadTask(withResumeData: data, completionHandler: completion)
-            }
-            
-            subscriber.receive(subscription: dataTaskSubscriber)
-            
-            dataTaskSubscriber.task?.resume()
-            
-            #if DEBUG
-//            Logger.default.logAPIRequest(request: request, name: name)
-            #endif
+            return completion
+        }
+        
+        override func end() {
+            task = nil
+            super.end()
+        }
+        
+        override func cancel() {
+            task?.cancel()
+            super.cancel()
         }
     }
 }

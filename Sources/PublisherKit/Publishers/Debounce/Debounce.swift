@@ -30,33 +30,52 @@ public extension PKPublishers {
         
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            var outputCounter = 0
+            let debounceSubscriber = InternalSink(downstream: subscriber, scheduler: scheduler, dueTime: dueTime)
             
-            var newOutput: Output?
-            
-            var upstreamSubscriber: SameUpstreamFailureOperatorSink<S, Upstream>!
-            
-            upstreamSubscriber = .init(downstream: subscriber) { (output) in
-                
-                newOutput = output
-                
-                outputCounter += 1
-                
-                self.scheduler.schedule(after: self.dueTime) {
-                    
-                    guard !upstreamSubscriber.isCancelled else { return }
-                    
-                    outputCounter -= 1
+            subscriber.receive(subscription: debounceSubscriber)
+            debounceSubscriber.request(.unlimited)
+            upstream.subscribe(debounceSubscriber)
+        }
+    }
+}
 
-                    guard outputCounter <= 0 else { return }
-                    
-                    _ = subscriber.receive(newOutput!)
-                }
+extension PKPublishers.Debounce {
+    
+    // MARK: DEBOUNCE SINK
+    private final class InternalSink<Downstream: PKSubscriber, Scheduler: PKScheduler>: UpstreamInternalSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+        
+        private var outputCounter = 0
+        
+        private var newOutput: Output?
+        
+        private let dueTime: SchedulerTime
+        
+        private let scheduler: Scheduler
+        
+        init(downstream: Downstream, scheduler: Scheduler, dueTime: SchedulerTime) {
+            self.scheduler = scheduler
+            self.dueTime = dueTime
+            super.init(downstream: downstream)
+        }
+        
+        override func receive(_ input: Output) -> PKSubscribers.Demand {
+            guard !isCancelled else { return .none }
+            
+            newOutput = input
+            
+            outputCounter += 1
+            
+            scheduler.schedule(after: dueTime) { [weak self] in
+                guard let `self` = self, !self.isCancelled else { return }
+                
+                self.outputCounter -= 1
+                
+                guard self.outputCounter <= 0, let output = self.newOutput else { return }
+                
+                self.downstream?.receive(input: output)
             }
             
-            subscriber.receive(subscription: upstreamSubscriber)
-            upstreamSubscriber.request(.unlimited)
-            upstream.subscribe(upstreamSubscriber)
+            return demand
         }
     }
 }

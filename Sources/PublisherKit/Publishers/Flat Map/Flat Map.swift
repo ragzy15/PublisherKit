@@ -8,19 +8,19 @@
 import Foundation
 
 extension PKPublishers {
-
+    
     public struct FlatMap<Upstream: PKPublisher, NewPublisher: PKPublisher>: PKPublisher where Upstream.Failure == NewPublisher.Failure {
-
+        
         public typealias Output = NewPublisher.Output
-
+        
         public typealias Failure = Upstream.Failure
         
         public let upstream: Upstream
-
+        
         public let maxPublishers: PKSubscribers.Demand
-
+        
         public let transform: (Upstream.Output) -> NewPublisher
-
+        
         public init(upstream: Upstream, maxPublishers: PKSubscribers.Demand, transform: @escaping (Upstream.Output) -> NewPublisher) {
             self.upstream = upstream
             self.maxPublishers = maxPublishers
@@ -29,22 +29,44 @@ extension PKPublishers {
         
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            var upstreamSubscriber: SameUpstreamFailureOperatorSink<S, Upstream>!
+            let flatMapSubscriber = InternalSink(downstream: subscriber, transform: transform)
             
-            let newUpstreamSubscriber = SameUpstreamOutputOperatorSink<S, NewPublisher>(downstream: subscriber) { (completion) in
-                if let error = completion.getError() {
-                    subscriber.receive(completion: .failure(error))
-                }
-            }
+            subscriber.receive(subscription: flatMapSubscriber)
+            flatMapSubscriber.request(maxPublishers)
+            upstream.subscribe(flatMapSubscriber)
+        }
+    }
+}
+
+extension PKPublishers.FlatMap {
+    
+    // MARK: FLATMAP SINK
+    private final class InternalSink<Downstream: PKSubscriber>: UpstreamSinkable<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+        
+        private let transform: (Upstream.Output) -> NewPublisher
+        
+        private lazy var subscriber = UpstreamInternalSink<Downstream, NewPublisher>(downstream: downstream!)
+        
+        init(downstream: Downstream, transform: @escaping (Upstream.Output) -> NewPublisher) {
+            self.transform = transform
+            super.init(downstream: downstream)
+        }
+        
+        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
+            guard !isCancelled else { return .none }
             
-            upstreamSubscriber = SameUpstreamFailureOperatorSink<S, Upstream>(downstream: subscriber) { (output) in
-                let newPublisher = self.transform(output)
-                newPublisher.subscribe(newUpstreamSubscriber)
-            }
+            let publisher = transform(input)
             
-            subscriber.receive(subscription: upstreamSubscriber)
-            upstreamSubscriber.request(maxPublishers)
-            upstream.subscribe(upstreamSubscriber)
+            downstream?.receive(subscription: subscriber)
+            publisher.subscribe(subscriber)
+            
+            return demand
+        }
+        
+        override func receive(completion: PKSubscribers.Completion<Upstream.Failure>) {
+            guard !isCancelled else { return }
+            end()
+            downstream?.receive(completion: completion)
         }
     }
 }

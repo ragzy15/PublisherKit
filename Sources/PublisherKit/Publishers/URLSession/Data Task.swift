@@ -47,10 +47,10 @@ extension URLSession {
     public typealias NKDataTaskPublisher = DataTaskPKPublisher
     
     public struct DataTaskPKPublisher: PKPublisher, URLSessionTaskPublisherDelegate {
-         
+        
         public typealias Output = (data: Data, response: HTTPURLResponse)
         
-        public typealias Failure = NSError
+        public typealias Failure = Error
         
         public let request: URLRequest
         
@@ -68,26 +68,45 @@ extension URLSession {
         
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let dataTaskSubscriber = DataTaskSink(downstream: subscriber)
-            
-            let completion = handleCompletion(queue: DataTaskPKPublisher.queue, subscriber: dataTaskSubscriber)
-            
-            dataTaskSubscriber.task = session.dataTask(with: request, completionHandler: completion)
+            let dataTaskSubscriber = InternalSink(downstream: subscriber)
             
             subscriber.receive(subscription: dataTaskSubscriber)
             
-            dataTaskSubscriber.task?.resume()
+            dataTaskSubscriber.resume(with: request, in: session)
             
-            #if DEBUG
             Logger.default.logAPIRequest(request: request, name: name)
-            #endif
         }
     }
 }
 
 extension URLSession.DataTaskPKPublisher {
     
-    func validate(shouldCheckForErrorModel flag: Bool, acceptableStatusCodes codes: [Int]) -> PKPublishers.Validate {
-        PKPublishers.Validate(upstream: self, shouldCheckForErrorModel: flag, acceptableStatusCodes: codes)
+    public func validate(acceptableStatusCodes codes: [Int] = Array(200 ..< 300), acceptableContentTypes: [String]? = []) -> PKPublishers.Validate<Self> {
+        PKPublishers.Validate(upstream: self, acceptableStatusCodes: codes, acceptableContentTypes: acceptableContentTypes)
+    }
+}
+
+extension URLSession.DataTaskPKPublisher {
+    
+    // MARK: DATA TASK SINK
+    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.InternalSink<Downstream, Output, Failure>, URLSessionTaskPublisherDelegate where Output == Downstream.Input, Failure == Downstream.Failure {
+        
+        private var task: URLSessionTask?
+        
+        func resume(with request: URLRequest, in session: URLSession) {
+            let completion = handleCompletion(queue: URLSession.DataTaskPKPublisher.queue, subscriber: self)
+            task = session.dataTask(with: request, completionHandler: completion)
+            task?.resume()
+        }
+        
+        override func end() {
+            task = nil
+            super.end()
+        }
+        
+        override func cancel() {
+            task?.cancel()
+            super.cancel()
+        }
     }
 }

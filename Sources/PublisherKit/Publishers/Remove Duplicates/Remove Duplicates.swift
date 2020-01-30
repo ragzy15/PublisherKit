@@ -31,21 +31,45 @@ extension PKPublishers {
         
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            var previousValue: Output? = nil
+            let duplicatesSubscriber = InternalSink(downstream: subscriber, predicate: predicate)
             
-            let upstreamSubscriber = SameUpstreamFailureOperatorSink<S, Upstream>(downstream: subscriber) { (output) in
-                
-                if let previousValue = previousValue, self.predicate(previousValue, output) {
-                    return
-                }
-                
-                previousValue = output
-                _ = subscriber.receive(output)
+            subscriber.receive(subscription: duplicatesSubscriber)
+            duplicatesSubscriber.request(.unlimited)
+            upstream.subscribe(duplicatesSubscriber)
+        }
+    }
+}
+
+extension PKPublishers.RemoveDuplicates {
+    
+    // MARK: REMOVE DUPLICATES SINK
+    private final class InternalSink<Downstream: PKSubscriber>: UpstreamSinkable<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+        
+        private let predicate: (Output, Output) -> Bool
+        private var previousValue: Output?
+        
+        init(downstream: Downstream, predicate: @escaping (Output, Output) -> Bool) {
+            self.predicate = predicate
+            super.init(downstream: downstream)
+        }
+        
+        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
+            guard !isCancelled else { return .none }
+            
+            if let previousValue = previousValue, predicate(previousValue, input) {
+                return demand
             }
             
-            subscriber.receive(subscription: upstreamSubscriber)
-            upstreamSubscriber.request(.unlimited)
-            upstream.subscribe(upstreamSubscriber)
+            previousValue = input
+            downstream?.receive(input: input)
+            
+            return demand
+        }
+        
+        override func receive(completion: PKSubscribers.Completion<Upstream.Failure>) {
+            guard !isCancelled else { return }
+            end()
+            downstream?.receive(completion: completion)
         }
     }
 }

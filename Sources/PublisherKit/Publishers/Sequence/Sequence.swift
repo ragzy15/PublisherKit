@@ -15,17 +15,17 @@ extension Sequence {
 }
 
 extension PKPublishers {
-
+    
     /// A publisher that publishes a given sequence of elements.
     ///
     /// When the publisher exhausts the elements in the sequence, the next request causes the publisher to finish.
     public struct Sequence<Elements: Swift.Sequence, Failure: Error>: PKPublisher {
-
+        
         public typealias Output = Elements.Element
-
+        
         /// The sequence of elements to publish.
         public let sequence: Elements
-
+        
         /// Creates a publisher for a sequence of elements.
         ///
         /// - Parameter sequence: The sequence of elements to publish.
@@ -35,7 +35,7 @@ extension PKPublishers {
         
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let sequenceSubscriber = SameUpstreamOperatorSink<S, Self>(downstream: subscriber)
+            let sequenceSubscriber = InternalSink(downstream: subscriber)
             
             subscriber.receive(subscription: sequenceSubscriber)
             
@@ -48,5 +48,12 @@ extension PKPublishers {
                 subscriber.receive(completion: .finished)
             }
         }
+    }
+}
+
+extension PKPublishers.Sequence {
+
+    // MARK: SEQUENCE SINK
+    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.InternalSink<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
     }
 }

@@ -26,16 +26,11 @@ public extension PKPublishers {
         
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let upstreamSubscriber = SameUpstreamFailureOperatorSink<S, Upstream>(downstream: subscriber) { (output) in
-                
-                let newOutput = self.transform(output)
-                _ = subscriber.receive(newOutput)
-                
-            }
+            let mapSubscriber = InternalSink(downstream: subscriber, transform: transform)
             
-            subscriber.receive(subscription: upstreamSubscriber)
-            upstreamSubscriber.request(.unlimited)
-            upstream.subscribe(upstreamSubscriber)
+            subscriber.receive(subscription: mapSubscriber)
+            mapSubscriber.request(.unlimited)
+            upstream.subscribe(mapSubscriber)
         }
     }
 }
@@ -60,5 +55,34 @@ extension PKPublishers.Map {
         }
         
         return PKPublishers.TryMap<Upstream, T>(upstream: upstream, transform: newTransform)
+    }
+}
+
+extension PKPublishers.Map {
+    
+    // MARK: MAP SINK
+    private final class InternalSink<Downstream: PKSubscriber>: UpstreamSinkable<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+        
+        private let transform: (Upstream.Output) -> Output
+        
+        init(downstream: Downstream, transform: @escaping (Upstream.Output) -> Output) {
+            self.transform = transform
+            super.init(downstream: downstream)
+        }
+        
+        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
+            guard !isCancelled else { return .none }
+            
+            let output = transform(input)
+            downstream?.receive(input: output)
+            
+            return demand
+        }
+        
+        override func receive(completion: PKSubscribers.Completion<Upstream.Failure>) {
+            guard !isCancelled else { return }
+            end()
+            downstream?.receive(completion: completion)
+        }
     }
 }

@@ -11,21 +11,21 @@ extension PKPublishers {
     
     /// A publisher created by applying the zip function to two upstream publishers.
     public struct CombineLatest5<A: PKPublisher, B: PKPublisher, C: PKPublisher, D: PKPublisher, E: PKPublisher>: PKPublisher where A.Failure == B.Failure, B.Failure == C.Failure, C.Failure == D.Failure, D.Failure == E.Failure {
-
+        
         public typealias Output = (A.Output, B.Output, C.Output, D.Output, E.Output)
-
+        
         public typealias Failure = A.Failure
-
+        
         public let a: A
-
+        
         public let b: B
-
+        
         public let c: C
         
         public let d: D
         
         public let e: E
-
+        
         public init(_ a: A, _ b: B, _ c: C, _ d: D, _ e: E) {
             self.a = a
             self.b = b
@@ -36,50 +36,19 @@ extension PKPublishers {
         
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            typealias Sub = InternalSink<S, A.Output, B.Output, C.Output, D.Output, E.Output, Failure>
+            let combineLatestSubscriber = InternalSink(downstream: subscriber)
             
-            let upstreamSubscriber = Sub(downstream: subscriber)
-
-            let aUpstreamSubscriber = SameUpstreamFailureOperatorSink<Sub, A>(downstream: upstreamSubscriber) { (output) in
-                upstreamSubscriber.receive(a: output)
-            }
-
-            let bUpstreamSubscriber = SameUpstreamFailureOperatorSink<Sub, B>(downstream: upstreamSubscriber) { (output) in
-                upstreamSubscriber.receive(b: output)
-            }
+            combineLatestSubscriber.receiveSubscription()
             
-            let cUpstreamSubscriber = SameUpstreamFailureOperatorSink<Sub, C>(downstream: upstreamSubscriber) { (output) in
-                upstreamSubscriber.receive(c: output)
-            }
+            subscriber.receive(subscription: combineLatestSubscriber)
             
-            let dUpstreamSubscriber = SameUpstreamFailureOperatorSink<Sub, D>(downstream: upstreamSubscriber) { (output) in
-                upstreamSubscriber.receive(d: output)
-            }
+            combineLatestSubscriber.sendRequest()
             
-            let eUpstreamSubscriber = SameUpstreamFailureOperatorSink<Sub, E>(downstream: upstreamSubscriber) { (output) in
-                upstreamSubscriber.receive(e: output)
-            }
-            
-            upstreamSubscriber.receive(subscription: aUpstreamSubscriber)
-            upstreamSubscriber.receive(subscription: bUpstreamSubscriber)
-            upstreamSubscriber.receive(subscription: cUpstreamSubscriber)
-            upstreamSubscriber.receive(subscription: dUpstreamSubscriber)
-            upstreamSubscriber.receive(subscription: eUpstreamSubscriber)
-            
-            subscriber.receive(subscription: upstreamSubscriber)
-            
-            upstreamSubscriber.request(.unlimited)
-            aUpstreamSubscriber.request(.unlimited)
-            bUpstreamSubscriber.request(.unlimited)
-            cUpstreamSubscriber.request(.unlimited)
-            dUpstreamSubscriber.request(.unlimited)
-            eUpstreamSubscriber.request(.unlimited)
-            
-            e.subscribe(eUpstreamSubscriber)
-            d.subscribe(dUpstreamSubscriber)
-            c.subscribe(cUpstreamSubscriber)
-            b.subscribe(bUpstreamSubscriber)
-            a.subscribe(aUpstreamSubscriber)
+            e.subscribe(combineLatestSubscriber.eSubscriber)
+            d.subscribe(combineLatestSubscriber.dSubscriber)
+            c.subscribe(combineLatestSubscriber.cSubscriber)
+            b.subscribe(combineLatestSubscriber.bSubscriber)
+            a.subscribe(combineLatestSubscriber.aSubscriber)
         }
     }
 }
@@ -88,5 +57,78 @@ extension PKPublishers.CombineLatest5: Equatable where A: Equatable, B: Equatabl
     
     public static func == (lhs: PKPublishers.CombineLatest5<A, B, C, D, E>, rhs: PKPublishers.CombineLatest5<A, B, C, D, E>) -> Bool {
         lhs.a == rhs.a && lhs.b == rhs.b && lhs.c == rhs.c && lhs.d == rhs.d && lhs.e == rhs.e
+    }
+}
+
+extension PKPublishers.CombineLatest5 {
+    
+    // MARK: COMBINELATEST5 SINK
+    private final class InternalSink<Downstream: PKSubscriber>: CombineSink<Downstream> where Downstream.Input == Output {
+        
+        private(set) lazy var aSubscriber = PKSubscribers.FinalOperatorSink<InternalSink, A.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        
+        private(set) lazy var bSubscriber = PKSubscribers.FinalOperatorSink<InternalSink, B.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        
+        private(set) lazy var cSubscriber = PKSubscribers.FinalOperatorSink<InternalSink, C.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        
+        private(set) lazy var dSubscriber = PKSubscribers.FinalOperatorSink<InternalSink, D.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        
+        private(set) lazy var eSubscriber = PKSubscribers.FinalOperatorSink<InternalSink, E.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        
+        private var aOutput: A.Output?
+        private var bOutput: B.Output?
+        private var cOutput: C.Output?
+        private var dOutput: D.Output?
+        private var eOutput: E.Output?
+        
+        override func receiveSubscription() {
+            receive(subscription: aSubscriber)
+            receive(subscription: bSubscriber)
+            receive(subscription: cSubscriber)
+            receive(subscription: dSubscriber)
+            receive(subscription: eSubscriber)
+        }
+        
+        override func sendRequest() {
+            request(.unlimited)
+            aSubscriber.request(.unlimited)
+            bSubscriber.request(.unlimited)
+            cSubscriber.request(.unlimited)
+            dSubscriber.request(.unlimited)
+            eSubscriber.request(.unlimited)
+        }
+        
+        private func receive(a input: A.Output, downstream: InternalSink?) {
+            aOutput = input
+            checkAndSend()
+        }
+        
+        private func receive(b input: B.Output, downstream: InternalSink?) {
+            bOutput = input
+            checkAndSend()
+        }
+        
+        private func receive(c input: C.Output, downstream: InternalSink?) {
+            cOutput = input
+            checkAndSend()
+        }
+        
+        private func receive(d input: D.Output, downstream: InternalSink?) {
+            dOutput = input
+            checkAndSend()
+        }
+        
+        private func receive(e input: E.Output, downstream: InternalSink?) {
+            eOutput = input
+            checkAndSend()
+        }
+        
+        override func checkAndSend() {
+            guard let aOutput = aOutput, let bOutput = bOutput, let cOutput = cOutput, let dOutput = dOutput, let eOutput = eOutput else {
+                return
+            }
+            
+            receive(input: (aOutput, bOutput, cOutput, dOutput, eOutput))
+        }
     }
 }

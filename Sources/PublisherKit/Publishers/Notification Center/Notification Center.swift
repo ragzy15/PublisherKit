@@ -51,13 +51,61 @@ extension NotificationCenter {
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let notificationSubscriber = InternalSink(downstream: subscriber, center: center, name: name, object: object)
-
-            notificationSubscriber.observer = center.addObserver(forName: name, object: object, queue: nil) { (notification) in
-                notificationSubscriber.receive(input: notification)
-            }
+            
+            notificationSubscriber.observe()
             
             notificationSubscriber.request(.unlimited)
             subscriber.receive(subscription: notificationSubscriber)
+        }
+        
+        final private class InternalSink<Downstream: PKSubscriber>: Sinkable<Downstream, Output, Failure> where Downstream.Failure == Failure, Downstream.Input == Output {
+            
+            private let center: NotificationCenter
+            private let name: Notification.Name
+            private let object: AnyObject?
+            
+            private var observer: NSObjectProtocol?
+            
+            init(downstream: Downstream, center: NotificationCenter, name: Notification.Name, object: AnyObject?) {
+                self.center = center
+                self.name = name
+                self.object = object
+                super.init(downstream: downstream)
+            }
+            
+            func observe() {
+                observer = center.addObserver(forName: name, object: object, queue: nil) { [weak self] (notification) in
+                    self?.receive(input: notification)
+                }
+            }
+            
+            override func receive(_ input: Output) -> PKSubscribers.Demand {
+                guard !isCancelled else { return .none }
+                downstream?.receive(input: input)
+                return demand
+            }
+            
+            override func receive(completion: PKSubscribers.Completion<Failure>) {
+                guard !isCancelled else { return }
+                end()
+                downstream?.receive(completion: completion)
+            }
+            
+            override func end() {
+                if let observer = observer {
+                    center.removeObserver(observer, name: name, object: object)
+                }
+                observer = nil
+                super.end()
+            }
+            
+            override func cancel() {
+                if let observer = observer {
+                    center.removeObserver(observer, name: name, object: object)
+                }
+                observer = nil
+                super.cancel()
+            }
         }
     }
 }

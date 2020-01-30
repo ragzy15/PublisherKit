@@ -19,7 +19,7 @@ final public class PKAnyCancellable: PKCancellable, Hashable {
     
     var isCancelled = false
     
-//    private var storagePointer: UnsafeMutablePointer<Set<PKAnyCancellable>>?
+    //    private var storagePointer: UnsafeMutablePointer<Set<PKAnyCancellable>>?
     
     /// Initializes the cancellable object with the given cancel-time closure.
     ///

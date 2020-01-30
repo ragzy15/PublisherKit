@@ -13,12 +13,12 @@ public extension PKPublishers {
     struct Catch<Upstream: PKPublisher, NewPublisher: PKPublisher>: PKPublisher where Upstream.Output == NewPublisher.Output {
         
         public typealias Output = Upstream.Output
-
+        
         public typealias Failure = NewPublisher.Failure
-
+        
         /// The publisher that this publisher receives elements from.
         public let upstream: Upstream
-
+        
         /// A closure that accepts the upstream failure as input and returns a publisher to replace the upstream publisher.
         public let handler: (Upstream.Failure) -> NewPublisher
         
@@ -32,31 +32,54 @@ public extension PKPublishers {
             self.handler = handler
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where  Output == S.Input, Failure == S.Failure {
+        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let upstreamSubscriber = SameUpstreamOutputOperatorSink<S, Upstream>(downstream: subscriber) { (completion) in
-                
-                switch completion {
-                    
-                case .finished:
-                    subscriber.receive(completion: .finished)
-                    
-                case .failure(let error):
-                    let newPublisher = self.handler(error)
-                
-                    let newUpstreamSubscriber = SameUpstreamFailureOperatorSink<S, NewPublisher>(downstream: subscriber) { (output) in
-                        _ = subscriber.receive(output)
-                    }
-                    
-                    subscriber.receive(subscription: newUpstreamSubscriber)
-                    newUpstreamSubscriber.request(.unlimited)
-                    newPublisher.subscribe(newUpstreamSubscriber)
-                }
+            let catchSubscriber = InternalSink(downstream: subscriber, handler: handler)
+            
+            subscriber.receive(subscription: catchSubscriber)
+            catchSubscriber.request(.unlimited)
+            upstream.subscribe(catchSubscriber)
+        }
+    }
+}
+
+extension PKPublishers.Catch {
+    
+    // MARK: CATCH SINK
+    private final class InternalSink<Downstream: PKSubscriber>: UpstreamSinkable<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+        
+        private let handler: (Upstream.Failure) -> NewPublisher
+        private lazy var subscriber = PKSubscribers.InternalSink<Downstream, Output, NewPublisher.Failure>(downstream: downstream!)
+        
+        init(downstream: Downstream, handler: @escaping (Upstream.Failure) -> NewPublisher) {
+            self.handler = handler
+            super.init(downstream: downstream)
+        }
+        
+        override func receive(_ input: Output) -> PKSubscribers.Demand {
+            guard !isCancelled else { return .none }
+            downstream?.receive(input: input)
+            return demand
+        }
+        
+        override func receive(completion: PKSubscribers.Completion<Upstream.Failure>) {
+            guard !isCancelled else { return }
+            end()
+            
+            guard let error = completion.getError() else {
+                downstream?.receive(completion: .finished)
+                return
             }
             
-            subscriber.receive(subscription: upstreamSubscriber)
-            upstreamSubscriber.request(.unlimited)
-            upstream.subscribe(upstreamSubscriber)
+            guard let downstream = downstream else {
+                return
+            }
+            
+            let newPublisher = handler(error)
+            
+            downstream.receive(subscription: subscriber)
+            subscriber.request(demand)
+            newPublisher.subscribe(subscriber)
         }
     }
 }

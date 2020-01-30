@@ -18,7 +18,6 @@ public extension PKPublishers {
         
         public let output: Upstream.Output
         
-        /// The publisher from which this publisher receives elements.
         public let upstream: Upstream
         
         public init(upstream: Upstream, output: Output) {
@@ -28,29 +27,49 @@ public extension PKPublishers {
         
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            var outputReceived = false
+            let replaceEmptySubscriber = InternalSink(downstream: subscriber)
             
-            let upstreamSubscriber = UpstreamOperatorSink<S, Upstream>(downstream: subscriber, receiveCompletion: { (completion) in
-                
-                switch completion {
-                case .finished:
-                    if !outputReceived {
-                        _ = subscriber.receive(self.output)
-                        subscriber.receive(completion: .finished)
-                    }
-                    
-                case .failure(let error):
-                    subscriber.receive(completion: .failure(error))
-                }
-                
-            }) { (output) in
-                outputReceived = true
-                _ = subscriber.receive(output)
+            replaceEmptySubscriber.onFinish = { (downstream) in
+                downstream?.receive(input: self.output)
             }
             
-            subscriber.receive(subscription: upstreamSubscriber)
-            upstreamSubscriber.request(.unlimited)
-            upstream.subscribe(upstreamSubscriber)
+            subscriber.receive(subscription: replaceEmptySubscriber)
+            replaceEmptySubscriber.request(.unlimited)
+            upstream.subscribe(replaceEmptySubscriber)
+        }
+    }
+}
+
+extension PKPublishers.ReplaceEmpty {
+    
+    // MARK: REPLACE EMPTY SINK
+    private final class InternalSink<Downstream: PKSubscriber>: UpstreamSinkable<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+        
+        private var inputReceived = false
+        var onFinish: ((Downstream?) -> Void)?
+        
+        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
+            guard !isCancelled else { return .none }
+            
+            inputReceived = true
+            downstream?.receive(input: input)
+            
+            return demand
+        }
+        
+        override func receive(completion: PKSubscribers.Completion<Upstream.Failure>) {
+            guard !isCancelled else { return }
+            end()
+            
+            if let error = completion.getError() {
+                downstream?.receive(completion: .failure(error))
+                return
+            }
+            
+            if !inputReceived {
+                onFinish?(downstream)
+            }
+            downstream?.receive(completion: .finished)
         }
     }
 }

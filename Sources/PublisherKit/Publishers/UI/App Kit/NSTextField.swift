@@ -10,7 +10,7 @@
 import AppKit
 
 extension NSTextField {
-
+    
     @available(*, deprecated, renamed: "textChangePublisher")
     public var nkTextPublisher: AnyPKPublisher<String, Never> {
         textChangePublisher

@@ -19,7 +19,7 @@ public struct AnyPKSubscriber<Input, Failure: Error>: PKSubscriber {
     @usableFromInline let receiveSubscription: ((PKSubscription) -> Void)?
     @usableFromInline let receiveValue: ((Input) -> PKSubscribers.Demand)?
     @usableFromInline let receiveCompletion: ((PKSubscribers.Completion<Failure>) -> Void)?
-
+    
     /// Creates a type-erasing subscriber to wrap an existing subscriber.
     ///
     /// - Parameter s: The subscriber to type-erase.
@@ -36,7 +36,7 @@ public struct AnyPKSubscriber<Input, Failure: Error>: PKSubscriber {
             s.receive(completion: completion)
         }
     }
-
+    
     /// Creates a type-erasing subscriber that executes the provided closures.
     ///
     /// - Parameters:
@@ -48,7 +48,7 @@ public struct AnyPKSubscriber<Input, Failure: Error>: PKSubscriber {
         self.receiveValue = receiveValue
         self.receiveCompletion = receiveCompletion
     }
-
+    
     @inlinable public func receive(subscription: PKSubscription) {
         receiveSubscription?(subscription)
     }

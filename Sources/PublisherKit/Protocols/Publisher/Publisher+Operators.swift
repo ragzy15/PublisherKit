@@ -273,9 +273,7 @@ extension PKPublisher {
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = jsonKeyDecodingStrategy
         
-        var publisher = PKPublishers.Decode<Self, Item, JSONDecoder>(upstream: self, decoder: decoder)
-        publisher.log = true
-        return publisher
+        return PKPublishers.Decode<Self, Item, JSONDecoder>(upstream: self, decoder: decoder)
     }
 }
 

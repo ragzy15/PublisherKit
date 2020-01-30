@@ -15,7 +15,6 @@ extension PKPublishers {
         
         public typealias Failure = Upstream.Failure
         
-        /// The publisher from which this publisher receives elements.
         public let upstream: Upstream
         
         public let scheduler: PKScheduler
@@ -27,23 +26,44 @@ extension PKPublishers {
         
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let upstreamSubscriber = UpstreamOperatorSink<S, Upstream>(downstream: subscriber, receiveCompletion: { (completion) in
+            let receiveOnSubscriber = InternalSink(downstream: subscriber, scheduler: scheduler)
+            
+            subscriber.receive(subscription: receiveOnSubscriber)
+            receiveOnSubscriber.request(.unlimited)
+            upstream.subscribe(receiveOnSubscriber)
+        }
+    }
+}
 
-                self.scheduler.schedule {
-                    subscriber.receive(completion: completion)
-                }
-                
-            }) { (output) in
-                
-                self.scheduler.schedule {
-                    _ = subscriber.receive(output)
-                }
-                
+extension PKPublishers.ReceiveOn {
+    
+    // MARK: RECEIVEON SINK
+    private final class InternalSink<Downstream: PKSubscriber>: UpstreamSinkable<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+        
+        private let scheduler: PKScheduler
+        
+        init(downstream: Downstream, scheduler: PKScheduler) {
+            self.scheduler = scheduler
+            super.init(downstream: downstream)
+        }
+        
+        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
+            guard !isCancelled else { return .none }
+            
+            scheduler.schedule {
+                self.downstream?.receive(input: input)
             }
             
-            subscriber.receive(subscription: upstreamSubscriber)
-            upstreamSubscriber.request(.unlimited)
-            upstream.subscribe(upstreamSubscriber)
+            return demand
+        }
+        
+        override func receive(completion: PKSubscribers.Completion<Upstream.Failure>) {
+            guard !isCancelled else { return }
+            end()
+            
+            scheduler.schedule {
+                self.downstream?.receive(completion: completion)
+            }
         }
     }
 }

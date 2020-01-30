@@ -16,7 +16,6 @@ extension PKPublishers {
         
         public typealias Failure = Error
         
-        /// The publisher from which this publisher receives elements.
         public let upstream: Upstream
         
         /// A error-throwing closure that indicates whether to republish an element.
@@ -29,29 +28,11 @@ extension PKPublishers {
         
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            typealias Subscriber = PKSubscribers.SameFailureOperatorSink<S, Upstream.Output, Failure>
+            let tryFilterSubscriber = InternalSink(downstream: subscriber, isIncluded: isIncluded)
             
-            let upstreamSubscriber = Subscriber(downstream: subscriber) { (output) in
-                
-               do {
-                   if try self.isIncluded(output) {
-                       _ = subscriber.receive(output)
-                   }
-               } catch {
-                   subscriber.receive(completion: .failure(error))
-               }
-            }
-            
-            let bridgeSubscriber = SameUpstreamOutputOperatorSink<Subscriber, Upstream>(downstream: upstreamSubscriber) { (completion) in
-                
-                let newCompletion = completion.mapError { $0 as Failure }
-                upstreamSubscriber.receive(completion: newCompletion)
-            }
-            
-            subscriber.receive(subscription: upstreamSubscriber)
-            upstreamSubscriber.request(.unlimited)
-            bridgeSubscriber.request(.unlimited)
-            upstream.receive(subscriber: bridgeSubscriber)
+            subscriber.receive(subscription: tryFilterSubscriber)
+            tryFilterSubscriber.request(.unlimited)
+            upstream.receive(subscriber: tryFilterSubscriber)
         }
     }
 }
@@ -82,5 +63,39 @@ extension PKPublishers.TryFilter {
         }
         
         return PKPublishers.TryFilter(upstream: upstream, isIncluded: newIsIncluded)
+    }
+}
+
+extension PKPublishers.TryFilter {
+    
+    // MARK: TRY FILTER SINK
+    private final class InternalSink<Downstream: PKSubscriber>: UpstreamSinkable<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+        
+        private let isIncluded: (Upstream.Output) throws -> Bool
+        
+        init(downstream: Downstream, isIncluded: @escaping (Upstream.Output) throws -> Bool) {
+            self.isIncluded = isIncluded
+            super.init(downstream: downstream)
+        }
+        
+        override func receive(input: Upstream.Output) {
+            guard receive(input) != .none else { return }
+            
+            do {
+                if try isIncluded(input) {
+                    downstream?.receive(input: input)
+                }
+            } catch {
+                downstream?.receive(completion: .failure(error))
+            }
+        }
+        
+        override func receive(completion: PKSubscribers.Completion<Upstream.Failure>) {
+            guard !isCancelled else { return }
+            end()
+            
+            let completion = completion.mapError { $0 as Downstream.Failure }
+            downstream?.receive(completion: completion)
+        }
     }
 }
