@@ -21,8 +21,19 @@ extension PKPublishers {
         public let acceptableStatusCodes: [Int]
         
         /// Acceptable Content Types codes for the network call.
+        ///
+        /// If provided `nil` then content type is not validated.
+        ///
+        /// If provided an empty Array, defaults to default behavious.
+        ///
+        /// By default the content type matches any specified in the **Accept** HTTP header field.
         public let acceptableContentTypes: [String]?
         
+        /// Validates that the response has a status code acceptable in the specified range, and that the response has a content type in the specified sequence.
+        /// - Parameters:
+        ///   - upstream: A URLSession task publisher.
+        ///   - acceptableStatusCodes: The range of acceptable status codes.
+        ///   - acceptableContentTypes: The acceptable content types, which may specify wildcard types and/or subtypes. If provided `nil`, content type is not validated. Providing an empty Array uses default behaviour. By default the content type matches any specified in the **Accept** HTTP header field.
         public init(upstream: Upstream, acceptableStatusCodes: [Int], acceptableContentTypes: [String]?) {
             self.upstream = upstream
             self.acceptableStatusCodes = acceptableStatusCodes

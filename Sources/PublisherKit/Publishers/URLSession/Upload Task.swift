@@ -87,6 +87,10 @@ extension URLSession {
 
 extension URLSession.UploadTaskPKPublisher {
     
+    /// Validates that the response has a status code acceptable in the specified range, and that the response has a content type in the specified sequence.
+    /// - Parameters:
+    ///   - acceptableStatusCodes: The range of acceptable status codes. Default range of 200...299.
+    ///   - acceptableContentTypes: The acceptable content types, which may specify wildcard types and/or subtypes. If provided `nil`, content type is not validated. Providing an empty Array uses default behaviour. By default the content type matches any specified in the **Accept** HTTP header field.
     public func validate(acceptableStatusCodes codes: [Int] = Array(200 ..< 300), acceptableContentTypes: [String]? = []) -> PKPublishers.Validate<Self> {
         PKPublishers.Validate(upstream: self, acceptableStatusCodes: codes, acceptableContentTypes: acceptableContentTypes)
     }
