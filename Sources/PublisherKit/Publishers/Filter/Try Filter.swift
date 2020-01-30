@@ -78,16 +78,19 @@ extension PKPublishers.TryFilter {
             super.init(downstream: downstream)
         }
         
-        override func receive(input: Upstream.Output) {
-            guard receive(input) != .none else { return }
+        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
+            guard !isCancelled else { return .none }
             
             do {
                 if try isIncluded(input) {
                     downstream?.receive(input: input)
                 }
             } catch {
+                end()
                 downstream?.receive(completion: .failure(error))
             }
+            
+            return demand
         }
         
         override func receive(completion: PKSubscribers.Completion<Upstream.Failure>) {

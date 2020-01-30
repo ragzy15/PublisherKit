@@ -116,5 +116,19 @@ extension PKPublishers.CombineLatest4 {
             
             receive(input: (aOutput, bOutput, cOutput, dOutput))
         }
+        
+        override func receive(completion: PKSubscribers.Completion<Failure>) {
+            guard !isCancelled else { return }
+            
+            if let error = completion.getError() {
+                end()
+                downstream?.receive(completion: .failure(error))
+            }
+            
+            if aSubscriber.isOver && bSubscriber.isOver && cSubscriber.isOver && dSubscriber.isOver {
+                end()
+                downstream?.receive(completion: .finished)
+            }
+        }
     }
 }

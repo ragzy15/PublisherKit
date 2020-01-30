@@ -64,18 +64,21 @@ extension PKPublishers.TryCompactMap {
             super.init(downstream: downstream)
         }
         
-        override func receive(input: Upstream.Output) {
-            guard receive(input) != .none else { return }
+        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
+            guard !isCancelled else { return .none }
             
             do {
                 guard let output = try transform(input) else {
-                    return
+                    return demand
                 }
                 downstream?.receive(input: output)
                 
             } catch {
+                end()
                 downstream?.receive(completion: .failure(error))
             }
+            
+            return demand
         }
         
         override func receive(completion: PKSubscribers.Completion<Upstream.Failure>) {

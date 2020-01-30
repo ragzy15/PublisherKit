@@ -88,5 +88,19 @@ extension PKPublishers.CombineLatest {
             
             receive(input: (aOutput, bOutput))
         }
+        
+        override func receive(completion: PKSubscribers.Completion<Failure>) {
+            guard !isCancelled else { return }
+            
+            if let error = completion.getError() {
+                end()
+                downstream?.receive(completion: .failure(error))
+            }
+            
+            if aSubscriber.isOver && bSubscriber.isOver {
+                end()
+                downstream?.receive(completion: .finished)
+            }
+        }
     }
 }
