@@ -16,6 +16,7 @@ extension PKPublishers {
         
         public typealias Failure = Upstream.Failure
         
+        /// The publisher from which this publisher receives elements.
         public let upstream: Upstream
         
         /// The maximum number of publishers produced by this method.

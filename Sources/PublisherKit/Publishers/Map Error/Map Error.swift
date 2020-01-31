@@ -14,6 +14,7 @@ public extension PKPublishers {
         
         public typealias Output = Upstream.Output
         
+        /// The publisher from which this publisher receives elements.
         public let upstream: Upstream
         
         /// The closure that transforms elements from the upstream publisher.

@@ -16,8 +16,10 @@ public extension PKPublishers {
         
         public typealias Failure = Upstream.Failure
         
+        /// The element to deliver when the upstream publisher finishes without delivering any elements.
         public let output: Upstream.Output
         
+        /// The publisher from which this publisher receives elements.
         public let upstream: Upstream
         
         public init(upstream: Upstream, output: Output) {
