@@ -45,7 +45,13 @@ extension PKPublishers.FlatMap {
         
         private let transform: (Upstream.Output) -> NewPublisher
         
-        private lazy var subscriber = UpstreamInternalSink<Downstream, NewPublisher>(downstream: downstream!)
+        private lazy var subscriber = PKSubscribers.FinalOperatorSink<Downstream, NewPublisher.Output, NewPublisher.Failure>(downstream: downstream!, receiveCompletion: { (completion, downstream) in
+            if let error = completion.getError() {
+                downstream?.receive(completion: .failure(error))
+            }
+        }) { (input, downstream) in
+            downstream?.receive(input: input)
+        }
         
         init(downstream: Downstream, transform: @escaping (Upstream.Output) -> NewPublisher) {
             self.transform = transform
