@@ -1,5 +1,5 @@
 //
-//  Merge All.swift
+//  Merge Many.swift
 //  PublisherKit
 //
 //  Created by Raghav Ahuja on 25/12/19.
@@ -9,7 +9,7 @@ import Foundation
 
 extension PKPublishers {
     
-    public struct MergeAll<Upstream: PKPublisher>: PKPublisher {
+    public struct MergeMany<Upstream: PKPublisher>: PKPublisher {
         
         public typealias Output = Upstream.Output
         
@@ -36,13 +36,13 @@ extension PKPublishers {
             }
         }
         
-        public func merge(with other: Upstream) -> PKPublishers.MergeAll<Upstream> {
-            PKPublishers.MergeAll(publishers + [other])
+        public func merge(with other: Upstream) -> PKPublishers.MergeMany<Upstream> {
+            PKPublishers.MergeMany(publishers + [other])
         }
     }
 }
 
-extension PKPublishers.MergeAll {
+extension PKPublishers.MergeMany {
 
     // MARK: MERGE ALL SINK
     final class InternalSink<Downstream: PKSubscriber>: UpstreamInternalSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
