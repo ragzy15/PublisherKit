@@ -29,8 +29,6 @@ extension PKPublishers {
             
             let mergeSubscriber = InternalSink(downstream: subscriber)
             
-            subscriber.receive(subscription: mergeSubscriber)
-            
             publishers.forEach { (publisher) in
                 publisher.subscribe(mergeSubscriber)
             }

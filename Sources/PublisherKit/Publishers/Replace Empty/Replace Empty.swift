@@ -34,6 +34,7 @@ public extension PKPublishers {
             replaceEmptySubscriber.onFinish = { (downstream) in
                 _ = downstream?.receive(self.output)
             }
+            
             upstream.subscribe(replaceEmptySubscriber)
         }
     }

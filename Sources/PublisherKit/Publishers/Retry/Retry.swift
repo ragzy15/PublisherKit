@@ -50,7 +50,6 @@ extension PKPublishers {
                 self.upstream.subscribe(retrySubscriber)
             }
             
-            subscriber.receive(subscription: retrySubscriber)
             retrySubscriber.request(demand)
             upstream.subscribe(retrySubscriber)
         }

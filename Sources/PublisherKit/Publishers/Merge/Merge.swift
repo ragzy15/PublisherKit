@@ -31,12 +31,6 @@ extension PKPublishers {
             
             let mergeSubscriber = InternalSink(downstream: subscriber)
             
-            mergeSubscriber.receiveSubscription()
-            
-            subscriber.receive(subscription: mergeSubscriber)
-            
-            mergeSubscriber.sendRequest()
-            
             b.subscribe(mergeSubscriber.bSubscriber)
             a.subscribe(mergeSubscriber.aSubscriber)
         }
@@ -72,19 +66,16 @@ extension PKPublishers.Merge {
     // MARK: MERGE SINK
     private final class InternalSink<Downstream: PKSubscriber>: CombineSink<Downstream> where Downstream.Input == Output {
         
-        private(set) lazy var aSubscriber = PKSubscribers.FinalOperatorSink<CombineSink<Downstream>, A.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var aSubscriber = PKSubscribers.ClosureOperatorSink<CombineSink<Downstream>, A.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
-        private(set) lazy var bSubscriber = PKSubscribers.FinalOperatorSink<CombineSink<Downstream>, B.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var bSubscriber = PKSubscribers.ClosureOperatorSink<CombineSink<Downstream>, B.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
-        override func receiveSubscription() {
-            receive(subscription: aSubscriber)
-            receive(subscription: bSubscriber)
+        override init(downstream: Downstream) {
+            super.init(downstream: downstream)
         }
         
-        override func sendRequest() {
-            request(.unlimited)
-            aSubscriber.request(.unlimited)
-            bSubscriber.request(.unlimited)
+        override func sendSubscription() {
+            super.sendSubscription()
         }
         
         override func receive(completion: PKSubscribers.Completion<Failure>) {

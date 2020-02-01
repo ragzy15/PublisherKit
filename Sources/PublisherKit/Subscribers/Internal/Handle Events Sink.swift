@@ -42,10 +42,9 @@ extension PKPublishers.HandleEvents {
         }
         
         override func receive(subscription: PKSubscription) {
-            super.receive(subscription: subscription)
+            guard !isCancelled else { return }
+            self.subscription = subscription
             receiveSubscription?(subscription)
-            downstream?.receive(subscription: self)
-            subscription.request(.unlimited)
         }
         
         override func receive(_ input: Input) -> PKSubscribers.Demand {

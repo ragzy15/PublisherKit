@@ -73,6 +73,7 @@ extension URLSession {
             let uploadTaskSubscriber = InternalSink(downstream: subscriber)
             
             subscriber.receive(subscription: uploadTaskSubscriber)
+            uploadTaskSubscriber.request(.max(1))
             
             if let url = fileUrl {
                 uploadTaskSubscriber.resume(with: request, fromFile: url, in: session)
@@ -99,9 +100,19 @@ extension URLSession.UploadTaskPKPublisher {
 extension URLSession.UploadTaskPKPublisher {
     
     // MARK: UPLOAD TASK SINK
-    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.InternalSink<Downstream, Output, Failure>, URLSessionTaskPublisherDelegate where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.SubscriptionSink<Downstream, Output, Failure>, URLSessionTaskPublisherDelegate where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private var task: URLSessionUploadTask?
+        
+        override func receive(input: Output) {
+            guard !isCancelled else { return }
+            _ = downstream?.receive(input)
+        }
+        
+        override func receive(completion: PKSubscribers.Completion<Failure>) {
+            guard !isCancelled else { return }
+            downstream?.receive(completion: completion)
+        }
         
         func resume(with request: URLRequest, from data: Data?, in session: URLSession) {
             task = session.uploadTask(with: request, from: data, completionHandler: getCompletion())

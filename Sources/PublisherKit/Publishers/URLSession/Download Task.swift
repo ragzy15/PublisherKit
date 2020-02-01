@@ -78,6 +78,7 @@ extension URLSession {
             let downloadTaskSubscriber = InternalSink(downstream: subscriber)
             
             subscriber.receive(subscription: downloadTaskSubscriber)
+            downloadTaskSubscriber.request(.max(1))
             
             if let request = request {
                 downloadTaskSubscriber.resume(with: request, in: session)
@@ -92,12 +93,18 @@ extension URLSession {
 extension URLSession.DownloadTaskPKPublisher {
     
     // MARK: DOWNLOAD TASK SINK
-    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.InternalSink<Downstream, Output, Failure>, URLSessionTaskPublisherDelegate where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.SubscriptionSink<Downstream, Output, Failure>, URLSessionTaskPublisherDelegate where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private var task: URLSessionDownloadTask?
         
-        override init(downstream: Downstream) {
-            super.init(downstream: downstream)
+        override func receive(input: Output) {
+            guard !isCancelled else { return }
+            _ = downstream?.receive(input)
+        }
+        
+        override func receive(completion: PKSubscribers.Completion<Failure>) {
+            guard !isCancelled else { return }
+            downstream?.receive(completion: completion)
         }
         
         func resume(with request: URLRequest, in session: URLSession) {
@@ -124,7 +131,7 @@ extension URLSession.DownloadTaskPKPublisher {
                     
                 } else if let response = response as? HTTPURLResponse, let url = url {
                     URLSession.DownloadTaskPKPublisher.queue.async {
-                        _ = self.receive((url, response))
+                        self.receive(input: (url, response))
                         self.receive(completion: .finished)
                     }
                 }

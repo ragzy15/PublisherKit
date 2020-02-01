@@ -56,6 +56,7 @@ extension Result {
             let resultSubscriber = InternalSink(downstream: subscriber)
             
             subscriber.receive(subscription: resultSubscriber)
+            resultSubscriber.request(.max(1))
             
             switch result {
             case .success(let output):
@@ -71,9 +72,9 @@ extension Result {
 extension Result.PKPublisher {
     
     // MARK: RESULT SINK
-    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.OperatorSink<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.SubscriptionSink<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        func receive(input: Output) {
+        override func receive(input: Output) {
             guard !isCancelled else { return }
             _ = downstream?.receive(input)
             receive(completion: .finished)

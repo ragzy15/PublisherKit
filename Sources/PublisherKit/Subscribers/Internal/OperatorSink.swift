@@ -13,13 +13,54 @@ typealias UpstreamInternalSink<Downstream: PKSubscriber, Upstream: PKPublisher> 
 
 extension PKSubscribers {
     
-    class OperatorSink<Downstream: PKSubscriber, Input, Failure: Error>: SubscriptionSink, PKSubscriber {
+    class SubscriptionSink<Downstream: PKSubscriber, Input, Failure: Error>: PKSubscription {
+        
+        private(set) var isCancelled = false
+        
+        private(set) var isEnded = false
+        
+        var isOver: Bool {
+            isEnded || isCancelled
+        }
+        
+        var demand: PKSubscribers.Demand = .unlimited
         
         var downstream: Downstream?
         
         init(downstream: Downstream) {
             self.downstream = downstream
-            super.init()
+        }
+        
+        func request(_ demand: PKSubscribers.Demand) {
+            self.demand = demand
+        }
+        
+        func receive(input: Input) { }
+        
+        func receive(completion: PKSubscribers.Completion<Failure>) { }
+        
+        func cancel() {
+            isCancelled = true
+        }
+        
+        func end() {
+            isEnded = true
+        }
+    }
+    
+    class OperatorSink<Downstream: PKSubscriber, Input, Failure: Error>: SubscriptionSink<Downstream, Input, Failure>, PKSubscriber {
+        
+        
+        var subscription: PKSubscription?
+        
+        override init(downstream: Downstream) {
+            super.init(downstream: downstream)
+            sendSubscription()
+        }
+        
+        func sendSubscription() {
+            downstream?.receive(subscription: self)
+            request(.unlimited)
         }
         
         override func request(_ demand: PKSubscribers.Demand) {
@@ -29,8 +70,6 @@ extension PKSubscribers {
         func receive(subscription: PKSubscription) {
             guard !isCancelled else { return }
             self.subscription = subscription
-            downstream?.receive(subscription: self)
-            request(.unlimited)
         }
         
         func receive(_ input: Input) -> PKSubscribers.Demand {
@@ -38,19 +77,30 @@ extension PKSubscribers {
             return demand
         }
         
-        func receive(completion: PKSubscribers.Completion<Failure>) {
+        override func receive(completion: PKSubscribers.Completion<Failure>) {
             guard !isCancelled else { return }
+        }
+        
+        override func cancel() {
+            super.cancel()
+            subscription?.cancel()
+            subscription = nil
+        }
+        
+        override func end() {
+            super.end()
+            subscription = nil
         }
     }
     
     class InternalSink<Downstream: PKSubscriber, Input, Failure>: OperatorSink<Downstream, Input, Failure> where Downstream.Input == Input, Downstream.Failure == Failure {
-        
+
         override func receive(_ input: Input) -> PKSubscribers.Demand {
             guard !isCancelled else { return .none }
             _ = downstream?.receive(input)
             return demand
         }
-        
+
         override func receive(completion: PKSubscribers.Completion<Failure>) {
             guard !isCancelled else { return }
             end()
@@ -58,7 +108,7 @@ extension PKSubscribers {
         }
     }
     
-    class FinalOperatorSink<Downstream: PKSubscriber, Input, Failure: Error>: OperatorSink<Downstream, Input, Failure> {
+    class ClosureOperatorSink<Downstream: PKSubscriber, Input, Failure: Error>: OperatorSink<Downstream, Input, Failure> {
         
         final let receiveValue: ((Input, Downstream?) -> Void)
         

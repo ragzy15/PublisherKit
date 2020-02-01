@@ -38,6 +38,7 @@ extension PKPublishers {
             let sequenceSubscriber = InternalSink(downstream: subscriber)
             
             subscriber.receive(subscription: sequenceSubscriber)
+            sequenceSubscriber.request(.unlimited)
             
             for element in sequence {
                 if sequenceSubscriber.isCancelled { break }
@@ -52,9 +53,9 @@ extension PKPublishers {
 extension PKPublishers.Sequence {
 
     // MARK: SEQUENCE SINK
-    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.InternalSink<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.SubscriptionSink<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        func receive(input: Input) {
+        override func receive(input: Output) {
             guard !isCancelled else { return }
             _ = downstream?.receive(input)
         }

@@ -35,12 +35,6 @@ extension PKPublishers {
             
             let zipSubscriber = InternalSink(downstream: subscriber)
             
-            zipSubscriber.receiveSubscription()
-            
-            subscriber.receive(subscription: zipSubscriber)
-            
-            zipSubscriber.sendRequest()
-            
             c.subscribe(zipSubscriber.cSubscriber)
             b.subscribe(zipSubscriber.bSubscriber)
             a.subscribe(zipSubscriber.aSubscriber)
@@ -60,28 +54,15 @@ extension PKPublishers.Zip3 {
     // MARK: ZIP3 SINK
     private final class InternalSink<Downstream: PKSubscriber>: CombineSink<Downstream> where Downstream.Input == Output {
         
-        private(set) lazy var aSubscriber = PKSubscribers.FinalOperatorSink<CombineSink<Downstream>, A.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var aSubscriber = PKSubscribers.ClosureOperatorSink<CombineSink<Downstream>, A.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
-        private(set) lazy var bSubscriber = PKSubscribers.FinalOperatorSink<CombineSink<Downstream>, B.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var bSubscriber = PKSubscribers.ClosureOperatorSink<CombineSink<Downstream>, B.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
-        private(set) lazy var cSubscriber = PKSubscribers.FinalOperatorSink<CombineSink<Downstream>, C.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var cSubscriber = PKSubscribers.ClosureOperatorSink<CombineSink<Downstream>, C.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
         private var aOutputs: [A.Output] = []
         private var bOutputs: [B.Output] = []
         private var cOutputs: [C.Output] = []
-        
-        override func receiveSubscription() {
-            receive(subscription: aSubscriber)
-            receive(subscription: bSubscriber)
-            receive(subscription: cSubscriber)
-        }
-        
-        override func sendRequest() {
-            request(.unlimited)
-            aSubscriber.request(.unlimited)
-            bSubscriber.request(.unlimited)
-            cSubscriber.request(.unlimited)
-        }
         
         private func receive(a input: A.Output, downstream: CombineSink<Downstream>?) {
             aOutputs.append(input)

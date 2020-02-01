@@ -34,9 +34,6 @@ extension PKPublishers {
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let flatMapSubscriber = InternalSink(downstream: subscriber, transform: transform)
-            
-            subscriber.receive(subscription: flatMapSubscriber)
-            flatMapSubscriber.request(maxPublishers)
             upstream.subscribe(flatMapSubscriber)
         }
     }
@@ -49,7 +46,7 @@ extension PKPublishers.FlatMap {
         
         private let transform: (Upstream.Output) -> NewPublisher
         
-        private lazy var subscriber = PKSubscribers.FinalOperatorSink<Downstream, NewPublisher.Output, NewPublisher.Failure>(downstream: downstream!, receiveCompletion: { (completion, downstream) in
+        private lazy var subscriber = PKSubscribers.ClosureOperatorSink<Downstream, NewPublisher.Output, NewPublisher.Failure>(downstream: downstream!, receiveCompletion: { (completion, downstream) in
             if let error = completion.getError() {
                 downstream?.receive(completion: .failure(error))
             }

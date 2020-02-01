@@ -44,7 +44,6 @@ extension PKPublishers {
             
             let validationSubscriber = InternalSink(downstream: subscriber, acceptableStatusCodes: acceptableStatusCodes, acceptableContentTypes: acceptableContentTypes)
             
-            subscriber.receive(subscription: validationSubscriber)
             validationSubscriber.request(.max(1))
             upstream.subscribe(validationSubscriber)
         }

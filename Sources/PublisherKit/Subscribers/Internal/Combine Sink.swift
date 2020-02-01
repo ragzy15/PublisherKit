@@ -22,13 +22,11 @@ class CombineSink<Downstream: PKSubscriber>: PKSubscribers.OperatorSink<Downstre
         return demand
     }
     
-    func receive(input: Input) {
+    override func receive(input: Input) {
         guard !isCancelled else { return }
         _ = downstream?.receive(input)
     }
     
-    func receiveSubscription() { }
-    func sendRequest() { }
     func checkAndSend() { }
     
     func receive(completion: PKSubscribers.Completion<Failure>, downstream: CombineSink?) {

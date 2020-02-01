@@ -35,12 +35,6 @@ extension PKPublishers {
             
             let mergeSubscriber = InternalSink(downstream: subscriber)
             
-            mergeSubscriber.receiveSubscription()
-            
-            subscriber.receive(subscription: mergeSubscriber)
-            
-            mergeSubscriber.sendRequest()
-            
             a.subscribe(mergeSubscriber.aSubscriber)
             b.subscribe(mergeSubscriber.bSubscriber)
             c.subscribe(mergeSubscriber.cSubscriber)
@@ -73,24 +67,11 @@ extension PKPublishers.Merge3 {
     // MARK: MERGE3 SINK
     private final class InternalSink<Downstream: PKSubscriber>: CombineSink<Downstream> where Downstream.Input == Output {
         
-        private(set) lazy var aSubscriber = PKSubscribers.FinalOperatorSink<CombineSink<Downstream>, A.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var aSubscriber = PKSubscribers.ClosureOperatorSink<CombineSink<Downstream>, A.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
-        private(set) lazy var bSubscriber = PKSubscribers.FinalOperatorSink<CombineSink<Downstream>, B.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var bSubscriber = PKSubscribers.ClosureOperatorSink<CombineSink<Downstream>, B.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
-        private(set) lazy var cSubscriber = PKSubscribers.FinalOperatorSink<CombineSink<Downstream>, C.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
-        
-        override func receiveSubscription() {
-            receive(subscription: aSubscriber)
-            receive(subscription: bSubscriber)
-            receive(subscription: cSubscriber)
-        }
-        
-        override func sendRequest() {
-            request(.unlimited)
-            aSubscriber.request(.unlimited)
-            bSubscriber.request(.unlimited)
-            cSubscriber.request(.unlimited)
-        }
+        private(set) lazy var cSubscriber = PKSubscribers.ClosureOperatorSink<CombineSink<Downstream>, C.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
         override func receive(completion: PKSubscribers.Completion<Failure>) {
             guard !isCancelled else { return }

@@ -55,12 +55,6 @@ extension PKPublishers {
             
             let mergeSubscriber = InternalSink(downstream: subscriber)
             
-            mergeSubscriber.receiveSubscription()
-            
-            subscriber.receive(subscription: mergeSubscriber)
-            
-            mergeSubscriber.sendRequest()
-            
             a.subscribe(mergeSubscriber.aSubscriber)
             b.subscribe(mergeSubscriber.bSubscriber)
             c.subscribe(mergeSubscriber.cSubscriber)
@@ -78,44 +72,21 @@ extension PKPublishers.Merge8 {
     // MARK: MERGE8 SINK
     private final class InternalSink<Downstream: PKSubscriber>: CombineSink<Downstream> where Downstream.Input == Output {
         
-        private(set) lazy var aSubscriber = PKSubscribers.FinalOperatorSink<CombineSink<Downstream>, Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var aSubscriber = PKSubscribers.ClosureOperatorSink<CombineSink<Downstream>, Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
-        private(set) lazy var bSubscriber = PKSubscribers.FinalOperatorSink<CombineSink<Downstream>, Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var bSubscriber = PKSubscribers.ClosureOperatorSink<CombineSink<Downstream>, Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
-        private(set) lazy var cSubscriber = PKSubscribers.FinalOperatorSink<CombineSink<Downstream>, Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var cSubscriber = PKSubscribers.ClosureOperatorSink<CombineSink<Downstream>, Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
-        private(set) lazy var dSubscriber = PKSubscribers.FinalOperatorSink<CombineSink<Downstream>, Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var dSubscriber = PKSubscribers.ClosureOperatorSink<CombineSink<Downstream>, Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
-        private(set) lazy var eSubscriber = PKSubscribers.FinalOperatorSink<CombineSink<Downstream>, Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var eSubscriber = PKSubscribers.ClosureOperatorSink<CombineSink<Downstream>, Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
-        private(set) lazy var fSubscriber = PKSubscribers.FinalOperatorSink<CombineSink<Downstream>, Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var fSubscriber = PKSubscribers.ClosureOperatorSink<CombineSink<Downstream>, Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
-        private(set) lazy var gSubscriber = PKSubscribers.FinalOperatorSink<CombineSink<Downstream>, Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var gSubscriber = PKSubscribers.ClosureOperatorSink<CombineSink<Downstream>, Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
-        private(set) lazy var hSubscriber = PKSubscribers.FinalOperatorSink<CombineSink<Downstream>, Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
-        
-        override func receiveSubscription() {
-            receive(subscription: aSubscriber)
-            receive(subscription: bSubscriber)
-            receive(subscription: cSubscriber)
-            receive(subscription: dSubscriber)
-            receive(subscription: eSubscriber)
-            receive(subscription: fSubscriber)
-            receive(subscription: gSubscriber)
-            receive(subscription: hSubscriber)
-        }
-        
-        override func sendRequest() {
-            request(.unlimited)
-            aSubscriber.request(.unlimited)
-            bSubscriber.request(.unlimited)
-            cSubscriber.request(.unlimited)
-            dSubscriber.request(.unlimited)
-            eSubscriber.request(.unlimited)
-            fSubscriber.request(.unlimited)
-            gSubscriber.request(.unlimited)
-            hSubscriber.request(.unlimited)
-        }
+        private(set) lazy var hSubscriber = PKSubscribers.ClosureOperatorSink<CombineSink<Downstream>, Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
         override func receive(completion: PKSubscribers.Completion<Failure>) {
             guard !isCancelled else { return }

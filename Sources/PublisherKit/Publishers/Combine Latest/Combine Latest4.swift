@@ -39,12 +39,6 @@ extension PKPublishers {
             
             let combineLatestSubscriber = InternalSink(downstream: subscriber)
             
-            combineLatestSubscriber.receiveSubscription()
-            
-            subscriber.receive(subscription: combineLatestSubscriber)
-            
-            combineLatestSubscriber.sendRequest()
-            
             d.subscribe(combineLatestSubscriber.dSubscriber)
             c.subscribe(combineLatestSubscriber.cSubscriber)
             b.subscribe(combineLatestSubscriber.bSubscriber)
@@ -65,33 +59,18 @@ extension PKPublishers.CombineLatest4 {
     // MARK: COMBINELATEST4 SINK
     private final class InternalSink<Downstream: PKSubscriber>: CombineSink<Downstream> where Downstream.Input == Output {
         
-        private(set) lazy var aSubscriber = PKSubscribers.FinalOperatorSink<InternalSink, A.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var aSubscriber = PKSubscribers.ClosureOperatorSink<InternalSink, A.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
-        private(set) lazy var bSubscriber = PKSubscribers.FinalOperatorSink<InternalSink, B.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var bSubscriber = PKSubscribers.ClosureOperatorSink<InternalSink, B.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
-        private(set) lazy var cSubscriber = PKSubscribers.FinalOperatorSink<InternalSink, C.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var cSubscriber = PKSubscribers.ClosureOperatorSink<InternalSink, C.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
-        private(set) lazy var dSubscriber = PKSubscribers.FinalOperatorSink<InternalSink, D.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var dSubscriber = PKSubscribers.ClosureOperatorSink<InternalSink, D.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
         private var aOutput: A.Output?
         private var bOutput: B.Output?
         private var cOutput: C.Output?
         private var dOutput: D.Output?
-        
-        override func receiveSubscription() {
-            receive(subscription: aSubscriber)
-            receive(subscription: bSubscriber)
-            receive(subscription: cSubscriber)
-            receive(subscription: dSubscriber)
-        }
-        
-        override func sendRequest() {
-            request(.unlimited)
-            aSubscriber.request(.unlimited)
-            bSubscriber.request(.unlimited)
-            cSubscriber.request(.unlimited)
-            dSubscriber.request(.unlimited)
-        }
         
         private func receive(a input: A.Output, downstream: InternalSink?) {
             aOutput = input

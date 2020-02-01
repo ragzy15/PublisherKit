@@ -12,7 +12,7 @@ protocol URLSessionTaskPublisherDelegate {
 
 extension URLSessionTaskPublisherDelegate {
     
-    func handleCompletion<Downstream: PKSubscriber>(queue: DispatchQueue, subscriber: PKSubscribers.InternalSink<Downstream, URLSession.DataTaskPKPublisher.Output, URLSession.DataTaskPKPublisher.Failure>) -> (Data?, URLResponse?, Error?) -> Void {
+    func handleCompletion<Downstream: PKSubscriber>(queue: DispatchQueue, subscriber: PKSubscribers.SubscriptionSink<Downstream, URLSession.DataTaskPKPublisher.Output, URLSession.DataTaskPKPublisher.Failure>) -> (Data?, URLResponse?, Error?) -> Void {
         
         let completion: (Data?, URLResponse?, Error?) -> Void = { (data, response, error) in
             
@@ -25,7 +25,7 @@ extension URLSessionTaskPublisherDelegate {
                 
             } else if let response = response as? HTTPURLResponse, let data = data {
                 queue.async {
-                    _ = subscriber.receive((data, response))
+                    subscriber.receive(input: (data, response))
                     subscriber.receive(completion: .finished)
                 }
             }

@@ -34,6 +34,7 @@ public extension PKPublishers {
             replaceErrorSubscriber.onError = { (downstream) in
                 _ = downstream?.receive(self.output)
             }
+            
             upstream.subscribe(replaceErrorSubscriber)
         }
     }

@@ -59,7 +59,9 @@ extension NotificationCenter {
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let notificationSubscriber = InternalSink(downstream: subscriber, center: center, name: name, object: object, queue: queue)
+            
             subscriber.receive(subscription: notificationSubscriber)
+            notificationSubscriber.request(.unlimited)
             
             notificationSubscriber.observe()
         }
@@ -69,7 +71,7 @@ extension NotificationCenter {
 extension NotificationCenter.PKPublisher {
     
     // MARK: NOTIFICATION CENTER SINK
-    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.OperatorSink<Downstream, Output, Failure> where Downstream.Failure == Failure, Downstream.Input == Output {
+    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.SubscriptionSink<Downstream, Output, Failure> where Downstream.Failure == Failure, Downstream.Input == Output {
         
         private var center: NotificationCenter?
         private let name: Notification.Name
@@ -92,7 +94,7 @@ extension NotificationCenter.PKPublisher {
             }
         }
         
-        func receive(input: Output) {
+        override func receive(input: Output) {
             guard !isCancelled else { return }
             _ = downstream?.receive(input)
         }

@@ -47,7 +47,7 @@ extension PKPublishers.TryCatch {
         
         private let handler: (Upstream.Failure) throws -> NewPublisher
         
-        private lazy var subscriber = PKSubscribers.FinalOperatorSink<Downstream, Upstream.Output, NewPublisher.Failure>(downstream: downstream!, receiveCompletion: { (completion, downstream) in
+        private lazy var subscriber = PKSubscribers.ClosureOperatorSink<Downstream, Upstream.Output, NewPublisher.Failure>(downstream: downstream!, receiveCompletion: { (completion, downstream) in
             
             let completion = completion.mapError { $0 as Downstream.Failure }
             downstream?.receive(completion: completion)
