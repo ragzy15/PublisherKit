@@ -7,16 +7,16 @@
 
 import Foundation
 
-public extension PKPublishers {
+extension PKPublishers {
     
     /// A publisher that handles errors from an upstream publisher by replacing the failed publisher with another publisher.
-    struct Catch<Upstream: PKPublisher, NewPublisher: PKPublisher>: PKPublisher where Upstream.Output == NewPublisher.Output {
+    public struct Catch<Upstream: PKPublisher, NewPublisher: PKPublisher>: PKPublisher where Upstream.Output == NewPublisher.Output {
         
         public typealias Output = Upstream.Output
         
         public typealias Failure = NewPublisher.Failure
         
-        /// The publisher that this publisher receives elements from.
+        /// The publisher from which this publisher receives elements.
         public let upstream: Upstream
         
         /// A closure that accepts the upstream failure as input and returns a publisher to replace the upstream publisher.

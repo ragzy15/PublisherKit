@@ -9,17 +9,20 @@ import Foundation
 
 public extension PKPublishers {
     
+    /// A publisher that publishes elements only after a specified time interval elapses after receiving an element from upstream publisher, using the specified scheduler.
     struct Debounce<Upstream: PKPublisher, Scheduler: PKScheduler>: PKPublisher {
         
         public typealias Output = Upstream.Output
         
         public typealias Failure = Upstream.Failure
         
-        /// The publisher that this publisher receives elements from.
+        /// The publisher from which this publisher receives elements.
         public let upstream: Upstream
         
+        /// Time the publisher should wait before publishing an element.
         public let dueTime: SchedulerTime
         
+        /// The scheduler on which elements are published.
         public let scheduler: Scheduler
         
         public init(upstream: Upstream, dueTime: SchedulerTime, on scheduler: Scheduler) {

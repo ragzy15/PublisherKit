@@ -10,5 +10,5 @@ import Foundation
 @available(*, deprecated, renamed: "PKPublishers")
 public typealias NKPublishers = PKPublishers
 
-public enum PKPublishers {
+public struct PKPublishers {
 }

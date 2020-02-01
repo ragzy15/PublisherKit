@@ -9,11 +9,12 @@ import Foundation
 
 public extension PKPublishers {
     
+    /// A publisher that transforms all elements received from an upstream publisher with a specified closure.
     struct Map<Upstream: PKPublisher, Output>: PKPublisher {
         
         public typealias Failure = Upstream.Failure
         
-        /// The publisher that this publisher receives elements from.
+        /// The publisher from which this publisher receives elements.
         public let upstream: Upstream
         
         /// The closure that transforms elements from the upstream publisher.

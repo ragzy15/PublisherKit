@@ -16,6 +16,7 @@ extension PKPublishers {
         
         public typealias Failure = Error
         
+        /// The publisher from which this publisher receives elements.
         public let upstream: Upstream
         
         /// The regular expression pattern to compile.

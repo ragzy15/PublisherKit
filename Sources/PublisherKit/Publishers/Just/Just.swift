@@ -9,15 +9,19 @@ import Foundation
 
 extension PKPublishers {
     
+    /// /// A publisher that emits an output to each subscriber just once, and then finishes.
+    ///
+    /// A `Just` publisher can be used to start a chain of publishers. A `Just` publisher is also useful when replacing a value with `Catch` publisher.
+    ///
     public struct Just<Output>: PKPublisher {
         
         public typealias Failure = Never
         
         public let output: Output
         
-        /// Initializes a publisher that emits the specified output just once.
+        /// Initializes the publisher that publishes the specified output just once.
         ///
-        /// - Parameter output: The one element that the publisher emits.
+        /// - Parameter output: The element that the publisher publishes.
         public init(_ output: Output) {
             self.output = output
         }

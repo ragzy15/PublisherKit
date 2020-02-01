@@ -19,6 +19,7 @@ public extension PKPublishers {
         /// The element with which to replace errors from the upstream publisher.
         public let output: Upstream.Output
         
+        /// The publisher from which this publisher receives elements.
         public let upstream: Upstream
         
         public init(upstream: Upstream, output: Output) {

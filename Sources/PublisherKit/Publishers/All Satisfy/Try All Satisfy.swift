@@ -16,6 +16,7 @@ extension PKPublishers {
         
         public typealias Failure = Error
         
+        /// The publisher from which this publisher receives elements.
         public let upstream: Upstream
         
         /// A closure that evaluates each received element.
@@ -38,7 +39,7 @@ extension PKPublishers {
 
 extension PKPublishers.TryAllSatisfy {
     
-    // MARK: TRY ALLSATISFY SINK
+    // MARK: TRY ALL SATISFY SINK
     private final class InternalSink<Downstream: PKSubscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private let predicate: (Upstream.Output) throws -> Bool

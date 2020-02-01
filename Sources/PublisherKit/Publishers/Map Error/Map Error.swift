@@ -9,10 +9,12 @@ import Foundation
 
 public extension PKPublishers {
     
+    /// A publisher that converts the failure from the upstream publisher into a new failure.
     struct MapError<Upstream: PKPublisher, Failure: Error>: PKPublisher {
         
         public typealias Output = Upstream.Output
         
+        /// The publisher from which this publisher receives elements.
         public let upstream: Upstream
         
         /// The closure that transforms elements from the upstream publisher.

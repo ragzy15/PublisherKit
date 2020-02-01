@@ -19,10 +19,13 @@ extension NSObject {
         
         public typealias Failure = Never
         
+        /// The object that contains the property to observe.
         public let object: Subject
         
+        /// The key path of a property to observe.
         public let keyPath: KeyPath<Subject, Value>
         
+        /// The observing options for the property.
         public let options: NSKeyValueObservingOptions
         
         public init(object: Subject, keyPath: KeyPath<Subject, Value>, options: NSKeyValueObservingOptions) {

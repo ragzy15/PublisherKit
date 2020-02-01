@@ -10,12 +10,14 @@ import Foundation
 extension PKPublishers {
     
     /// A publisher that publishes the number of elements received from the upstream publisher.
+    /// It publishes the value when upstream publisher has finished.
     public struct Count<Upstream: PKPublisher>: PKPublisher {
         
         public typealias Output = Int
         
         public typealias Failure = Upstream.Failure
         
+        /// The publisher from which this publisher receives elements.
         public let upstream: Upstream
         
         public init(upstream: Upstream) {
