@@ -589,8 +589,8 @@ extension PKPublisher {
     ///
     /// - Parameter other: Another publisher of this publisher's type.
     /// - Returns: A publisher that emits an event when either upstream publisher emits an event.
-    public func merge(with other: Self) -> PKPublishers.MergeAll<Self> {
-        PKPublishers.MergeAll(self, other)
+    public func merge(with other: Self) -> PKPublishers.MergeMany<Self> {
+        PKPublishers.MergeMany(self, other)
     }
 }
 
