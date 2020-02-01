@@ -124,7 +124,7 @@ extension URLSession.DownloadTaskPKPublisher {
                     
                 } else if let response = response as? HTTPURLResponse, let url = url {
                     URLSession.DownloadTaskPKPublisher.queue.async {
-                        self.receive(input: (url, response))
+                        _ = self.receive((url, response))
                         self.receive(completion: .finished)
                     }
                 }

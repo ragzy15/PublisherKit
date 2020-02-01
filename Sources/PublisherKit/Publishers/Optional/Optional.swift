@@ -39,13 +39,11 @@ extension Optional {
             
             let optionalSubscriber = InternalSink(downstream: subscriber)
             
-            subscriber.receive(subscription: optionalSubscriber)
+            optionalSubscriber.request(.max(1))
             
             if let output = output {
                 optionalSubscriber.receive(input: output)
             }
-            
-            optionalSubscriber.receive(completion: .finished)
         }
     }
 }
@@ -53,17 +51,15 @@ extension Optional {
 extension Optional.PKPublisher {
     
     // MARK: OPTIONAL SINK
-    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.Sinkable<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.OperatorSink<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        override func receive(_ input: Output) -> PKSubscribers.Demand {
-            guard !isCancelled else { return .none }
-            downstream?.receive(input: input)
-            return demand
+        func receive(input: Output) {
+            guard !isCancelled else { return }
+            _ = downstream?.receive(input)
         }
         
         override func receive(completion: PKSubscribers.Completion<Failure>) {
             guard !isCancelled else { return }
-            end()
             downstream?.receive(completion: completion)
         }
     }

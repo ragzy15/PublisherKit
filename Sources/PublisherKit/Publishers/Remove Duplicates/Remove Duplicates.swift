@@ -32,9 +32,6 @@ extension PKPublishers {
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let duplicatesSubscriber = InternalSink(downstream: subscriber, predicate: predicate)
-            
-            subscriber.receive(subscription: duplicatesSubscriber)
-            duplicatesSubscriber.request(.unlimited)
             upstream.subscribe(duplicatesSubscriber)
         }
     }
@@ -43,7 +40,7 @@ extension PKPublishers {
 extension PKPublishers.RemoveDuplicates {
     
     // MARK: REMOVE DUPLICATES SINK
-    private final class InternalSink<Downstream: PKSubscriber>: UpstreamSinkable<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: PKSubscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private let predicate: (Output, Output) -> Bool
         private var previousValue: Output?
@@ -61,7 +58,7 @@ extension PKPublishers.RemoveDuplicates {
             }
             
             previousValue = input
-            downstream?.receive(input: input)
+            _ = downstream?.receive(input)
             
             return demand
         }

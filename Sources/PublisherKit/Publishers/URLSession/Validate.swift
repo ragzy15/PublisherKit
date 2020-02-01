@@ -54,7 +54,7 @@ extension PKPublishers {
 extension PKPublishers.Validate {
     
     // MARK: VALIDATE SINK
-    fileprivate final class InternalSink<Downstream: PKSubscriber>: UpstreamSinkable<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    fileprivate final class InternalSink<Downstream: PKSubscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private let acceptableStatusCodes: [Int]
         private let acceptableContentTypes: [String]?
@@ -70,7 +70,7 @@ extension PKPublishers.Validate {
             
             switch result {
             case .success(let newOutput):
-                downstream?.receive(input: newOutput)
+                _ = downstream?.receive(newOutput)
                 
             case .failure(let error):
                 end()

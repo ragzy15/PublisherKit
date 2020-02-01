@@ -31,11 +31,8 @@ public extension PKPublishers {
             let replaceErrorSubscriber = InternalSink(downstream: subscriber)
             
             replaceErrorSubscriber.onError = { (downstream) in
-                downstream?.receive(input: self.output)
+                _ = downstream?.receive(self.output)
             }
-            
-            subscriber.receive(subscription: replaceErrorSubscriber)
-            replaceErrorSubscriber.request(.unlimited)
             upstream.subscribe(replaceErrorSubscriber)
         }
     }
@@ -44,13 +41,13 @@ public extension PKPublishers {
 extension PKPublishers.ReplaceError {
     
     // MARK: REPLACE ERROR SINK
-    private final class InternalSink<Downstream: PKSubscriber>: UpstreamSinkable<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: PKSubscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         var onError: ((Downstream?) -> Void)?
         
         override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
             guard !isCancelled else { return .none }
-            downstream?.receive(input: input)
+            _ = downstream?.receive(input)
             return demand
         }
         
