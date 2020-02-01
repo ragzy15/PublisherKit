@@ -30,9 +30,6 @@ extension PKPublishers {
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let filterSubscriber = InternalSink(downstream: subscriber, isIncluded: isIncluded)
-            
-            subscriber.receive(subscription: filterSubscriber)
-            filterSubscriber.request(.unlimited)
             upstream.subscribe(filterSubscriber)
         }
     }
@@ -83,7 +80,7 @@ extension PKPublishers.Filter {
             guard !isCancelled else { return .none }
             
             if isIncluded(input) {
-                downstream?.receive(input: input)
+                _ = downstream?.receive(input)
             }
             
             return demand

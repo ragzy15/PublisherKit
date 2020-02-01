@@ -38,9 +38,6 @@ extension PKPublishers {
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let mapKeypathSubscriber = InternalSink(downstream: subscriber, keyPath0: keyPath0, keyPath1: keyPath1, keyPath2: keyPath2)
-            
-            subscriber.receive(subscription: mapKeypathSubscriber)
-            mapKeypathSubscriber.request(.unlimited)
             upstream.subscribe(mapKeypathSubscriber)
         }
     }
@@ -49,7 +46,7 @@ extension PKPublishers {
 extension PKPublishers.MapKeyPath3 {
     
     // MARK: MAPKEYPATH3 SINK
-    private final class InternalSink<Downstream: PKSubscriber>: UpstreamSinkable<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: PKSubscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private let keyPath0: KeyPath<Upstream.Output, Output0>
         private let keyPath1: KeyPath<Upstream.Output, Output1>
@@ -69,7 +66,7 @@ extension PKPublishers.MapKeyPath3 {
             let output1 = input[keyPath: keyPath1]
             let output2 = input[keyPath: keyPath2]
             
-            downstream?.receive(input: (output0, output1, output2))
+            _ = downstream?.receive((output0, output1, output2))
             
             return demand
         }

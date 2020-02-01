@@ -28,9 +28,6 @@ public extension PKPublishers {
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let tryCompactMapSubscriber = InternalSink(downstream: subscriber, transform: transform)
-            
-            subscriber.receive(subscription: tryCompactMapSubscriber)
-            tryCompactMapSubscriber.request(.unlimited)
             upstream.receive(subscriber: tryCompactMapSubscriber)
         }
     }
@@ -55,7 +52,7 @@ extension PKPublishers.TryCompactMap {
 extension PKPublishers.TryCompactMap {
     
     // MARK: TRY COMPACTMAP SINK
-    private final class InternalSink<Downstream: PKSubscriber>: UpstreamSinkable<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: PKSubscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private let transform: (Upstream.Output) throws -> Output?
         
@@ -71,7 +68,7 @@ extension PKPublishers.TryCompactMap {
                 guard let output = try transform(input) else {
                     return demand
                 }
-                downstream?.receive(input: output)
+                _ = downstream?.receive(output)
                 
             } catch {
                 end()

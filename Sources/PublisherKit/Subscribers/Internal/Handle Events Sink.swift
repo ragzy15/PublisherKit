@@ -9,7 +9,7 @@ import Foundation
 
 extension PKPublishers.HandleEvents {
     
-    final class HandleEventsSink<Downstream: PKSubscriber, Upstream: PKPublisher>: PKSubscribers.Sinkable<Downstream, Upstream.Output, Upstream.Failure> where Downstream.Input == Upstream.Output, Downstream.Failure == Upstream.Failure {
+    final class HandleEventsSink<Downstream: PKSubscriber, Upstream: PKPublisher>: PKSubscribers.OperatorSink<Downstream, Upstream.Output, Upstream.Failure> where Downstream.Input == Upstream.Output, Downstream.Failure == Upstream.Failure {
         
         final let receiveOutput: ((Input) -> Void)?
         
@@ -44,6 +44,8 @@ extension PKPublishers.HandleEvents {
         override func receive(subscription: PKSubscription) {
             super.receive(subscription: subscription)
             receiveSubscription?(subscription)
+            downstream?.receive(subscription: self)
+            subscription.request(.unlimited)
         }
         
         override func receive(_ input: Input) -> PKSubscribers.Demand {

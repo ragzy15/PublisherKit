@@ -80,7 +80,7 @@ extension PKPublishers.Retry {
                 return
             }
             
-            updateDemand()
+            demand -= 1
             retrySubscription?()
         }
     }

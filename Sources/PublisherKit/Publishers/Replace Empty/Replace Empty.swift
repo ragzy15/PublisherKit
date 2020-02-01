@@ -32,11 +32,8 @@ public extension PKPublishers {
             let replaceEmptySubscriber = InternalSink(downstream: subscriber)
             
             replaceEmptySubscriber.onFinish = { (downstream) in
-                downstream?.receive(input: self.output)
+                _ = downstream?.receive(self.output)
             }
-            
-            subscriber.receive(subscription: replaceEmptySubscriber)
-            replaceEmptySubscriber.request(.unlimited)
             upstream.subscribe(replaceEmptySubscriber)
         }
     }
@@ -45,7 +42,7 @@ public extension PKPublishers {
 extension PKPublishers.ReplaceEmpty {
     
     // MARK: REPLACE EMPTY SINK
-    private final class InternalSink<Downstream: PKSubscriber>: UpstreamSinkable<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: PKSubscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private var inputReceived = false
         var onFinish: ((Downstream?) -> Void)?
@@ -54,7 +51,7 @@ extension PKPublishers.ReplaceEmpty {
             guard !isCancelled else { return .none }
             
             inputReceived = true
-            downstream?.receive(input: input)
+            _ = downstream?.receive(input)
             
             return demand
         }

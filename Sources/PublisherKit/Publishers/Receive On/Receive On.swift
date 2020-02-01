@@ -30,9 +30,6 @@ extension PKPublishers {
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let receiveOnSubscriber = InternalSink(downstream: subscriber, scheduler: scheduler)
-            
-            subscriber.receive(subscription: receiveOnSubscriber)
-            receiveOnSubscriber.request(.unlimited)
             upstream.subscribe(receiveOnSubscriber)
         }
     }
@@ -41,7 +38,7 @@ extension PKPublishers {
 extension PKPublishers.ReceiveOn {
     
     // MARK: RECEIVEON SINK
-    private final class InternalSink<Downstream: PKSubscriber>: UpstreamSinkable<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: PKSubscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private let scheduler: PKScheduler
         
@@ -54,7 +51,7 @@ extension PKPublishers.ReceiveOn {
             guard !isCancelled else { return .none }
             
             scheduler.schedule {
-                self.downstream?.receive(input: input)
+                _ = self.downstream?.receive(input)
             }
             
             return demand

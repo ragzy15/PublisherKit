@@ -26,8 +26,6 @@ extension PKPublishers {
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let ignoreOutputSubscriber = InternalSink(downstream: subscriber)
-            
-            subscriber.receive(subscription: ignoreOutputSubscriber)
             upstream.subscribe(ignoreOutputSubscriber)
         }
     }
@@ -36,7 +34,7 @@ extension PKPublishers {
 extension PKPublishers.IgnoreOutput {
     
     // MARK: IGNORE OUTPUT SINK
-    private final class InternalSink<Downstream: PKSubscriber>: UpstreamSinkable<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: PKSubscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
             demand

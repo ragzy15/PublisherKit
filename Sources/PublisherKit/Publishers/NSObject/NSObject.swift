@@ -37,10 +37,9 @@ extension NSObject {
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let nsObjectSubscriber = InternalSink(downstream: subscriber, object: object, keyPath: keyPath, options: options)
+            subscriber.receive(subscription: nsObjectSubscriber)
             
             nsObjectSubscriber.observe()
-            
-            subscriber.receive(subscription: nsObjectSubscriber)
         }
         
         public static func == (lhs: NSObject.KeyValueObservingPKPublisher<Subject, Value>, rhs: NSObject.KeyValueObservingPKPublisher<Subject, Value>) -> Bool {
@@ -52,7 +51,7 @@ extension NSObject {
 extension NSObject.KeyValueObservingPKPublisher {
     
     // MARK: NSOBJECT SINK
-    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.Sinkable<Downstream, Output, Failure> where Downstream.Failure == Failure, Downstream.Input == Output {
+    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.OperatorSink<Downstream, Output, Failure> where Downstream.Failure == Failure, Downstream.Input == Output {
         
         private var observer: NSKeyValueObservation?
         
@@ -82,27 +81,27 @@ extension NSObject.KeyValueObservingPKPublisher {
             }
         }
         
-        override func receive(_ input: Value) -> PKSubscribers.Demand {
-            guard !isCancelled else { return .none }
-            downstream?.receive(input: input)
-            return demand
+        func receive(input: Value) {
+            guard !isCancelled else { return }
+            _ = downstream?.receive(input)
         }
         
         override func receive(completion: PKSubscribers.Completion<Failure>) {
             guard !isCancelled else { return }
-            end()
             downstream?.receive(completion: completion)
         }
         
         override func end() {
             observer?.invalidate()
             observer = nil
+            object = nil
             super.end()
         }
         
         override func cancel() {
             observer?.invalidate()
             observer = nil
+            object = nil
             super.cancel()
         }
     }

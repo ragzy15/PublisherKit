@@ -37,10 +37,3 @@ public protocol PKSubscriber {
     /// - Parameter completion: A `Completion` case indicating whether publishing completed normally or with an error.
     func receive(completion: PKSubscribers.Completion<Failure>)
 }
-
-extension PKSubscriber {
-    
-    func receive(input: Input) {
-        _ = receive(input)
-    }
-}

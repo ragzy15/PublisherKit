@@ -30,9 +30,6 @@ extension PKPublishers {
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let tryFilterSubscriber = InternalSink(downstream: subscriber, isIncluded: isIncluded)
-            
-            subscriber.receive(subscription: tryFilterSubscriber)
-            tryFilterSubscriber.request(.unlimited)
             upstream.receive(subscriber: tryFilterSubscriber)
         }
     }
@@ -70,7 +67,7 @@ extension PKPublishers.TryFilter {
 extension PKPublishers.TryFilter {
     
     // MARK: TRY FILTER SINK
-    private final class InternalSink<Downstream: PKSubscriber>: UpstreamSinkable<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: PKSubscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private let isIncluded: (Upstream.Output) throws -> Bool
         
@@ -84,7 +81,7 @@ extension PKPublishers.TryFilter {
             
             do {
                 if try isIncluded(input) {
-                    downstream?.receive(input: input)
+                    _ = downstream?.receive(input)
                 }
             } catch {
                 end()

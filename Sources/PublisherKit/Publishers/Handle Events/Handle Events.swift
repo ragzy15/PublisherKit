@@ -59,9 +59,6 @@ extension PKPublishers {
                                                                    receiveCompletion: receiveCompletion,
                                                                    receiveCancel: receiveCancel,
                                                                    receiveRequest: receiveRequest)
-            
-            subscriber.receive(subscription: handleEventsSubscriber)
-            handleEventsSubscriber.request(.unlimited)
             upstream.subscribe(handleEventsSubscriber)
         }
     }

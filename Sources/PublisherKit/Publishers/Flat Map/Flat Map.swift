@@ -45,11 +45,17 @@ extension PKPublishers {
 extension PKPublishers.FlatMap {
     
     // MARK: FLATMAP SINK
-    private final class InternalSink<Downstream: PKSubscriber>: UpstreamSinkable<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: PKSubscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private let transform: (Upstream.Output) -> NewPublisher
         
-        private lazy var subscriber = UpstreamInternalSink<Downstream, NewPublisher>(downstream: downstream!)
+        private lazy var subscriber = PKSubscribers.FinalOperatorSink<Downstream, NewPublisher.Output, NewPublisher.Failure>(downstream: downstream!, receiveCompletion: { (completion, downstream) in
+            if let error = completion.getError() {
+                downstream?.receive(completion: .failure(error))
+            }
+        }) { (input, downstream) in
+            _ = downstream?.receive(input)
+        }
         
         init(downstream: Downstream, transform: @escaping (Upstream.Output) -> NewPublisher) {
             self.transform = transform

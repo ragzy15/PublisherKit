@@ -28,9 +28,6 @@ public extension PKPublishers {
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let decodeSubscriber = InternalSink(downstream: subscriber, decoder: decoder)
-            
-            subscriber.receive(subscription: decodeSubscriber)
-            decodeSubscriber.request(.unlimited)
             upstream.subscribe(decodeSubscriber)
         }
     }
@@ -39,7 +36,7 @@ public extension PKPublishers {
 extension PKPublishers.Decode {
     
     // MARK: DECODE SINK
-    private final class InternalSink<Downstream: PKSubscriber, Output: Decodable, Decoder: PKDecoder>: UpstreamSinkable<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure, Upstream.Output == Decoder.Input {
+    private final class InternalSink<Downstream: PKSubscriber, Output: Decodable, Decoder: PKDecoder>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure, Upstream.Output == Decoder.Input {
         
         private let decoder: Decoder
         
@@ -53,7 +50,7 @@ extension PKPublishers.Decode {
             
             do {
                 let output = try decoder.decode(Output.self, from: input)
-                downstream?.receive(input: output)
+                _ = downstream?.receive(output)
                 
             } catch {
                 downstream?.receive(completion: .failure(error))

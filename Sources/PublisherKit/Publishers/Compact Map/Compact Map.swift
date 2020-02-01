@@ -28,9 +28,6 @@ public extension PKPublishers {
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let compactMapSubscriber = InternalSink(downstream: subscriber, transform: transform)
-            
-            subscriber.receive(subscription: compactMapSubscriber)
-            compactMapSubscriber.request(.unlimited)
             upstream.subscribe(compactMapSubscriber)
         }
     }
@@ -68,7 +65,7 @@ extension PKPublishers.CompactMap {
 extension PKPublishers.CompactMap {
     
     // MARK: COMPACTMAP SINK
-    private final class InternalSink<Downstream: PKSubscriber>: UpstreamSinkable<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: PKSubscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private let transform: (Upstream.Output) -> Output?
         
@@ -82,7 +79,7 @@ extension PKPublishers.CompactMap {
             
             let output = self.transform(input)
             if let value = output {
-                downstream?.receive(input: value)
+                _ = downstream?.receive(value)
             }
             
             return demand

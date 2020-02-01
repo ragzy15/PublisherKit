@@ -29,11 +29,10 @@ extension PKPublishers {
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let justSubscriber = InternalSink(downstream: subscriber)
-            
             subscriber.receive(subscription: justSubscriber)
+            justSubscriber.request(.max(1))
             
             justSubscriber.receive(input: output)
-            justSubscriber.receive(completion: .finished)
         }
     }
 }
@@ -41,18 +40,12 @@ extension PKPublishers {
 extension PKPublishers.Just {
     
     // MARK: JUST SINK
-    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.Sinkable<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.OperatorSink<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        override func receive(_ input: Output) -> PKSubscribers.Demand {
-            guard !isCancelled else { return .none }
-            downstream?.receive(input: input)
-            return demand
-        }
-        
-        override func receive(completion: PKSubscribers.Completion<Failure>) {
-            guard !isCancelled else { return }
+        func receive(input: Output) {
+            _ = downstream?.receive(input)
             end()
-            downstream?.receive(completion: completion)
+            downstream?.receive(completion: .finished)
         }
     }
 }
