@@ -1,5 +1,5 @@
 //
-//  Subscription Sinkable.swift
+//  Subscription Sink.swift
 //  PublisherKit
 //
 //  Created by Raghav Ahuja on 25/12/19.
@@ -7,7 +7,7 @@
 
 import Foundation
 
-class SubscriptionSinkable: PKSubscription {
+class SubscriptionSink: PKSubscription {
     
     private(set) var isCancelled = false
     
@@ -19,7 +19,7 @@ class SubscriptionSinkable: PKSubscription {
     
     var subscription: PKSubscription?
     
-    private(set) var demand: PKSubscribers.Demand = .unlimited
+    var demand: PKSubscribers.Demand = .unlimited
     
     func request(_ demand: PKSubscribers.Demand) {
         self.demand = demand
@@ -36,7 +36,8 @@ class SubscriptionSinkable: PKSubscription {
         subscription = nil
     }
     
-    final func updateDemand() {
+    final func getDemand() -> PKSubscribers.Demand {
         demand -= 1
+        return demand
     }
 }

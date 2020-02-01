@@ -54,9 +54,6 @@ extension PKPublishers {
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let matchesSubscriber = InternalSink(downstream: subscriber, result: result, matchOptions: matchOptions)
-            
-            subscriber.receive(subscription: matchesSubscriber)
-            matchesSubscriber.request(.unlimited)
             upstream.subscribe(matchesSubscriber)
         }
     }
@@ -65,7 +62,7 @@ extension PKPublishers {
 extension PKPublishers.Matches {
     
     // MARK: MATCHES SINK
-    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.Sinkable<Downstream, Upstream.Output, Upstream.Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.OperatorSink<Downstream, Upstream.Output, Upstream.Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private let result: Result<NSRegularExpression, Error>
         private let matchOptions: NSRegularExpression.MatchingOptions
@@ -82,7 +79,7 @@ extension PKPublishers.Matches {
             switch result {
             case .success(let expression):
                 let matches = expression.matches(in: input, options: matchOptions, range: NSRange(location: 0, length: input.utf8.count))
-                downstream?.receive(input: matches)
+                _ = downstream?.receive(matches)
                 
             case .failure(let error):
                 end()

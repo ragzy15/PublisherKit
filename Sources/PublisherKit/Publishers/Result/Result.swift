@@ -60,7 +60,6 @@ extension Result {
             switch result {
             case .success(let output):
                 resultSubscriber.receive(input: output)
-                resultSubscriber.receive(completion: .finished)
                 
             case .failure(let error):
                 resultSubscriber.receive(completion: .failure(error))
@@ -72,17 +71,16 @@ extension Result {
 extension Result.PKPublisher {
     
     // MARK: RESULT SINK
-    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.Sinkable<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.OperatorSink<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        override func receive(_ input: Output) -> PKSubscribers.Demand {
-            guard !isCancelled else { return .none }
-            downstream?.receive(input: input)
-            return demand
+        func receive(input: Output) {
+            guard !isCancelled else { return }
+            _ = downstream?.receive(input)
+            receive(completion: .finished)
         }
         
         override func receive(completion: PKSubscribers.Completion<Failure>) {
             guard !isCancelled else { return }
-            end()
             downstream?.receive(completion: completion)
         }
     }

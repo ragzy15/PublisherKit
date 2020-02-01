@@ -35,9 +35,6 @@ public extension PKPublishers {
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let tryCatchSubscriber = InternalSink(downstream: subscriber, handler: handler)
-            
-            subscriber.receive(subscription: tryCatchSubscriber)
-            tryCatchSubscriber.request(.unlimited)
             upstream.receive(subscriber: tryCatchSubscriber)
         }
     }
@@ -46,7 +43,7 @@ public extension PKPublishers {
 extension PKPublishers.TryCatch {
     
     // MARK: TRY CATCH SINK
-    private final class InternalSink<Downstream: PKSubscriber>: UpstreamSinkable<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: PKSubscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private let handler: (Upstream.Failure) throws -> NewPublisher
         
@@ -56,7 +53,7 @@ extension PKPublishers.TryCatch {
             downstream?.receive(completion: completion)
             
         }) { (input, downstream) in
-            downstream?.receive(input: input)
+            _ = downstream?.receive(input)
         }
         
         init(downstream: Downstream, handler: @escaping (Upstream.Failure) throws -> NewPublisher) {
@@ -66,7 +63,7 @@ extension PKPublishers.TryCatch {
         
         override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
             guard !isCancelled else { return .none }
-            downstream?.receive(input: input)
+            _ = downstream?.receive(input)
             return demand
         }
         
@@ -83,7 +80,6 @@ extension PKPublishers.TryCatch {
                 let newPublisher = try handler(error)
                 
                 downstream?.receive(subscription: subscriber)
-                subscriber.request(demand)
                 newPublisher.subscribe(subscriber)
                 
             } catch let catchError {

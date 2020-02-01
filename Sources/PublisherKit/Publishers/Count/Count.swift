@@ -25,9 +25,6 @@ extension PKPublishers {
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let countSubscriber = InternalSink(downstream: subscriber)
-            
-            subscriber.receive(subscription: countSubscriber)
-            countSubscriber.request(.unlimited)
             upstream.subscribe(countSubscriber)
         }
     }
@@ -36,7 +33,7 @@ extension PKPublishers {
 extension PKPublishers.Count {
     
     // MARK: COUNT SINK
-    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.Sinkable<Downstream, Upstream.Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.OperatorSink<Downstream, Upstream.Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private var counter = 0
         
@@ -52,7 +49,7 @@ extension PKPublishers.Count {
             
             switch completion {
             case .finished:
-                downstream?.receive(input: counter)
+                _ = downstream?.receive(counter)
                 downstream?.receive(completion: .finished)
                 
             case .failure(let error):

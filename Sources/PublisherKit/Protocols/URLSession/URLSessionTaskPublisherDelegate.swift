@@ -25,7 +25,7 @@ extension URLSessionTaskPublisherDelegate {
                 
             } else if let response = response as? HTTPURLResponse, let data = data {
                 queue.async {
-                    subscriber.receive(input: (data, response))
+                    _ = subscriber.receive((data, response))
                     subscriber.receive(completion: .finished)
                 }
             }

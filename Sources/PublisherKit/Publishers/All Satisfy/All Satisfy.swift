@@ -31,9 +31,6 @@ extension PKPublishers {
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let allSatisfySubscriber = InternalSink(downstream: subscriber, predicate: predicate)
-            
-            subscriber.receive(subscription: allSatisfySubscriber)
-            allSatisfySubscriber.request(.unlimited)
             upstream.subscribe(allSatisfySubscriber)
         }
     }
@@ -42,7 +39,7 @@ extension PKPublishers {
 extension PKPublishers.AllSatisfy {
     
     // MARK: ALLSATIFY SINK
-    private final class InternalSink<Downstream: PKSubscriber>: UpstreamSinkable<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: PKSubscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private let predicate: (Upstream.Output) -> Bool
         
@@ -54,7 +51,7 @@ extension PKPublishers.AllSatisfy {
         override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
             guard !isCancelled else { return .none }
             let output = self.predicate(input)
-            downstream?.receive(input: output)
+            _ = downstream?.receive(output)
             return demand
         }
         

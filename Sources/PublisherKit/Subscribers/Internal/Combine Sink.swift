@@ -7,7 +7,7 @@
 
 import Foundation
 
-class CombineSink<Downstream: PKSubscriber>: PKSubscribers.Sinkable<Downstream, Downstream.Input, Downstream.Failure> {
+class CombineSink<Downstream: PKSubscriber>: PKSubscribers.OperatorSink<Downstream, Downstream.Input, Downstream.Failure> {
     
     private var subscriptions: [PKSubscription] = []
     
@@ -18,8 +18,13 @@ class CombineSink<Downstream: PKSubscriber>: PKSubscribers.Sinkable<Downstream, 
     
     override func receive(_ input: Input) -> PKSubscribers.Demand {
         guard !isCancelled else { return .none }
-        downstream?.receive(input: input)
+        _ = downstream?.receive(input)
         return demand
+    }
+    
+    func receive(input: Input) {
+        guard !isCancelled else { return }
+        _ = downstream?.receive(input)
     }
     
     func receiveSubscription() { }

@@ -35,9 +35,6 @@ public extension PKPublishers {
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let catchSubscriber = InternalSink(downstream: subscriber, handler: handler)
-            
-            subscriber.receive(subscription: catchSubscriber)
-            catchSubscriber.request(.unlimited)
             upstream.subscribe(catchSubscriber)
         }
     }
@@ -46,7 +43,7 @@ public extension PKPublishers {
 extension PKPublishers.Catch {
     
     // MARK: CATCH SINK
-    private final class InternalSink<Downstream: PKSubscriber>: UpstreamSinkable<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: PKSubscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private let handler: (Upstream.Failure) -> NewPublisher
         private lazy var subscriber = PKSubscribers.InternalSink<Downstream, Output, NewPublisher.Failure>(downstream: downstream!)
@@ -58,7 +55,7 @@ extension PKPublishers.Catch {
         
         override func receive(_ input: Output) -> PKSubscribers.Demand {
             guard !isCancelled else { return .none }
-            downstream?.receive(input: input)
+            _ = downstream?.receive(input)
             return demand
         }
         
@@ -78,7 +75,6 @@ extension PKPublishers.Catch {
             let newPublisher = handler(error)
             
             downstream.receive(subscription: subscriber)
-            subscriber.request(demand)
             newPublisher.subscribe(subscriber)
         }
     }

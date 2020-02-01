@@ -31,9 +31,6 @@ public extension PKPublishers {
         public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let debounceSubscriber = InternalSink(downstream: subscriber, scheduler: scheduler, dueTime: dueTime)
-            
-            subscriber.receive(subscription: debounceSubscriber)
-            debounceSubscriber.request(.unlimited)
             upstream.subscribe(debounceSubscriber)
         }
     }
@@ -72,7 +69,7 @@ extension PKPublishers.Debounce {
                 
                 guard self.outputCounter <= 0, let output = self.newOutput else { return }
                 
-                self.downstream?.receive(input: output)
+                _ = self.downstream?.receive(output)
             }
             
             return demand
