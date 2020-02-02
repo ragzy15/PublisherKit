@@ -7,7 +7,7 @@
 
 import Foundation
 
-// MARK: SUBSCRIBE
+// MARK: SUBSCRIBER
 extension PKPublisher {
     
     /// Attaches the specified subscriber to this publisher.
@@ -17,8 +17,21 @@ extension PKPublisher {
     /// - SeeAlso: `receive(subscriber:)`
     /// - Parameters:
     ///     - subscriber: The subscriber to attach to this `PKPublisher`. After attaching, the subscriber can start to receive values.
-    public func subscribe<S: PKSubscriber>(_ subscriber: S) where Failure == S.Failure, Output == S.Input {
+    public func subscribe<S: PKSubscriber>(_ subscriber: S) where Output == S.Input, Failure == S.Failure {
         receive(subscriber: subscriber)
+    }
+}
+
+// MARK: SUBJECT
+extension PKPublisher {
+    
+    /// Attaches the specified subject to this publisher.
+    /// - Parameter subject: The subject to attach to this publisher.
+    /// - Returns: A cancellable instance; used when you end assignment of the received value. Deallocation of the result will tear down the subscription stream.
+    public func subscribe<S: Subject>(_ subject: S) -> PKAnyCancellable where Output == S.Output, Failure == S.Failure {
+        let subscriber = SubjectSubscriber(subject: subject)
+        subscribe(subscriber)
+        return PKAnyCancellable(subscriber)
     }
 }
 
