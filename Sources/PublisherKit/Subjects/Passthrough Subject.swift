@@ -33,7 +33,7 @@ final public class PassthroughSubject<Output, Failure: Error>: Subject {
     
     final public func send(subscription: PKSubscription) {
         upstreamSubscriptions.append(subscription)
-        subscription.request(.unlimited)
+        subscription.request(_completion == nil ? .unlimited : .none)
     }
     
     final public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
@@ -50,13 +50,15 @@ final public class PassthroughSubject<Output, Failure: Error>: Subject {
     }
     
     final public func send(_ input: Output) {
+        guard _completion == nil else { return }    // if subject has been completed, do not send any more inputs.
+        
         downstreamSubscriptions.forEach { (subscription) in
             subscription.receive(input)
         }
     }
     
     final public func send(completion: PKSubscribers.Completion<Failure>) {
-        guard _completion == nil else { return }
+        guard _completion == nil else { return }    // if subject has been completed, do not send or save future completions.
         
         _completion = completion
         downstreamSubscriptions.forEach { (subscription) in
