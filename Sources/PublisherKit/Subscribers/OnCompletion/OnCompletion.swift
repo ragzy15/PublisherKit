@@ -33,6 +33,7 @@ public extension PKSubscribers {
         final public func receive(subscription: PKSubscription) {
             guard !isCancelled else { return }
             self.subscription = subscription
+            subscription.request(.unlimited)
         }
 
         final public func receive(_ value: Input) -> PKSubscribers.Demand  {

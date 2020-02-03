@@ -116,7 +116,7 @@ extension CurrentValueSubject {
         }
         
         func receive(_ input: Output)  {
-            guard !isOver else { return }
+            guard !isOver, _demand != .none else { return }
             let newDemand = downstream?.receive(input)
             _demand = newDemand ?? .none
         }

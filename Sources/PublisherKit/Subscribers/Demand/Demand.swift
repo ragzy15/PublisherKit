@@ -103,7 +103,7 @@ extension PKSubscribers {
             default:
                 let (difference, isOverflow) = Int(lhs.rawValue)
                     .subtractingReportingOverflow(Int(rhs.rawValue))
-                return isOverflow ? .none : .max(difference)
+                return isOverflow || difference < 0 ? .none : .max(difference)
             }
         }
         
@@ -120,7 +120,7 @@ extension PKSubscribers {
             
             let (difference, isOverflow) = Int(lhs.rawValue)
                 .subtractingReportingOverflow(rhs)
-            return isOverflow ? .none : .max(difference)
+            return isOverflow || difference < 0 ? .none : .max(difference)
         }
         
         /// When subtracting any value from `.unlimited,` the result is still `.unlimited`.

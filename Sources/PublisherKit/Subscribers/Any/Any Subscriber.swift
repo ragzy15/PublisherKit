@@ -76,6 +76,7 @@ public struct AnyPKSubscriber<Input, Failure: Error>: PKSubscriber {
     
     @usableFromInline override func receive(subscription: PKSubscription) {
         subscriber?.receive(subscription: subscription)
+        subscription.request(.unlimited)
     }
     
     @usableFromInline override func receive(_ input: Input) -> PKSubscribers.Demand {
