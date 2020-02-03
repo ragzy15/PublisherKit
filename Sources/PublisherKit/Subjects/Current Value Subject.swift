@@ -92,7 +92,7 @@ extension CurrentValueSubject {
         
         override func request(_ demand: PKSubscribers.Demand) {
             super.request(demand)
-            guard demand > .none else { return }
+            guard !isOver, demand > .none else { return }
             
             if let value = subject?.value {
                 receive(value)

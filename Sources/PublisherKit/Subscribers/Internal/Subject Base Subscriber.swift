@@ -21,7 +21,7 @@ class SubjectBaseSubscriber<Output, Failure: Error>: PKSubscription, Hashable {
     
     private var downstream: AnyPKSubscriber<Output, Failure>?
     
-    private var isOver = false
+    var isOver = false
     
     private(set) var _demand: PKSubscribers.Demand = .none
     
