@@ -65,6 +65,8 @@ final public class CurrentValueSubject<Output, Failure: Error>: Subject {
     }
     
     final public func send(_ input: Output) {
+        guard _completion == nil else { return }
+        
         _value = input
         downstreamSubscriptions.forEach { (subscription) in
             subscription.receive(input)
