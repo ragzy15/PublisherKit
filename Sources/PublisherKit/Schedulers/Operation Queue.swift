@@ -7,7 +7,7 @@
 
 import Foundation
 
-extension OperationQueue: PKScheduler {
+extension OperationQueue: Scheduler {
     
     public func schedule(block : @escaping () -> Void) {
         addOperation {

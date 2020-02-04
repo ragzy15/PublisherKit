@@ -10,7 +10,7 @@ import Foundation
 public extension Publishers {
     
     /// A publisher that decodes elements received from an upstream publisher into the specified type.
-    struct Decode<Upstream: Publisher, Output: Decodable, Decoder: PKDecoder>: Publisher where Upstream.Output == Decoder.Input {
+    struct Decode<Upstream: Publisher, Output: Decodable, Decoder: TopLevelDecoder>: Publisher where Upstream.Output == Decoder.Input {
         
         public typealias Failure = Error
         
@@ -36,7 +36,7 @@ public extension Publishers {
 extension Publishers.Decode {
     
     // MARK: DECODE SINK
-    private final class InternalSink<Downstream: Subscriber, Output: Decodable, Decoder: PKDecoder>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure, Upstream.Output == Decoder.Input {
+    private final class InternalSink<Downstream: Subscriber, Output: Decodable, Decoder: TopLevelDecoder>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure, Upstream.Output == Decoder.Input {
         
         private let decoder: Decoder
         

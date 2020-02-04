@@ -249,7 +249,7 @@ extension Publisher {
     /// - Parameters:
     ///   - dueTime: The time the publisher should wait before publishing an element.
     /// - Returns: A publisher that publishes events only after a specified time elapses.
-    public func debounce<S: PKScheduler>(for dueTime: SchedulerTime, on scheduler: S) -> Publishers.Debounce<Self, S> {
+    public func debounce<S: Scheduler>(for dueTime: SchedulerTime, on scheduler: S) -> Publishers.Debounce<Self, S> {
         Publishers.Debounce(upstream: self, dueTime: dueTime, on: scheduler)
     }
 }
@@ -261,7 +261,7 @@ extension Publisher {
     /// For example, use `JSONDecoder`.
     /// - Parameter type: Type to decode into.
     /// - Parameter decoder: `PKDecoder` for decoding output.
-    public func decode<Item: Decodable, Decoder: PKDecoder>(type: Item.Type, decoder: Decoder) -> Publishers.Decode<Self, Item, Decoder> {
+    public func decode<Item: Decodable, Decoder: TopLevelDecoder>(type: Item.Type, decoder: Decoder) -> Publishers.Decode<Self, Item, Decoder> {
         Publishers.Decode(upstream: self, decoder: decoder)
     }
     
@@ -280,14 +280,14 @@ extension Publisher {
 // MARK: ENCODE
 extension Publisher where Output: Encodable {
     
-    /// Encodes the output from upstream using a specified `PKEncoder`.
+    /// Encodes the output from upstream using a specified `TopLevelEncoder`.
     /// For example, use `JSONEncoder`.
-    /// - Parameter encoder: `PKEncoder` for encoding output.
-    public func encode<Encoder: PKEncoder>(encoder: Encoder) -> Publishers.Encode<Self, Encoder> {
+    /// - Parameter encoder: `TopLevelEncoder` for encoding output.
+    public func encode<Encoder: TopLevelEncoder>(encoder: Encoder) -> Publishers.Encode<Self, Encoder> {
         Publishers.Encode(upstream: self, encoder: encoder)
     }
     
-    /// Encodes the output from upstream using a specified `PKEncoder`.
+    /// Encodes the output from upstream using a specified `TopLevelEncoder`.
     /// For example, use `JSONEncoder`.
     /// - Parameter keyEncodingStrategy: JSON Key Encoding Strategy. Default value is `.useDefaultKeys`.
     public func encodeJSON(keyEncodingStrategy: JSONEncoder.KeyEncodingStrategy = .useDefaultKeys) -> Publishers.Encode<Self, JSONEncoder> {
@@ -603,7 +603,7 @@ extension Publisher {
     /// - Parameters:
     ///   - queue: The queue on which rest of the operations will be performed unless again changed.
     /// - Returns: A publisher that delivers elements using the specified scheduler.
-    public func receive(on scheduler: PKScheduler) -> Publishers.ReceiveOn<Self> {
+    public func receive(on scheduler: Scheduler) -> Publishers.ReceiveOn<Self> {
         Publishers.ReceiveOn(upstream: self, on: scheduler)
     }
 }

@@ -20,9 +20,9 @@ extension Publishers {
         public let upstream: Upstream
         
         /// The scheduler on which elements are published.
-        public let scheduler: PKScheduler
+        public let scheduler: Scheduler
         
-        public init(upstream: Upstream, on scheduler: PKScheduler) {
+        public init(upstream: Upstream, on scheduler: Scheduler) {
             self.upstream = upstream
             self.scheduler = scheduler
         }
@@ -40,9 +40,9 @@ extension Publishers.ReceiveOn {
     // MARK: RECEIVEON SINK
     private final class InternalSink<Downstream: Subscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        private let scheduler: PKScheduler
+        private let scheduler: Scheduler
         
-        init(downstream: Downstream, scheduler: PKScheduler) {
+        init(downstream: Downstream, scheduler: Scheduler) {
             self.scheduler = scheduler
             super.init(downstream: downstream)
         }

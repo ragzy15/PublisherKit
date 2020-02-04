@@ -7,7 +7,7 @@
 
 import Foundation
 
-extension DispatchQueue: PKScheduler {
+extension DispatchQueue: Scheduler {
     
     public func schedule(block: @escaping () -> Void) {
         async(execute: block)

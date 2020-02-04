@@ -10,7 +10,7 @@ import Foundation
 public extension Publishers {
     
     /// A publisher that publishes elements only after a specified time interval elapses after receiving an element from upstream publisher, using the specified scheduler.
-    struct Debounce<Upstream: Publisher, Scheduler: PKScheduler>: Publisher {
+    struct Debounce<Upstream: Publisher, Scheduler: Scheduler>: Publisher {
         
         public typealias Output = Upstream.Output
         
@@ -42,7 +42,7 @@ public extension Publishers {
 extension Publishers.Debounce {
     
     // MARK: DEBOUNCE SINK
-    private final class InternalSink<Downstream: Subscriber, Scheduler: PKScheduler>: UpstreamInternalSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: Subscriber, Scheduler: Scheduler>: UpstreamInternalSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private var outputCounter = 0
         
