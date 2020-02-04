@@ -10,7 +10,7 @@ import Foundation
 public extension Publishers {
     
     /// A publisher that publishes elements only after a specified time interval elapses after receiving an element from upstream publisher, using the specified scheduler.
-    struct Debounce<Upstream: Publisher, Scheduler: Scheduler>: Publisher {
+    struct Debounce<Upstream: Publisher, Context: Scheduler>: Publisher {
         
         public typealias Output = Upstream.Output
         
@@ -23,9 +23,9 @@ public extension Publishers {
         public let dueTime: SchedulerTime
         
         /// The scheduler on which elements are published.
-        public let scheduler: Scheduler
+        public let scheduler: Context
         
-        public init(upstream: Upstream, dueTime: SchedulerTime, on scheduler: Scheduler) {
+        public init(upstream: Upstream, dueTime: SchedulerTime, on scheduler: Context) {
             self.upstream = upstream
             self.dueTime = dueTime
             self.scheduler = scheduler
@@ -42,7 +42,7 @@ public extension Publishers {
 extension Publishers.Debounce {
     
     // MARK: DEBOUNCE SINK
-    private final class InternalSink<Downstream: Subscriber, Scheduler: Scheduler>: UpstreamInternalSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: Subscriber, Context: Scheduler>: UpstreamInternalSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private var outputCounter = 0
         
@@ -50,9 +50,9 @@ extension Publishers.Debounce {
         
         private let dueTime: SchedulerTime
         
-        private let scheduler: Scheduler
+        private let scheduler: Context
         
-        init(downstream: Downstream, scheduler: Scheduler, dueTime: SchedulerTime) {
+        init(downstream: Downstream, scheduler: Context, dueTime: SchedulerTime) {
             self.scheduler = scheduler
             self.dueTime = dueTime
             super.init(downstream: downstream)
