@@ -7,10 +7,10 @@
 
 import Foundation
 
-public extension PKPublishers {
+public extension Publishers {
     
     /// A publisher that republishes all non-`nil` results of calling an error-throwing closure with each received element.
-    struct TryCompactMap<Upstream: PKPublisher, Output>: PKPublisher {
+    struct TryCompactMap<Upstream: Publisher, Output>: Publisher {
         
         public typealias Failure = Error
         
@@ -25,7 +25,7 @@ public extension PKPublishers {
             self.transform = transform
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let tryCompactMapSubscriber = InternalSink(downstream: subscriber, transform: transform)
             upstream.receive(subscriber: tryCompactMapSubscriber)
@@ -33,9 +33,9 @@ public extension PKPublishers {
     }
 }
 
-extension PKPublishers.TryCompactMap {
+extension Publishers.TryCompactMap {
     
-    public func compactMap<T>(_ transform: @escaping (Output) throws -> T?) -> PKPublishers.TryCompactMap<Upstream, T> {
+    public func compactMap<T>(_ transform: @escaping (Output) throws -> T?) -> Publishers.TryCompactMap<Upstream, T> {
         
         let newTransform: (Upstream.Output) throws -> T? = { output in
             if let newOutput = try self.transform(output) {
@@ -45,14 +45,14 @@ extension PKPublishers.TryCompactMap {
             }
         }
         
-        return PKPublishers.TryCompactMap<Upstream, T>(upstream: upstream, transform: newTransform)
+        return Publishers.TryCompactMap<Upstream, T>(upstream: upstream, transform: newTransform)
     }
 }
 
-extension PKPublishers.TryCompactMap {
+extension Publishers.TryCompactMap {
     
     // MARK: TRY COMPACTMAP SINK
-    private final class InternalSink<Downstream: PKSubscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: Subscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private let transform: (Upstream.Output) throws -> Output?
         
@@ -61,7 +61,7 @@ extension PKPublishers.TryCompactMap {
             super.init(downstream: downstream)
         }
         
-        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
+        override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
             guard !isCancelled else { return .none }
             
             do {
@@ -78,7 +78,7 @@ extension PKPublishers.TryCompactMap {
             return demand
         }
         
-        override func receive(completion: PKSubscribers.Completion<Upstream.Failure>) {
+        override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
             guard !isCancelled else { return }
             end()
             

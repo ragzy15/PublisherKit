@@ -7,6 +7,10 @@
 
 import Foundation
 
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+
 extension URLSession {
     
     /// Returns a publisher that wraps a URL session upload task for a given URL request.
@@ -16,8 +20,13 @@ extension URLSession {
     /// - Parameter data: The body data for the request.
     /// - Parameter name: Name for the task. Used for logging purpose only.
     /// - Returns: A publisher that wraps a upload task for the URL request.
-    public func uploadTaskPublisher(for request: URLRequest, from data: Data?, name: String = "") -> UploadTaskPKPublisher {
+    public func uploadTaskPKPublisher(for request: URLRequest, from data: Data?, name: String = "") -> UploadTaskPKPublisher {
         UploadTaskPKPublisher(name: name, request: request, from: data, session: self)
+    }
+    
+    @available(*, deprecated, renamed: "uploadTaskPKPublisher")
+    public func uploadTaskPublisher(for request: URLRequest, from data: Data?, name: String = "") -> UploadTaskPKPublisher {
+        uploadTaskPKPublisher(for: request, from: data, name: name)
     }
     
     /// Returns a publisher that wraps a URL session upload task for a given URL request.
@@ -27,14 +36,19 @@ extension URLSession {
     /// - Parameter file: The URL of the file to upload.
     /// - Parameter name: Name for the task. Used for logging purpose only.
     /// - Returns: A publisher that wraps a upload task for the URL request.
-    public func uploadTaskPublisher(for request: URLRequest, from file: URL, name: String = "") -> UploadTaskPKPublisher {
+    public func uploadTaskPKPublisher(for request: URLRequest, from file: URL, name: String = "") -> UploadTaskPKPublisher {
         UploadTaskPKPublisher(name: name, request: request, from: file, session: self)
+    }
+    
+    @available(*, deprecated, renamed: "uploadTaskPKPublisher")
+    public func uploadTaskPublisher(for request: URLRequest, from file: URL, name: String = "") -> UploadTaskPKPublisher {
+        uploadTaskPKPublisher(for: request, from: file, name: name)
     }
 }
 
 extension URLSession {
     
-    public struct UploadTaskPKPublisher: PKPublisher, URLSessionTaskPublisherDelegate {
+    public struct UploadTaskPKPublisher: PublisherKit.Publisher, URLSessionTaskPublisherDelegate {
         
         public typealias Output = (data: Data, response: HTTPURLResponse)
         
@@ -68,7 +82,7 @@ extension URLSession {
             fileUrl = file
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let uploadTaskSubscriber = InternalSink(downstream: subscriber)
             
@@ -91,15 +105,15 @@ extension URLSession.UploadTaskPKPublisher {
     /// - Parameters:
     ///   - acceptableStatusCodes: The range of acceptable status codes. Default range of 200...299.
     ///   - acceptableContentTypes: The acceptable content types, which may specify wildcard types and/or subtypes. If provided `nil`, content type is not validated. Providing an empty Array uses default behaviour. By default the content type matches any specified in the **Accept** HTTP header field.
-    public func validate(acceptableStatusCodes codes: [Int] = Array(200 ..< 300), acceptableContentTypes: [String]? = []) -> PKPublishers.Validate<Self> {
-        PKPublishers.Validate(upstream: self, acceptableStatusCodes: codes, acceptableContentTypes: acceptableContentTypes)
+    public func validate(acceptableStatusCodes codes: [Int] = Array(200 ..< 300), acceptableContentTypes: [String]? = []) -> Publishers.Validate<Self> {
+        Publishers.Validate(upstream: self, acceptableStatusCodes: codes, acceptableContentTypes: acceptableContentTypes)
     }
 }
 
 extension URLSession.UploadTaskPKPublisher {
     
     // MARK: UPLOAD TASK SINK
-    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.InternalSink<Downstream, Output, Failure>, URLSessionTaskPublisherDelegate where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: Subscriber>: Subscribers.InternalSink<Downstream, Output, Failure>, URLSessionTaskPublisherDelegate where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private var task: URLSessionUploadTask?
         

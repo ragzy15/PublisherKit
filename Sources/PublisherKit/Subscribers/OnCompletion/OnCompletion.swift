@@ -7,19 +7,19 @@
 
 import Foundation
 
-public extension PKSubscribers {
+public extension Subscribers {
 
     /// A simple subscriber that requests an unlimited number of values upon subscription.
-    final class OnCompletion<Input, Failure: Error>: PKSubscriber, PKCancellable {
+    final class OnCompletion<Input, Failure: Error>: Subscriber, Cancellable {
 
         /// The closure to execute on completion.
         final public let receiveCompletion: (Result<Input, Failure>) -> Void
         
-        private var subscription: PKSubscription?
+        private var subscription: Subscription?
         
         private var isCancelled = false
         
-        private var demand: PKSubscribers.Demand = .unlimited
+        private var demand: Subscribers.Demand = .unlimited
 
         /// Initializes a sink with the provided closures.
         ///
@@ -30,19 +30,19 @@ public extension PKSubscribers {
             self.receiveCompletion = receiveCompletion
         }
         
-        final public func receive(subscription: PKSubscription) {
+        final public func receive(subscription: Subscription) {
             guard !isCancelled else { return }
             self.subscription = subscription
             subscription.request(.unlimited)
         }
 
-        final public func receive(_ value: Input) -> PKSubscribers.Demand  {
+        final public func receive(_ value: Input) -> Subscribers.Demand  {
             guard !isCancelled else { return .none }
             receiveCompletion(.success(value))
             return demand
         }
         
-        final public func receive(completion: PKSubscribers.Completion<Failure>) {
+        final public func receive(completion: Subscribers.Completion<Failure>) {
             guard !isCancelled else { return }
             
             if let error = completion.getError() {

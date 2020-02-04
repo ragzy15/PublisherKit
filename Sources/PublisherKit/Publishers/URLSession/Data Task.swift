@@ -7,6 +7,10 @@
 
 import Foundation
 
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+
 extension URLSession {
     
     /// Returns a publisher that wraps a URL session data task for a given URL.
@@ -46,7 +50,7 @@ extension URLSession {
     @available(*, deprecated, renamed: "DataTaskPKPublisher")
     public typealias NKDataTaskPublisher = DataTaskPKPublisher
     
-    public struct DataTaskPKPublisher: PKPublisher, URLSessionTaskPublisherDelegate {
+    public struct DataTaskPKPublisher: PublisherKit.Publisher, URLSessionTaskPublisherDelegate {
         
         public typealias Output = (data: Data, response: HTTPURLResponse)
         
@@ -66,7 +70,7 @@ extension URLSession {
             self.session = session
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let dataTaskSubscriber = InternalSink(downstream: subscriber)
             
@@ -85,15 +89,15 @@ extension URLSession.DataTaskPKPublisher {
     /// - Parameters:
     ///   - acceptableStatusCodes: The range of acceptable status codes. Default range of 200...299.
     ///   - acceptableContentTypes: The acceptable content types, which may specify wildcard types and/or subtypes. If provided `nil`, content type is not validated. Providing an empty Array uses default behaviour. By default the content type matches any specified in the **Accept** HTTP header field.
-    public func validate(acceptableStatusCodes: [Int] = Array(200 ..< 300), acceptableContentTypes: [String]? = []) -> PKPublishers.Validate<Self> {
-        PKPublishers.Validate(upstream: self, acceptableStatusCodes: acceptableStatusCodes, acceptableContentTypes: acceptableContentTypes)
+    public func validate(acceptableStatusCodes: [Int] = Array(200 ..< 300), acceptableContentTypes: [String]? = []) -> Publishers.Validate<Self> {
+        Publishers.Validate(upstream: self, acceptableStatusCodes: acceptableStatusCodes, acceptableContentTypes: acceptableContentTypes)
     }
 }
 
 extension URLSession.DataTaskPKPublisher {
     
     // MARK: DATA TASK SINK
-    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.InternalSink<Downstream, Output, Failure>, URLSessionTaskPublisherDelegate where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: Subscriber>: Subscribers.InternalSink<Downstream, Output, Failure>, URLSessionTaskPublisherDelegate where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private var task: URLSessionTask?
         

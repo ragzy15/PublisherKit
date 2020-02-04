@@ -7,7 +7,7 @@
 
 import Foundation
 
-class SubjectBaseSubscriber<Output, Failure: Error>: PKSubscription, Hashable {
+class SubjectBaseSubscriber<Output, Failure: Error>: Subscription, Hashable {
     
     static func == (lhs: SubjectBaseSubscriber, rhs: SubjectBaseSubscriber) -> Bool {
         lhs.identitfier == rhs.identitfier
@@ -19,18 +19,18 @@ class SubjectBaseSubscriber<Output, Failure: Error>: PKSubscription, Hashable {
     
     private var identitfier: ObjectIdentifier!
     
-    private var downstream: AnyPKSubscriber<Output, Failure>?
+    private var downstream: AnySubscriber<Output, Failure>?
     
     var isOver = false
     
-    private(set) var _demand: PKSubscribers.Demand = .none
+    private(set) var _demand: Subscribers.Demand = .none
     
-    init(downstream: AnyPKSubscriber<Output, Failure>) {
+    init(downstream: AnySubscriber<Output, Failure>) {
         self.downstream = downstream
         identitfier = ObjectIdentifier(self)
     }
     
-    func request(_ demand: PKSubscribers.Demand) {
+    func request(_ demand: Subscribers.Demand) {
         _demand += demand
     }
     
@@ -40,7 +40,7 @@ class SubjectBaseSubscriber<Output, Failure: Error>: PKSubscription, Hashable {
         _demand = newDemand ?? .none
     }
     
-    final func receive(completion: PKSubscribers.Completion<Failure>) {
+    final func receive(completion: Subscribers.Completion<Failure>) {
         guard !isOver else { return }
         downstream?.receive(completion: completion)
         finish()

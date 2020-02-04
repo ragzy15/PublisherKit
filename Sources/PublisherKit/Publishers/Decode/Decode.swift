@@ -7,10 +7,10 @@
 
 import Foundation
 
-public extension PKPublishers {
+public extension Publishers {
     
     /// A publisher that decodes elements received from an upstream publisher into the specified type.
-    struct Decode<Upstream: PKPublisher, Output: Decodable, Decoder: PKDecoder>: PKPublisher where Upstream.Output == Decoder.Input {
+    struct Decode<Upstream: Publisher, Output: Decodable, Decoder: PKDecoder>: Publisher where Upstream.Output == Decoder.Input {
         
         public typealias Failure = Error
         
@@ -25,7 +25,7 @@ public extension PKPublishers {
             self.decoder = decoder
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let decodeSubscriber = InternalSink(downstream: subscriber, decoder: decoder)
             upstream.subscribe(decodeSubscriber)
@@ -33,10 +33,10 @@ public extension PKPublishers {
     }
 }
 
-extension PKPublishers.Decode {
+extension Publishers.Decode {
     
     // MARK: DECODE SINK
-    private final class InternalSink<Downstream: PKSubscriber, Output: Decodable, Decoder: PKDecoder>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure, Upstream.Output == Decoder.Input {
+    private final class InternalSink<Downstream: Subscriber, Output: Decodable, Decoder: PKDecoder>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure, Upstream.Output == Decoder.Input {
         
         private let decoder: Decoder
         
@@ -45,7 +45,7 @@ extension PKPublishers.Decode {
             super.init(downstream: downstream)
         }
         
-        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
+        override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
             guard !isCancelled else { return .none }
             
             do {
@@ -59,7 +59,7 @@ extension PKPublishers.Decode {
             return demand
         }
         
-        override func receive(completion: PKSubscribers.Completion<Upstream.Failure>) {
+        override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
             guard !isCancelled else { return }
             end()
             

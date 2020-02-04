@@ -7,10 +7,10 @@
 
 import Foundation
 
-extension PKPublishers {
+extension Publishers {
     
     /// A publisher that performs the specified closures when publisher events occur.
-    public struct HandleEvents<Upstream: PKPublisher>: PKPublisher  {
+    public struct HandleEvents<Upstream: Publisher>: Publisher  {
         
         public typealias Output = Upstream.Output
         
@@ -20,26 +20,26 @@ extension PKPublishers {
         public let upstream: Upstream
         
         /// A closure that executes when the publisher receives the subscription from the upstream publisher.
-        public var receiveSubscription: ((PKSubscription) -> Void)?
+        public var receiveSubscription: ((Subscription) -> Void)?
         
         ///  A closure that executes when the publisher receives a value from the upstream publisher.
         public var receiveOutput: ((Upstream.Output) -> Void)?
         
         /// A closure that executes when the publisher receives the completion from the upstream publisher.
-        public var receiveCompletion: ((PKSubscribers.Completion<Upstream.Failure>) -> Void)?
+        public var receiveCompletion: ((Subscribers.Completion<Upstream.Failure>) -> Void)?
         
         ///  A closure that executes when the downstream receiver cancels publishing.
         public var receiveCancel: (() -> Void)?
         
         /// A closure that executes when the publisher receives a request for more elements.
-        public var receiveRequest: ((PKSubscribers.Demand) -> Void)?
+        public var receiveRequest: ((Subscribers.Demand) -> Void)?
         
         public init(upstream: Upstream,
-                    receiveSubscription: ((PKSubscription) -> Void)? = nil,
-                    receiveOutput: ((PKPublishers.HandleEvents<Upstream>.Output) -> Void)? = nil,
-                    receiveCompletion: ((PKSubscribers.Completion<PKPublishers.HandleEvents<Upstream>.Failure>) -> Void)? = nil,
+                    receiveSubscription: ((Subscription) -> Void)? = nil,
+                    receiveOutput: ((Publishers.HandleEvents<Upstream>.Output) -> Void)? = nil,
+                    receiveCompletion: ((Subscribers.Completion<Publishers.HandleEvents<Upstream>.Failure>) -> Void)? = nil,
                     receiveCancel: (() -> Void)? = nil,
-                    receiveRequest: ((PKSubscribers.Demand) -> Void)?) {
+                    receiveRequest: ((Subscribers.Demand) -> Void)?) {
             
             
             self.upstream = upstream
@@ -50,7 +50,7 @@ extension PKPublishers {
             self.receiveRequest = receiveRequest
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             
             let handleEventsSubscriber = HandleEventsSink<S, Upstream>(downstream: subscriber,

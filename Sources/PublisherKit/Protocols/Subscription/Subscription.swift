@@ -7,11 +7,14 @@
 
 import Foundation
 
-@available(*, deprecated, renamed: "PKSubscription")
-public typealias NKSubscription = PKSubscription
+@available(*, deprecated, renamed: "Subscription")
+public typealias NKSubscription = Subscription
 
-public protocol PKSubscription: PKCancellable {
+@available(*, deprecated, renamed: "Subscription")
+public typealias PKSubscription = Subscription
+
+public protocol Subscription: Cancellable {
 
     /// Tells a publisher that it may send more values to the subscriber.
-    func request(_ demand: PKSubscribers.Demand)
+    func request(_ demand: Subscribers.Demand)
 }

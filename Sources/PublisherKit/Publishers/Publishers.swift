@@ -7,8 +7,11 @@
 
 import Foundation
 
-@available(*, deprecated, renamed: "PKPublishers")
-public typealias NKPublishers = PKPublishers
+@available(*, deprecated, renamed: "Publishers")
+public typealias NKPublishers = Publishers
 
-public struct PKPublishers {
+@available(*, deprecated, renamed: "Publishers")
+public typealias PKPublishers = Publishers
+
+public struct Publishers {
 }

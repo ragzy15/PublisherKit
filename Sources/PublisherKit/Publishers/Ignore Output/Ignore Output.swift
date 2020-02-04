@@ -7,10 +7,10 @@
 
 import Foundation
 
-extension PKPublishers {
+extension Publishers {
     
     /// A publisher that ignores all upstream elements, but passes along a completion state (finish or failed).
-    public struct IgnoreOutput<Upstream: PKPublisher>: PKPublisher {
+    public struct IgnoreOutput<Upstream: Publisher>: Publisher {
         
         public typealias Output = Never
         
@@ -23,7 +23,7 @@ extension PKPublishers {
             self.upstream = upstream
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let ignoreOutputSubscriber = InternalSink(downstream: subscriber)
             upstream.subscribe(ignoreOutputSubscriber)
@@ -31,16 +31,16 @@ extension PKPublishers {
     }
 }
 
-extension PKPublishers.IgnoreOutput {
+extension Publishers.IgnoreOutput {
     
     // MARK: IGNORE OUTPUT SINK
-    private final class InternalSink<Downstream: PKSubscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: Subscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
+        override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
             demand
         }
         
-        override func receive(completion: PKSubscribers.Completion<Upstream.Failure>) {
+        override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
             guard !isCancelled else { return }
             end()
             downstream?.receive(completion: completion)

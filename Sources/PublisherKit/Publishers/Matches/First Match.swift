@@ -7,10 +7,10 @@
 
 import Foundation
 
-extension PKPublishers {
+extension Publishers {
     
     /// A publisher that publishes a single Boolean value that indicates whether the ouput has passed a given pattern.
-    public struct FirstMatch<Upstream: PKPublisher>: PKPublisher where Upstream.Output == String {
+    public struct FirstMatch<Upstream: Publisher>: Publisher where Upstream.Output == String {
         
         public typealias Output = Bool
         
@@ -52,7 +52,7 @@ extension PKPublishers {
             result = .success(regularExpression)
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let firstMatchSubscriber = InternalSink(downstream: subscriber, result: result, matchOptions: matchOptions)
             upstream.subscribe(firstMatchSubscriber)
@@ -60,10 +60,10 @@ extension PKPublishers {
     }
 }
 
-extension PKPublishers.FirstMatch {
+extension Publishers.FirstMatch {
     
     // MARK: FIRST MATCH SINK
-    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.OperatorSink<Downstream, Upstream.Output, Upstream.Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: Subscriber>: Subscribers.OperatorSink<Downstream, Upstream.Output, Upstream.Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private let result: Result<NSRegularExpression, Error>
         private let matchOptions: NSRegularExpression.MatchingOptions
@@ -74,7 +74,7 @@ extension PKPublishers.FirstMatch {
             super.init(downstream: downstream)
         }
         
-        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
+        override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
             guard !isCancelled else { return .none }
             
             switch result {
@@ -90,7 +90,7 @@ extension PKPublishers.FirstMatch {
             return demand
         }
         
-        override func receive(completion: PKSubscribers.Completion<Upstream.Failure>) {
+        override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
             guard !isCancelled else { return }
             end()
             

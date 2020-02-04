@@ -7,7 +7,7 @@
 
 import Foundation
 
-class SubscriptionSink: PKSubscription {
+class SubscriptionSink: Subscription {
     
     private(set) var isCancelled = false
     
@@ -17,11 +17,11 @@ class SubscriptionSink: PKSubscription {
         isEnded || isCancelled
     }
     
-    var subscription: PKSubscription?
+    var subscription: Subscription?
     
-    var demand: PKSubscribers.Demand = .unlimited
+    var demand: Subscribers.Demand = .unlimited
     
-    func request(_ demand: PKSubscribers.Demand) {
+    func request(_ demand: Subscribers.Demand) {
         self.demand = demand
     }
     
@@ -36,7 +36,7 @@ class SubscriptionSink: PKSubscription {
         subscription = nil
     }
     
-    final func getDemand() -> PKSubscribers.Demand {
+    final func getDemand() -> Subscribers.Demand {
         demand -= 1
         return demand
     }

@@ -7,10 +7,10 @@
 
 import Foundation
 
-extension PKPublishers {
+extension Publishers {
     
     /// A publisher that publishes a single Boolean value that indicates whether all received elements pass a given error-throwing predicate.
-    public struct TryAllSatisfy<Upstream: PKPublisher>: PKPublisher {
+    public struct TryAllSatisfy<Upstream: Publisher>: Publisher {
         
         public typealias Output = Bool
         
@@ -29,7 +29,7 @@ extension PKPublishers {
             self.predicate = predicate
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let tryAllSatisfySubscriber = InternalSink(downstream: subscriber, predicate: predicate)
             upstream.receive(subscriber: tryAllSatisfySubscriber)
@@ -37,10 +37,10 @@ extension PKPublishers {
     }
 }
 
-extension PKPublishers.TryAllSatisfy {
+extension Publishers.TryAllSatisfy {
     
     // MARK: TRY ALL SATISFY SINK
-    private final class InternalSink<Downstream: PKSubscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: Subscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private let predicate: (Upstream.Output) throws -> Bool
         
@@ -49,7 +49,7 @@ extension PKPublishers.TryAllSatisfy {
             super.init(downstream: downstream)
         }
         
-        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
+        override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
             guard !isCancelled else { return .none }
             
             do {
@@ -62,7 +62,7 @@ extension PKPublishers.TryAllSatisfy {
             return demand
         }
         
-        override func receive(completion: PKSubscribers.Completion<Upstream.Failure>) {
+        override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
             guard !isCancelled else { return }
             end()
             

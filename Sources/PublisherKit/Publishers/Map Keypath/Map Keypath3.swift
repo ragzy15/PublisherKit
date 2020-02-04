@@ -7,10 +7,10 @@
 
 import Foundation
 
-extension PKPublishers {
+extension Publishers {
     
     /// A publisher that publishes the values of three key paths as a tuple.
-    public struct MapKeyPath3<Upstream: PKPublisher, Output0, Output1, Output2>: PKPublisher {
+    public struct MapKeyPath3<Upstream: Publisher, Output0, Output1, Output2>: Publisher {
         
         public typealias Output = (Output0, Output1, Output2)
         
@@ -35,7 +35,7 @@ extension PKPublishers {
             self.keyPath2 = keyPath2
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let mapKeypathSubscriber = InternalSink(downstream: subscriber, keyPath0: keyPath0, keyPath1: keyPath1, keyPath2: keyPath2)
             upstream.subscribe(mapKeypathSubscriber)
@@ -43,10 +43,10 @@ extension PKPublishers {
     }
 }
 
-extension PKPublishers.MapKeyPath3 {
+extension Publishers.MapKeyPath3 {
     
     // MARK: MAPKEYPATH3 SINK
-    private final class InternalSink<Downstream: PKSubscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: Subscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private let keyPath0: KeyPath<Upstream.Output, Output0>
         private let keyPath1: KeyPath<Upstream.Output, Output1>
@@ -59,7 +59,7 @@ extension PKPublishers.MapKeyPath3 {
             super.init(downstream: downstream)
         }
         
-        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
+        override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
             guard !isCancelled else { return .none }
             
             let output0 = input[keyPath: keyPath0]
@@ -71,7 +71,7 @@ extension PKPublishers.MapKeyPath3 {
             return demand
         }
         
-        override func receive(completion: PKSubscribers.Completion<Failure>) {
+        override func receive(completion: Subscribers.Completion<Failure>) {
             guard !isCancelled else { return }
             end()
             downstream?.receive(completion: completion)

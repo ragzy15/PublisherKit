@@ -12,16 +12,16 @@ extension Subscriptions {
     /// Returns the 'empty' subscription.
     ///
     /// Use the empty subscription when you need a `Subscription` that ignores requests and cancellation.
-    public static var empty: PKSubscription { EmptySubscription() }
+    public static var empty: Subscription { EmptySubscription() }
 }
 
 private extension Subscriptions {
     
-    class EmptySubscription: PKSubscription {
+    class EmptySubscription: Subscription {
         
         init() {}
         
-        func request(_ demand: PKSubscribers.Demand) {}
+        func request(_ demand: Subscribers.Demand) {}
         
         func cancel() {}
     }

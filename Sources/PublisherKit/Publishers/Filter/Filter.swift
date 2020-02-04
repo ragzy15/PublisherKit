@@ -7,10 +7,10 @@
 
 import Foundation
 
-extension PKPublishers {
+extension Publishers {
     
     /// A publisher that republishes all elements that match a provided closure.
-    public struct Filter<Upstream: PKPublisher>: PKPublisher {
+    public struct Filter<Upstream: Publisher>: Publisher {
         
         public typealias Output = Upstream.Output
         
@@ -27,7 +27,7 @@ extension PKPublishers {
             self.isIncluded = isIncluded
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let filterSubscriber = InternalSink(downstream: subscriber, isIncluded: isIncluded)
             upstream.subscribe(filterSubscriber)
@@ -35,9 +35,9 @@ extension PKPublishers {
     }
 }
 
-extension PKPublishers.Filter {
+extension Publishers.Filter {
     
-    public func filter(_ isIncluded: @escaping (Output) -> Bool) -> PKPublishers.Filter<Upstream> {
+    public func filter(_ isIncluded: @escaping (Output) -> Bool) -> Publishers.Filter<Upstream> {
         
         let newIsIncluded: (Upstream.Output) -> Bool = { output in
             if self.isIncluded(output) {
@@ -47,10 +47,10 @@ extension PKPublishers.Filter {
             }
         }
         
-        return PKPublishers.Filter(upstream: upstream, isIncluded: newIsIncluded)
+        return Publishers.Filter(upstream: upstream, isIncluded: newIsIncluded)
     }
     
-    public func tryFilter(_ isIncluded: @escaping (Output) throws -> Bool) -> PKPublishers.TryFilter<Upstream> {
+    public func tryFilter(_ isIncluded: @escaping (Output) throws -> Bool) -> Publishers.TryFilter<Upstream> {
         
         let newIsIncluded: (Upstream.Output) throws -> Bool = { output in
             if self.isIncluded(output) {
@@ -60,14 +60,14 @@ extension PKPublishers.Filter {
             }
         }
         
-        return PKPublishers.TryFilter(upstream: upstream, isIncluded: newIsIncluded)
+        return Publishers.TryFilter(upstream: upstream, isIncluded: newIsIncluded)
     }
 }
 
-extension PKPublishers.Filter {
+extension Publishers.Filter {
 
     // MARK: FILTER SINK
-    private final class InternalSink<Downstream: PKSubscriber>: UpstreamInternalSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: Subscriber>: UpstreamInternalSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private let isIncluded: (Upstream.Output) -> Bool
         
@@ -76,7 +76,7 @@ extension PKPublishers.Filter {
             super.init(downstream: downstream)
         }
         
-        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
+        override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
             guard !isCancelled else { return .none }
             
             if isIncluded(input) {

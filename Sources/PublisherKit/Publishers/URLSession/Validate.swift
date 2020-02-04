@@ -7,9 +7,13 @@
 
 import Foundation
 
-extension PKPublishers {
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+
+extension Publishers {
     
-    public struct Validate<Upstream: PKPublisher>: PKPublisher where Upstream.Output == (data: Data, response: HTTPURLResponse) {
+    public struct Validate<Upstream: Publisher>: Publisher where Upstream.Output == (data: Data, response: HTTPURLResponse) {
         
         public typealias Output = Upstream.Output
         
@@ -40,7 +44,7 @@ extension PKPublishers {
             self.acceptableContentTypes = acceptableContentTypes
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let validationSubscriber = InternalSink(downstream: subscriber, acceptableStatusCodes: acceptableStatusCodes, acceptableContentTypes: acceptableContentTypes)
             
@@ -51,10 +55,10 @@ extension PKPublishers {
     }
 }
 
-extension PKPublishers.Validate {
+extension Publishers.Validate {
     
     // MARK: VALIDATE SINK
-    fileprivate final class InternalSink<Downstream: PKSubscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    fileprivate final class InternalSink<Downstream: Subscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private let acceptableStatusCodes: [Int]
         private let acceptableContentTypes: [String]?
@@ -65,7 +69,7 @@ extension PKPublishers.Validate {
             super.init(downstream: downstream)
         }
         
-        override func receive(_ input: (data: Data, response: HTTPURLResponse)) -> PKSubscribers.Demand {
+        override func receive(_ input: (data: Data, response: HTTPURLResponse)) -> Subscribers.Demand {
             let result = validate(input: input)
             
             switch result {
@@ -82,7 +86,7 @@ extension PKPublishers.Validate {
     }
 }
 
-private extension PKPublishers.Validate.InternalSink {
+private extension Publishers.Validate.InternalSink {
     
     func validate(input: Input) -> Result<Downstream.Input, Downstream.Failure> {
         
@@ -140,7 +144,7 @@ private extension PKPublishers.Validate.InternalSink {
 }
 
 
-private extension PKPublishers.Validate.InternalSink {
+private extension Publishers.Validate.InternalSink {
     
     /// ACCEPTABLE CONTENT TYPE CHECK
     struct MIMEType {

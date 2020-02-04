@@ -7,10 +7,10 @@
 
 import Foundation
 
-public extension PKPublishers {
+public extension Publishers {
     
     /// A publisher that encodes elements received from an upstream publisher using the specified encoder.
-    struct Encode<Upstream: PKPublisher, Encoder: PKEncoder>: PKPublisher where Upstream.Output: Encodable {
+    struct Encode<Upstream: Publisher, Encoder: PKEncoder>: Publisher where Upstream.Output: Encodable {
         
         public typealias Output = Encoder.Output
         
@@ -27,7 +27,7 @@ public extension PKPublishers {
             self.encoder = encoder
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let encodeSubscriber = InternalSink(downstream: subscriber, encoder: encoder)
             upstream.subscribe(encodeSubscriber)
@@ -35,10 +35,10 @@ public extension PKPublishers {
     }
 }
 
-extension PKPublishers.Encode {
+extension Publishers.Encode {
     
     // MARK: ENCODE SINK
-    private final class InternalSink<Downstream: PKSubscriber, Encoder: PKEncoder>: UpstreamOperatorSink<Downstream, Upstream> where Encoder.Output == Downstream.Input, Failure == Downstream.Failure, Upstream.Output: Encodable {
+    private final class InternalSink<Downstream: Subscriber, Encoder: PKEncoder>: UpstreamOperatorSink<Downstream, Upstream> where Encoder.Output == Downstream.Input, Failure == Downstream.Failure, Upstream.Output: Encodable {
         
         private let encoder: Encoder
         
@@ -47,7 +47,7 @@ extension PKPublishers.Encode {
             super.init(downstream: downstream)
         }
         
-        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
+        override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
             guard !isCancelled else { return .none }
             
             do {
@@ -61,7 +61,7 @@ extension PKPublishers.Encode {
             return demand
         }
         
-        override func receive(completion: PKSubscribers.Completion<Upstream.Failure>) {
+        override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
             guard !isCancelled else { return }
             end()
             

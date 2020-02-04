@@ -7,13 +7,13 @@
 
 import Foundation
 
-typealias UpstreamOperatorSink<Downstream: PKSubscriber, Upstream: PKPublisher> = PKSubscribers.OperatorSink<Downstream, Upstream.Output, Upstream.Failure>
+typealias UpstreamOperatorSink<Downstream: Subscriber, Upstream: Publisher> = Subscribers.OperatorSink<Downstream, Upstream.Output, Upstream.Failure>
 
-typealias UpstreamInternalSink<Downstream: PKSubscriber, Upstream: PKPublisher> = PKSubscribers.InternalSink<Downstream, Upstream.Output, Upstream.Failure> where Downstream.Input == Upstream.Output, Downstream.Failure == Upstream.Failure
+typealias UpstreamInternalSink<Downstream: Subscriber, Upstream: Publisher> = Subscribers.InternalSink<Downstream, Upstream.Output, Upstream.Failure> where Downstream.Input == Upstream.Output, Downstream.Failure == Upstream.Failure
 
-extension PKSubscribers {
+extension Subscribers {
     
-    class OperatorSink<Downstream: PKSubscriber, Input, Failure: Error>: SubscriptionSink, PKSubscriber {
+    class OperatorSink<Downstream: Subscriber, Input, Failure: Error>: SubscriptionSink, Subscriber {
         
         var downstream: Downstream?
         
@@ -22,50 +22,50 @@ extension PKSubscribers {
             super.init()
         }
         
-        override func request(_ demand: PKSubscribers.Demand) {
+        override func request(_ demand: Subscribers.Demand) {
             super.request(demand)
         }
         
-        func receive(subscription: PKSubscription) {
+        func receive(subscription: Subscription) {
             guard !isCancelled else { return }
             self.subscription = subscription
             downstream?.receive(subscription: self)
             request(.unlimited)
         }
         
-        func receive(_ input: Input) -> PKSubscribers.Demand {
+        func receive(_ input: Input) -> Subscribers.Demand {
             guard !isCancelled else { return .none }
             return demand
         }
         
-        func receive(completion: PKSubscribers.Completion<Failure>) {
+        func receive(completion: Subscribers.Completion<Failure>) {
             guard !isCancelled else { return }
         }
     }
     
-    class InternalSink<Downstream: PKSubscriber, Input, Failure>: OperatorSink<Downstream, Input, Failure> where Downstream.Input == Input, Downstream.Failure == Failure {
+    class InternalSink<Downstream: Subscriber, Input, Failure>: OperatorSink<Downstream, Input, Failure> where Downstream.Input == Input, Downstream.Failure == Failure {
         
-        override func receive(_ input: Input) -> PKSubscribers.Demand {
+        override func receive(_ input: Input) -> Subscribers.Demand {
             guard !isCancelled else { return .none }
             _ = downstream?.receive(input)
             return demand
         }
         
-        override func receive(completion: PKSubscribers.Completion<Failure>) {
+        override func receive(completion: Subscribers.Completion<Failure>) {
             guard !isCancelled else { return }
             end()
             downstream?.receive(completion: completion)
         }
     }
     
-    class FinalOperatorSink<Downstream: PKSubscriber, Input, Failure: Error>: OperatorSink<Downstream, Input, Failure> {
+    class FinalOperatorSink<Downstream: Subscriber, Input, Failure: Error>: OperatorSink<Downstream, Input, Failure> {
         
         final let receiveValue: ((Input, Downstream?) -> Void)
         
-        final let receiveCompletion: ((PKSubscribers.Completion<Failure>, Downstream?) -> Void)
+        final let receiveCompletion: ((Subscribers.Completion<Failure>, Downstream?) -> Void)
         
         init(downstream: Downstream,
-             receiveCompletion: @escaping (PKSubscribers.Completion<Failure>, Downstream?) -> Void,
+             receiveCompletion: @escaping (Subscribers.Completion<Failure>, Downstream?) -> Void,
              receiveValue: @escaping ((Input, Downstream?) -> Void)) {
             
             self.receiveCompletion = receiveCompletion
@@ -73,13 +73,13 @@ extension PKSubscribers {
             super.init(downstream: downstream)
         }
         
-        override func receive(_ input: Input) -> PKSubscribers.Demand {
+        override func receive(_ input: Input) -> Subscribers.Demand {
             guard !isCancelled else { return .none }
             receiveValue(input, downstream)
             return demand
         }
         
-        override func receive(completion: PKSubscribers.Completion<Failure>) {
+        override func receive(completion: Subscribers.Completion<Failure>) {
             guard !isCancelled else { return }
             end()
             receiveCompletion(completion, downstream)

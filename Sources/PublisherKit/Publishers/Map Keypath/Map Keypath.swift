@@ -7,10 +7,10 @@
 
 import Foundation
 
-public extension PKPublishers {
+public extension Publishers {
     
     /// A publisher that publishes the value of a key path.
-    struct MapKeyPath<Upstream: PKPublisher, Output>: PKPublisher {
+    struct MapKeyPath<Upstream: Publisher, Output>: Publisher {
         
         public typealias Failure = Upstream.Failure
         
@@ -25,7 +25,7 @@ public extension PKPublishers {
             self.keyPath = keyPath
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let mapKeypathSubscriber = InternalSink(downstream: subscriber, keyPath: keyPath)
             upstream.subscribe(mapKeypathSubscriber)
@@ -33,10 +33,10 @@ public extension PKPublishers {
     }
 }
 
-extension PKPublishers.MapKeyPath {
+extension Publishers.MapKeyPath {
     
     // MARK: MAPKEYPATH SINK
-    private final class InternalSink<Downstream: PKSubscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: Subscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private let keyPath: KeyPath<Upstream.Output, Output>
         
@@ -45,7 +45,7 @@ extension PKPublishers.MapKeyPath {
             super.init(downstream: downstream)
         }
         
-        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
+        override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
             guard !isCancelled else { return .none }
             
             let output = input[keyPath: keyPath]
@@ -55,7 +55,7 @@ extension PKPublishers.MapKeyPath {
             return demand
         }
         
-        override func receive(completion: PKSubscribers.Completion<Failure>) {
+        override func receive(completion: Subscribers.Completion<Failure>) {
             guard !isCancelled else { return }
             end()
             downstream?.receive(completion: completion)

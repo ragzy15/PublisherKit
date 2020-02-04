@@ -7,11 +7,11 @@
 
 import Foundation
 
-extension PKPublishers {
+extension Publishers {
     
     /// A publisher that publishes the number of elements received from the upstream publisher.
     /// It publishes the value when upstream publisher has finished.
-    public struct Count<Upstream: PKPublisher>: PKPublisher {
+    public struct Count<Upstream: Publisher>: Publisher {
         
         public typealias Output = Int
         
@@ -24,7 +24,7 @@ extension PKPublishers {
             self.upstream = upstream
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let countSubscriber = InternalSink(downstream: subscriber)
             upstream.subscribe(countSubscriber)
@@ -32,20 +32,20 @@ extension PKPublishers {
     }
 }
 
-extension PKPublishers.Count {
+extension Publishers.Count {
     
     // MARK: COUNT SINK
-    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.OperatorSink<Downstream, Upstream.Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: Subscriber>: Subscribers.OperatorSink<Downstream, Upstream.Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private var counter = 0
         
-        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
+        override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
             guard !isCancelled else { return .none }
             counter += 1
             return demand
         }
         
-        override func receive(completion: PKSubscribers.Completion<Upstream.Failure>) {
+        override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
             guard !isCancelled else { return }
             end()
             

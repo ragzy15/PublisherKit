@@ -7,19 +7,23 @@
 
 import Foundation
 
-public typealias PKCancellables = Set<PKAnyCancellable>
+/// A collection of `AnyCancellable`.
+public typealias CancellableBag = Set<AnyCancellable>
 
-@available(*, deprecated, renamed: "PKAnyCancellable")
-public typealias NKAnyCancellable = PKAnyCancellable
+@available(*, deprecated, renamed: "AnyCancellable")
+public typealias NKAnyCancellable = AnyCancellable
 
-final public class PKAnyCancellable: PKCancellable, Hashable {
+@available(*, deprecated, renamed: "AnyCancellable")
+public typealias PKAnyCancellable = AnyCancellable
+
+final public class AnyCancellable: Cancellable, Hashable {
     
     private final let block: () -> Void
     private final let uuid: UUID
     
     var isCancelled = false
     
-    //    private var storagePointer: UnsafeMutablePointer<Set<PKAnyCancellable>>?
+    //    private var storagePointer: UnsafeMutablePointer<Set<AnyCancellable>>?
     
     /// Initializes the cancellable object with the given cancel-time closure.
     ///
@@ -29,7 +33,7 @@ final public class PKAnyCancellable: PKCancellable, Hashable {
         uuid = UUID()
     }
     
-    public init<C: PKCancellable>(_ canceller: C) {
+    public init<C: Cancellable>(_ canceller: C) {
         block = canceller.cancel
         uuid = UUID()
     }
@@ -49,11 +53,11 @@ final public class PKAnyCancellable: PKCancellable, Hashable {
         hasher.combine(uuid)
     }
     
-    public static func == (lhs: PKAnyCancellable, rhs: PKAnyCancellable) -> Bool {
+    public static func == (lhs: AnyCancellable, rhs: AnyCancellable) -> Bool {
         lhs.hashValue == rhs.hashValue
     }
     
-    public final func store(in set: inout Set<PKAnyCancellable>) {
+    public final func store(in set: inout CancellableBag) {
         set.insert(self)
     }
 }

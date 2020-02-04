@@ -9,17 +9,17 @@ import Foundation
 
 extension Sequence {
     
-    public var pkPublisher: PKPublishers.Sequence<Self, Never> {
-        PKPublishers.Sequence(sequence: self)
+    public var pkPublisher: Publishers.Sequence<Self, Never> {
+        Publishers.Sequence(sequence: self)
     }
 }
 
-extension PKPublishers {
+extension Publishers {
     
     /// A publisher that publishes a given sequence of elements.
     ///
     /// When the publisher exhausts the elements in the sequence, the next request causes the publisher to finish.
-    public struct Sequence<Elements: Swift.Sequence, Failure: Error>: PKPublisher {
+    public struct Sequence<Elements: Swift.Sequence, Failure: Error>: Publisher {
         
         public typealias Output = Elements.Element
         
@@ -33,7 +33,7 @@ extension PKPublishers {
             self.sequence = sequence
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let sequenceSubscriber = InternalSink(downstream: subscriber)
             
@@ -49,17 +49,17 @@ extension PKPublishers {
     }
 }
 
-extension PKPublishers.Sequence {
+extension Publishers.Sequence {
 
     // MARK: SEQUENCE SINK
-    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.InternalSink<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: Subscriber>: Subscribers.InternalSink<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         func receive(input: Input) {
             guard !isCancelled else { return }
             _ = downstream?.receive(input)
         }
         
-        override func receive(completion: PKSubscribers.Completion<Failure>) {
+        override func receive(completion: Subscribers.Completion<Failure>) {
             guard !isCancelled else { return }
             downstream?.receive(completion: completion)
         }
