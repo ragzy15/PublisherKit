@@ -261,19 +261,27 @@ extension Publisher {
     /// For example, use `JSONDecoder`.
     /// - Parameter type: Type to decode into.
     /// - Parameter decoder: `PKDecoder` for decoding output.
-    public func decode<Item: Decodable, Decoder: TopLevelDecoder>(type: Item.Type, decoder: Decoder) -> Publishers.Decode<Self, Item, Decoder> {
-        Publishers.Decode(upstream: self, decoder: decoder)
+    /// - Parameter logOutput: Log output to console using `Logger`. Default value is `true`.
+    public func decode<Item: Decodable, Decoder: TopLevelDecoder>(type: Item.Type, decoder: Decoder, logOutput: Bool = true) -> Publishers.Decode<Self, Item, Decoder> {
+        var publisher = Publishers.Decode<Self, Item, Decoder>(upstream: self, decoder: decoder)
+        publisher.logOutput = logOutput
+        
+        return publisher
     }
     
     /// Decodes the output from upstream using a specified `JSONDecoder`.
     /// - Parameter type: Type to decode into.
     /// - Parameter jsonKeyDecodingStrategy: JSON Key Decoding Strategy. Default value is `.useDefaultKeys`.
-    public func decode<Item: Decodable>(type: Item.Type, jsonKeyDecodingStrategy: JSONDecoder.KeyDecodingStrategy = .useDefaultKeys) -> Publishers.Decode<Self, Item, JSONDecoder> {
+    /// - Parameter logOutput: Log output to console using `Logger`. Default value is `true`.
+    public func decode<Item: Decodable>(type: Item.Type, jsonKeyDecodingStrategy: JSONDecoder.KeyDecodingStrategy = .useDefaultKeys, logOutput: Bool = true) -> Publishers.Decode<Self, Item, JSONDecoder> {
         
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = jsonKeyDecodingStrategy
         
-        return Publishers.Decode<Self, Item, JSONDecoder>(upstream: self, decoder: decoder)
+        var publisher = Publishers.Decode<Self, Item, JSONDecoder>(upstream: self, decoder: decoder)
+        publisher.logOutput = logOutput
+        
+        return publisher
     }
 }
 

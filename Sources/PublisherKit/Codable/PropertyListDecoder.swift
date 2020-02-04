@@ -8,4 +8,10 @@
 import Foundation
 
 extension PropertyListDecoder: TopLevelDecoder {
+    
+    public typealias Input = Data
+    
+    public func log(from input: Input) {
+        Logger.default.printPropertyList(data: input)
+    }
 }

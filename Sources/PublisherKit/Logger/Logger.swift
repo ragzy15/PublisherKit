@@ -75,15 +75,11 @@ final public class Logger {
     /**
      Print JSON sent by the `PublisherKit`.
      
-     - parameter data: Input Type to be printed
-     - parameter name: API name.
+     - parameter data: JSON Data to be printed.
      */
-    func printJSON<Input>(data: Input, name: String) {
+    func printJSON(data: Data) {
         #if DEBUG
         guard isLoggingEnabled else { return }
-        guard let data = data as? Data else {
-            return
-        }
         
         do {
             let object = try JSONSerialization.jsonObject(with: data, options: [])
@@ -95,6 +91,32 @@ final public class Logger {
                            
                     """)
             Swift.print(String(data: newData, encoding: .utf8) ?? "nil")
+            Swift.print("------------------------------------------------------------")
+            
+        } catch {
+            
+        }
+        #endif
+    }
+    
+    /**
+     Print PropertyList sent by the `PublisherKit`.
+     
+     - parameter data: PropertyList Data to be printed.
+     */
+    func printPropertyList(data: Data) {
+        #if DEBUG
+        guard isLoggingEnabled else { return }
+        
+        do {
+            let object = try PropertyListSerialization.propertyList(from: data, options: [], format: nil)
+            
+            Swift.print("""
+                    ------------------------------------------------------------
+                    Property List:
+                           
+                    """)
+            Swift.print(object)
             Swift.print("------------------------------------------------------------")
             
         } catch {

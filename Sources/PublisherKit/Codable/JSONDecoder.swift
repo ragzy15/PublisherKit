@@ -8,4 +8,10 @@
 import Foundation
 
 extension JSONDecoder: TopLevelDecoder {
+    
+    public typealias Input = Data
+    
+    public func log(from input: Input) {
+        Logger.default.printJSON(data: input)
+    }
 }
