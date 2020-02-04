@@ -7,10 +7,13 @@
 
 import Foundation
 
-@available(*, deprecated, renamed: "PKSubscriber")
-public typealias NKSubscriber = PKSubscriber
+@available(*, deprecated, renamed: "Subscriber")
+public typealias NKSubscriber = Subscriber
 
-public protocol PKSubscriber {
+@available(*, deprecated, renamed: "Subscriber")
+public typealias PKSubscriber = Subscriber
+
+public protocol Subscriber {
     
     /// The kind of values this subscriber receives.
     associatedtype Input
@@ -24,16 +27,16 @@ public protocol PKSubscriber {
     ///
     /// Use the received `Subscription` to request items from the publisher.
     /// - Parameter subscription: A subscription that represents the connection between publisher and subscriber.
-    func receive(subscription: PKSubscription)
+    func receive(subscription: Subscription)
 
     /// Tells the subscriber that the publisher has produced an element.
     ///
     /// - Parameter input: The published element.
     /// - Returns: A `Demand` instance indicating how many more elements the subcriber expects to receive.
-    func receive(_ input: Input) -> PKSubscribers.Demand
+    func receive(_ input: Input) -> Subscribers.Demand
 
     /// Tells the subscriber that the publisher has completed publishing, either normally or with an error.
     ///
     /// - Parameter completion: A `Completion` case indicating whether publishing completed normally or with an error.
-    func receive(completion: PKSubscribers.Completion<Failure>)
+    func receive(completion: Subscribers.Completion<Failure>)
 }

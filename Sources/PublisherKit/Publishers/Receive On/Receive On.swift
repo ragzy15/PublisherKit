@@ -7,10 +7,10 @@
 
 import Foundation
 
-extension PKPublishers {
+extension Publishers {
     
     /// A publisher that publishes elements to its downstream subscriber on a specific scheduler.
-    public struct ReceiveOn<Upstream: PKPublisher>: PKPublisher {
+    public struct ReceiveOn<Upstream: Publisher>: Publisher {
         
         public typealias Output = Upstream.Output
         
@@ -20,14 +20,14 @@ extension PKPublishers {
         public let upstream: Upstream
         
         /// The scheduler on which elements are published.
-        public let scheduler: PKScheduler
+        public let scheduler: Scheduler
         
-        public init(upstream: Upstream, on scheduler: PKScheduler) {
+        public init(upstream: Upstream, on scheduler: Scheduler) {
             self.upstream = upstream
             self.scheduler = scheduler
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let receiveOnSubscriber = InternalSink(downstream: subscriber, scheduler: scheduler)
             upstream.subscribe(receiveOnSubscriber)
@@ -35,19 +35,19 @@ extension PKPublishers {
     }
 }
 
-extension PKPublishers.ReceiveOn {
+extension Publishers.ReceiveOn {
     
     // MARK: RECEIVEON SINK
-    private final class InternalSink<Downstream: PKSubscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: Subscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        private let scheduler: PKScheduler
+        private let scheduler: Scheduler
         
-        init(downstream: Downstream, scheduler: PKScheduler) {
+        init(downstream: Downstream, scheduler: Scheduler) {
             self.scheduler = scheduler
             super.init(downstream: downstream)
         }
         
-        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
+        override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
             guard !isCancelled else { return .none }
             
             scheduler.schedule {
@@ -57,7 +57,7 @@ extension PKPublishers.ReceiveOn {
             return demand
         }
         
-        override func receive(completion: PKSubscribers.Completion<Upstream.Failure>) {
+        override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
             guard !isCancelled else { return }
             end()
             

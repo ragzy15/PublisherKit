@@ -7,10 +7,13 @@
 
 import Foundation
 
-@available(*, deprecated, renamed: "PKScheduler")
-public typealias NKScheduler = PKScheduler
+@available(*, deprecated, renamed: "Scheduler")
+public typealias NKScheduler = Scheduler
 
-public protocol PKScheduler: class {
+@available(*, deprecated, renamed: "Scheduler")
+public typealias PKScheduler = Scheduler
+
+public protocol Scheduler: class {
     
     func schedule(after time: SchedulerTime, _ block: @escaping () -> Void)
     func schedule(block: @escaping () -> Void)

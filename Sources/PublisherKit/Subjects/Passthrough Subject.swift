@@ -14,9 +14,9 @@ import Foundation
 /// Unlike CurrentValueSubject, a PassthroughSubject doesn’t have an initial value or a buffer of the most recently-published element.
 final public class PassthroughSubject<Output, Failure: Error>: Subject {
     
-    final private var _completion: PKSubscribers.Completion<Failure>? = nil
+    final private var _completion: Subscribers.Completion<Failure>? = nil
     
-    private var upstreamSubscriptions: [PKSubscription] = []
+    private var upstreamSubscriptions: [Subscription] = []
     private var downstreamSubscriptions: [InternalSink] = []
     
     public init() {}
@@ -31,18 +31,18 @@ final public class PassthroughSubject<Output, Failure: Error>: Subject {
         }
     }
     
-    final public func send(subscription: PKSubscription) {
+    final public func send(subscription: Subscription) {
         upstreamSubscriptions.append(subscription)
         subscription.request(_completion == nil ? .unlimited : .none)
     }
     
-    final public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+    final public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
         
         if let completion = _completion {
             subscriber.receive(subscription: Subscriptions.empty)
             subscriber.receive(completion: completion)
         } else {
-            let subscription = InternalSink(downstream: AnyPKSubscriber(subscriber))
+            let subscription = InternalSink(downstream: AnySubscriber(subscriber))
             downstreamSubscriptions.append(subscription)
             
             subscriber.receive(subscription: subscription)
@@ -57,7 +57,7 @@ final public class PassthroughSubject<Output, Failure: Error>: Subject {
         }
     }
     
-    final public func send(completion: PKSubscribers.Completion<Failure>) {
+    final public func send(completion: Subscribers.Completion<Failure>) {
         guard _completion == nil else { return }    // if subject has been completed, do not send or save future completions.
         
         _completion = completion

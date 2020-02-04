@@ -7,8 +7,8 @@ final class PublisherKitTests: XCTestCase {
         ("testMerge", testMerge, "testBindable", testBindable, "testURLSession", testURLSession),
     ]
     
-    var anyCancellable: PKAnyCancellable?
-    var anyCancellables = Set<PKAnyCancellable>()
+    var anyCancellable: AnyCancellable?
+    var anyCancellables = CancellableBag()
     
     let value = BindableValue<Int>(wrappedValue: 0)
     

@@ -1,5 +1,5 @@
 //
-//  Encoder.swift
+//  Top Level Encoder.swift
 //  PublisherKit
 //
 //  Created by Raghav Ahuja on 25/01/20.
@@ -7,7 +7,10 @@
 
 import Foundation
 
-public protocol PKEncoder {
+@available(*, deprecated, renamed: "TopLevelEncoder")
+public typealias PKEncoder = TopLevelEncoder
+
+public protocol TopLevelEncoder {
     
     associatedtype Output
 

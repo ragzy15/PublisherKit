@@ -7,10 +7,10 @@
 
 import Foundation
 
-extension PKPublishers {
+extension Publishers {
     
     /// A publisher that publishes only elements that don’t match the previous element, as evaluated by a provided error-throwing closure.
-    public struct TryRemoveDuplicates<Upstream: PKPublisher>: PKPublisher {
+    public struct TryRemoveDuplicates<Upstream: Publisher>: Publisher {
         
         public typealias Output = Upstream.Output
         
@@ -30,7 +30,7 @@ extension PKPublishers {
             self.predicate = predicate
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let tryDuplicatesSubscriber = InternalSink(downstream: subscriber, predicate: predicate)
             upstream.subscribe(tryDuplicatesSubscriber)
@@ -38,10 +38,10 @@ extension PKPublishers {
     }
 }
 
-extension PKPublishers.TryRemoveDuplicates {
+extension Publishers.TryRemoveDuplicates {
     
     // MARK: TRY REMOVE DUPLICATES SINK
-    private final class InternalSink<Downstream: PKSubscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: Subscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private var previousValue: Output? = nil
         private let predicate: (Output, Output) throws -> Bool
@@ -51,7 +51,7 @@ extension PKPublishers.TryRemoveDuplicates {
             super.init(downstream: downstream)
         }
         
-        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
+        override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
             guard !isCancelled else { return .none }
             
             do {
@@ -70,7 +70,7 @@ extension PKPublishers.TryRemoveDuplicates {
             return demand
         }
         
-        override func receive(completion: PKSubscribers.Completion<Upstream.Failure>) {
+        override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
             guard !isCancelled else { return }
             end()
             

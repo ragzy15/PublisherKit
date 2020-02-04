@@ -7,10 +7,10 @@
 
 import Foundation
 
-extension PKPublishers {
+extension Publishers {
     
     /// A publisher that handles errors from an upstream publisher by replacing the failed publisher with another publisher or producing a new error.
-    public struct TryCatch<Upstream: PKPublisher, NewPublisher: PKPublisher>: PKPublisher where Upstream.Output == NewPublisher.Output {
+    public struct TryCatch<Upstream: Publisher, NewPublisher: Publisher>: Publisher where Upstream.Output == NewPublisher.Output {
         
         public typealias Output = Upstream.Output
         
@@ -32,7 +32,7 @@ extension PKPublishers {
             self.handler = handler
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let tryCatchSubscriber = InternalSink(downstream: subscriber, handler: handler)
             upstream.receive(subscriber: tryCatchSubscriber)
@@ -40,14 +40,14 @@ extension PKPublishers {
     }
 }
 
-extension PKPublishers.TryCatch {
+extension Publishers.TryCatch {
     
     // MARK: TRY CATCH SINK
-    private final class InternalSink<Downstream: PKSubscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: Subscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private let handler: (Upstream.Failure) throws -> NewPublisher
         
-        private lazy var subscriber = PKSubscribers.FinalOperatorSink<Downstream, Upstream.Output, NewPublisher.Failure>(downstream: downstream!, receiveCompletion: { (completion, downstream) in
+        private lazy var subscriber = Subscribers.FinalOperatorSink<Downstream, Upstream.Output, NewPublisher.Failure>(downstream: downstream!, receiveCompletion: { (completion, downstream) in
             
             let completion = completion.mapError { $0 as Downstream.Failure }
             downstream?.receive(completion: completion)
@@ -61,13 +61,13 @@ extension PKPublishers.TryCatch {
             super.init(downstream: downstream)
         }
         
-        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
+        override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
             guard !isCancelled else { return .none }
             _ = downstream?.receive(input)
             return demand
         }
         
-        override func receive(completion: PKSubscribers.Completion<Upstream.Failure>) {
+        override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
             guard !isCancelled else { return }
             end()
             

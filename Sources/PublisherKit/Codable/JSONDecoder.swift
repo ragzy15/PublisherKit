@@ -7,5 +7,5 @@
 
 import Foundation
 
-extension JSONDecoder: PKDecoder {
+extension JSONDecoder: TopLevelDecoder {
 }

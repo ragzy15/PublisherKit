@@ -7,8 +7,11 @@
 
 import Foundation
 
-@available(*, deprecated, renamed: "PKSubscribers")
-public typealias NKSubscribers = PKSubscribers
+@available(*, deprecated, renamed: "Subscribers")
+public typealias NKSubscribers = Subscribers
 
-public enum PKSubscribers {
+@available(*, deprecated, renamed: "Subscribers")
+public typealias PKSubscribers = Subscribers
+
+public enum Subscribers {
 }
