@@ -57,12 +57,7 @@ extension Publishers.Sequence {
     }
     
     public func tryContains(where predicate: (Output) throws -> Bool) -> Result<Bool, Error>.PKPublisher {
-        do {
-            let contains = try sequence.contains(where: predicate)
-            return Result.PKPublisher(contains)
-        } catch {
-            return Result.PKPublisher(error)
-        }
+        Result<Bool, Error>.PKPublisher(Result { try sequence.contains(where: predicate) })
     }
     
     public func drop(while predicate: (Elements.Element) -> Bool) -> Publishers.Sequence<DropWhileSequence<Elements>, Failure> {
@@ -78,6 +73,10 @@ extension Publishers.Sequence {
     public func filter(_ isIncluded: (Output) -> Bool) -> Publishers.Sequence<[Output], Failure> {
         let newSequence = sequence.filter { isIncluded($0) }
         return Publishers.Sequence(sequence: newSequence)
+    }
+    
+    public func ignoreOutput() -> Empty<Output, Failure> {
+        Empty(completeImmediately: true)
     }
     
     public func map<T>(_ transform: (Elements.Element) -> T) -> Publishers.Sequence<[T], Failure> {
@@ -121,6 +120,16 @@ extension Publishers.Sequence {
         return Publishers.Sequence(sequence: newSequence)
     }
     
+    public func scan<T>(_ initialResult: T, _ nextPartialResult: @escaping (T, Output) -> T) -> Publishers.Sequence<[T], Failure> {
+        var result = initialResult
+        let newSequence = sequence.map { (element) -> T in
+            result = nextPartialResult(result, element)
+            return result
+        }
+        
+        return Publishers.Sequence(sequence: newSequence)
+    }
+    
     public func setFailureType<E: Error>(to error: E.Type) -> Publishers.Sequence<Elements, E> {
         Publishers.Sequence(sequence: sequence)
     }
@@ -142,8 +151,7 @@ extension Publishers.Sequence where Elements.Element: Equatable {
     }
     
     public func contains(_ output: Elements.Element) -> Result<Bool, Failure>.PKPublisher {
-        let contains = sequence.contains(output)
-        return Result.PKPublisher(contains)
+        Result.PKPublisher(sequence.contains(output))
     }
 }
 
@@ -200,11 +208,7 @@ extension Publishers.Sequence where Elements: BidirectionalCollection, Failure =
 extension Publishers.Sequence where Elements: RandomAccessCollection, Failure == Never {
     
     public func output(at index: Elements.Index) -> Optional<Output>.PKPublisher {
-        if sequence.indices.contains(index) {
-            return Optional.PKPublisher(sequence[index])
-        } else {
-            return Optional.PKPublisher(nil)
-        }
+        Optional.PKPublisher(sequence.indices.contains(index) ? sequence[index] : nil)
     }
 }
 
@@ -233,7 +237,7 @@ extension Publishers.Sequence where Elements: RandomAccessCollection {
 extension Publishers.Sequence where Elements: RangeReplaceableCollection {
     
     public func prepend(_ elements: Output...) -> Publishers.Sequence<Elements, Failure> {
-        Publishers.Sequence(sequence: elements + sequence)
+        prepend(elements)
     }
     
     public func prepend<S: Swift.Sequence>(_ elements: S) -> Publishers.Sequence<Elements, Failure> where Elements.Element == S.Element {
@@ -245,7 +249,7 @@ extension Publishers.Sequence where Elements: RangeReplaceableCollection {
     }
     
     public func append(_ elements: Output...) -> Publishers.Sequence<Elements, Failure> {
-        Publishers.Sequence(sequence: sequence + elements)
+        append(elements)
     }
     
     public func append<S: Sequence>(_ elements: S) -> Publishers.Sequence<Elements, Failure> where Elements.Element == S.Element {

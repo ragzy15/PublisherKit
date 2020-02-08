@@ -37,15 +37,13 @@ extension Publishers.HandleEvents {
         }
         
         override func request(_ demand: Subscribers.Demand) {
-            super.request(demand)
             receiveRequest?(demand)
+            super.request(demand)
         }
         
         override func receive(subscription: Subscription) {
             super.receive(subscription: subscription)
             receiveSubscription?(subscription)
-            downstream?.receive(subscription: self)
-            subscription.request(.unlimited)
         }
         
         override func receive(_ input: Input) -> Subscribers.Demand {

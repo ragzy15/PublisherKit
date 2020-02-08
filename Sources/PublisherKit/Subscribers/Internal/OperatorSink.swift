@@ -22,15 +22,11 @@ extension Subscribers {
             super.init()
         }
         
-        override func request(_ demand: Subscribers.Demand) {
-            super.request(demand)
-        }
-        
         func receive(subscription: Subscription) {
             guard !isCancelled else { return }
             self.subscription = subscription
             downstream?.receive(subscription: self)
-            request(.unlimited)
+            subscription.request(.unlimited)
         }
         
         func receive(_ input: Input) -> Subscribers.Demand {

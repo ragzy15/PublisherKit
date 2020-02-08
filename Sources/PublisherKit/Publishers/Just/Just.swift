@@ -9,10 +9,9 @@ import Foundation
 
 extension Publishers {
     
-    /// /// A publisher that emits an output to each subscriber just once, and then finishes.
+    /// A publisher that emits an output to each subscriber just once, and then finishes.
     ///
     /// A `Just` publisher can be used to start a chain of publishers. A `Just` publisher is also useful when replacing a value with `Catch` publisher.
-    ///
     public struct Just<Output>: Publisher {
         
         public typealias Failure = Never
@@ -37,12 +36,16 @@ extension Publishers {
     }
 }
 
+extension Publishers.Just: Equatable where Output: Equatable {
+}
+
 extension Publishers.Just {
     
     // MARK: JUST SINK
     private final class InternalSink<Downstream: Subscriber>: Subscribers.OperatorSink<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         func receive(input: Output) {
+            guard !isOver else { return }
             _ = downstream?.receive(input)
             end()
             downstream?.receive(completion: .finished)
