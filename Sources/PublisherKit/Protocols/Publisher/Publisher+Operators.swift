@@ -37,6 +37,38 @@ extension Publisher {
     }
 }
 
+// MARK: BREAKPOINT
+extension Publisher {
+    
+    /// Raises a debugger signal when a provided closure needs to stop the process in the debugger.
+    ///
+    /// When any of the provided closures returns `true`, this publisher raises the `SIGTRAP` signal to stop the process in the debugger.
+    /// Otherwise, this publisher passes through values and completions as-is.
+    ///
+    /// - Parameters:
+    ///   - receiveSubscription: A closure that executes when when the publisher receives a subscription. Return `true` from this closure to raise `SIGTRAP`, or false to continue.
+    ///   - receiveOutput: A closure that executes when when the publisher receives a value. Return `true` from this closure to raise `SIGTRAP`, or false to continue.
+    ///   - receiveCompletion: A closure that executes when when the publisher receives a completion. Return `true` from this closure to raise `SIGTRAP`, or false to continue.
+    /// - Returns: A publisher that raises a debugger signal when one of the provided closures returns `true`.
+    public func breakpoint(receiveSubscription: ((Subscription) -> Bool)? = nil, receiveOutput: ((Output) -> Bool)? = nil, receiveCompletion: ((Subscribers.Completion<Failure>) -> Bool)? = nil) -> Publishers.Breakpoint<Self> {
+        Publishers.Breakpoint(upstream: self, receiveSubscription: receiveSubscription, receiveOutput: receiveOutput, receiveCompletion: receiveCompletion)
+    }
+    
+    /// Raises a debugger signal upon receiving a failure.
+    ///
+    /// When the upstream publisher fails with an error, this publisher raises the `SIGTRAP` signal, which stops the process in the debugger.
+    /// Otherwise, this publisher passes through values and completions as-is.
+    /// - Returns: A publisher that raises a debugger signal upon receiving a failure.
+    public func breakpointOnError() -> Publishers.Breakpoint<Self> {
+        Publishers.Breakpoint(upstream: self) { (completion) -> Bool in
+            switch completion {
+            case .finished: return false
+            case .failure: return true
+            }
+        }
+    }
+}
+
 // MARK: CATCH
 extension Publisher {
     
@@ -204,6 +236,19 @@ extension Publisher {
         let publisher = Publishers.CombineLatest5(self, publisher1, publisher2, publisher3, publisher4)
         let map = Publishers.Map(upstream: publisher, transform: transform)
         return map
+    }
+}
+
+// MARK: CONTAINS
+extension Publisher where Output : Equatable {
+
+    /// Publishes a Boolean value upon receiving an element equal to the argument.
+    ///
+    /// The contains publisher consumes all received elements until the upstream publisher produces a matching element. At that point, it emits `true` and finishes normally. If the upstream finishes normally without producing a matching element, this publisher emits `false`, then finishes.
+    /// - Parameter output: An element to match against.
+    /// - Returns: A publisher that emits the Boolean value `true` when the upstream publisher emits a matching value.
+    public func contains(_ output: Output) -> Publishers.Contains<Self> {
+        Publishers.Contains(upstream: self, output: output)
     }
 }
 
@@ -602,6 +647,18 @@ extension Publisher {
     }
 }
 
+// MARK: PRINT
+extension Publisher {
+
+    /// Prints log messages for all publishing events.
+    ///
+    /// - Parameter prefix: A string with which to prefix all log messages. Defaults to an empty string.
+    /// - Returns: A publisher that prints log messages for all publishing events.
+    public func print(_ prefix: String = "", to stream: TextOutputStream? = nil) -> Publishers.Print<Self> {
+        Publishers.Print(upstream: self, prefix: prefix, to: stream)
+    }
+}
+
 // MARK: RECEIVE ON
 extension Publisher {
     
@@ -613,6 +670,31 @@ extension Publisher {
     /// - Returns: A publisher that delivers elements using the specified scheduler.
     public func receive(on scheduler: Scheduler) -> Publishers.ReceiveOn<Self> {
         Publishers.ReceiveOn(upstream: self, on: scheduler)
+    }
+}
+
+// MARK: REDUCE
+extension Publisher {
+
+    /// Applies a closure that accumulates each element of a stream and publishes a final result upon completion.
+    ///
+    /// - Parameters:
+    ///   - initialResult: The value the closure receives the first time it is called.
+    ///   - nextPartialResult: A closure that takes the previously-accumulated value and the next element from the upstream publisher to produce a new value.
+    /// - Returns: A publisher that applies the closure to all received elements and produces an accumulated value when the upstream publisher finishes.
+    public func reduce<T>(_ initialResult: T, _ nextPartialResult: @escaping (T, Self.Output) -> T) -> Publishers.Reduce<Self, T> {
+        Publishers.Reduce(upstream: self, initial: initialResult, nextPartialResult: nextPartialResult)
+    }
+
+    /// Applies an error-throwing closure that accumulates each element of a stream and publishes a final result upon completion.
+    ///
+    /// If the closure throws an error, the publisher fails, passing the error to its subscriber.
+    /// - Parameters:
+    ///   - initialResult: The value the closure receives the first time it is called.
+    ///   - nextPartialResult: An error-throwing closure that takes the previously-accumulated value and the next element from the upstream publisher to produce a new value.
+    /// - Returns: A publisher that applies the closure to all received elements and produces an accumulated value when the upstream publisher finishes.
+    public func tryReduce<T>(_ initialResult: T, _ nextPartialResult: @escaping (T, Self.Output) throws -> T) -> Publishers.TryReduce<Self, T> {
+        Publishers.TryReduce(upstream: self, initial: initialResult, nextPartialResult: nextPartialResult)
     }
 }
 
@@ -702,6 +784,20 @@ extension Publisher {
     /// - Returns: A publisher that attempts to recreate its subscription to a failed upstream publisher.
     public func retry(_ retries: Int) -> Publishers.Retry<Self> {
         Publishers.Retry(upstream: self, retries: retries)
+    }
+}
+
+// MARK: SET FAILURE TYPE
+extension Publisher where Failure == Never {
+
+    /// Changes the failure type declared by the upstream publisher.
+    ///
+    /// The publisher returned by this method cannot actually fail with the specified type and instead just finishes normally. Instead, you use this method when you need to match the error types of two mismatched publishers.
+    ///
+    /// - Parameter failureType: The `Failure` type presented by this publisher.
+    /// - Returns: A publisher that appears to send the specified failure type.
+    public func setFailureType<E: Error>(to failureType: E.Type) -> Publishers.SetFailureType<Self, E> {
+        Publishers.SetFailureType(upstream: self)
     }
 }
 
