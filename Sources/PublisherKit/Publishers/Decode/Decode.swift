@@ -20,6 +20,9 @@ public extension Publishers {
         /// The decoder used for decoding the elements received from the upstream publisher.
         private let decoder: Decoder
         
+        /// Log output to console using serializer.
+        public var logOutput = false
+        
         public init(upstream: Upstream, decoder: Decoder) {
             self.upstream = upstream
             self.decoder = decoder
@@ -28,6 +31,7 @@ public extension Publishers {
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let decodeSubscriber = InternalSink(downstream: subscriber, decoder: decoder)
+            decodeSubscriber.logOutput = logOutput
             upstream.subscribe(decodeSubscriber)
         }
     }
@@ -40,6 +44,8 @@ extension Publishers.Decode {
         
         private let decoder: Decoder
         
+        var logOutput = false
+        
         init(downstream: Downstream, decoder: Decoder) {
             self.decoder = decoder
             super.init(downstream: downstream)
@@ -47,6 +53,10 @@ extension Publishers.Decode {
         
         override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
             guard !isCancelled else { return .none }
+
+            if logOutput {
+                decoder.log(from: input)
+            }
             
             do {
                 let output = try decoder.decode(Output.self, from: input)
