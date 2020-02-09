@@ -211,7 +211,7 @@ extension Subscribers {
         }
     }
     
-    final class InternalAnySubject<DownstreamSubject: Subject>: Subscriber, Subscription {
+    final class InternalSubject<DownstreamSubject: Subject>: Subscriber, Subscription {
         
         typealias Input = DownstreamSubject.Output
         
