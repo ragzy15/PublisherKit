@@ -44,7 +44,7 @@ extension Publishers {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let retrySubscriber = InternalSink(downstream: subscriber)
+            let retrySubscriber = Inner(downstream: subscriber)
             
             retrySubscriber.retrySubscription = {
                 self.upstream.subscribe(retrySubscriber)
@@ -59,12 +59,12 @@ extension Publishers {
 extension Publishers.Retry {
     
     // MARK: RETRY
-    private final class InternalSink<Downstream: Subscriber>: UpstreamInternalSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: InternalSubscriber<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         var retrySubscription: (() -> Void)?
         
         override func receive(completion: Subscribers.Completion<Failure>) {
-            guard !isCancelled else { return }
+            guard status.isSubscribed else { return }
             
             guard let error = completion.getError() else {
                 downstream?.receive(completion: .finished)
@@ -74,8 +74,9 @@ extension Publishers.Retry {
             Logger.default.log(error: error)
             
             guard demand != .none else {
-                end()
-                downstream?.receive(completion: .failure(error))
+                end {
+                    downstream?.receive(completion: .failure(error))
+                }
                 return
             }
             

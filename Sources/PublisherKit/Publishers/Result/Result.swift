@@ -53,7 +53,7 @@ extension Result {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let resultSubscriber = InternalSink(downstream: subscriber)
+            let resultSubscriber = Inner(downstream: subscriber)
             
             subscriber.receive(subscription: resultSubscriber)
             resultSubscriber.request(.max(1))
@@ -72,16 +72,15 @@ extension Result {
 extension Result.PKPublisher {
     
     // MARK: RESULT SINK
-    private final class InternalSink<Downstream: Subscriber>: Subscribers.SubscriptionSink<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscriptions.Internal<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         override func receive(input: Output) {
-            guard !isCancelled else { return }
+            guard !isTerminated else { return }
             _ = downstream?.receive(input)
             receive(completion: .finished)
         }
         
-        override func receive(completion: Subscribers.Completion<Failure>) {
-            guard !isCancelled else { return }
+        override func onCompletion(_ completion: Subscribers.Completion<Failure>) {
             downstream?.receive(completion: completion)
         }
     }

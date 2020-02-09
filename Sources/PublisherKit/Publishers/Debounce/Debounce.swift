@@ -33,7 +33,7 @@ public extension Publishers {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let debounceSubscriber = InternalSink(downstream: subscriber, scheduler: scheduler, dueTime: dueTime)
+            let debounceSubscriber = Inner(downstream: subscriber, scheduler: scheduler, dueTime: dueTime)
             upstream.subscribe(debounceSubscriber)
         }
     }
@@ -42,7 +42,7 @@ public extension Publishers {
 extension Publishers.Debounce {
     
     // MARK: DEBOUNCE SINK
-    private final class InternalSink<Downstream: Subscriber, Context: Scheduler>: UpstreamInternalSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber, Context: Scheduler>: InternalSubscriber<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private var outputCounter = 0
         
@@ -59,14 +59,14 @@ extension Publishers.Debounce {
         }
         
         override func receive(_ input: Output) -> Subscribers.Demand {
-            guard !isCancelled else { return .none }
+            guard status.isSubscribed else { return .none }
             
             newOutput = input
             
             outputCounter += 1
             
             scheduler.schedule(after: dueTime) { [weak self] in
-                guard let `self` = self, !self.isCancelled else { return }
+                guard let `self` = self, self.status.isSubscribed else { return }
                 
                 self.outputCounter -= 1
                 
@@ -76,6 +76,12 @@ extension Publishers.Debounce {
             }
             
             return demand
+        }
+        
+        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
+            scheduler.schedule {
+                self.downstream?.receive(completion: completion)
+            }
         }
     }
 }

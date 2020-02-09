@@ -32,7 +32,7 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            let tryReduceSubscriber = InternalSink(downstream: subscriber, initial: initial, nextPartialResult: nextPartialResult)
+            let tryReduceSubscriber = Inner(downstream: subscriber, initial: initial, nextPartialResult: nextPartialResult)
             upstream.subscribe(tryReduceSubscriber)
         }
     }
@@ -41,35 +41,25 @@ extension Publishers {
 extension Publishers.TryReduce {
     
     // MARK: TRY REDUCE SINK
-    private final class InternalSink<Downstream: Subscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: OperatorSubscriber<Downstream, Upstream, (Output, Upstream.Output) throws -> Output> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        private let nextPartialResult: (Output, Upstream.Output) throws -> Output
         private var output: Output
         
         init(downstream: Downstream, initial: Output, nextPartialResult: @escaping (Output, Upstream.Output) throws -> Output) {
             self.output = initial
-            self.nextPartialResult = nextPartialResult
-            super.init(downstream: downstream)
+            super.init(downstream: downstream, operation: nextPartialResult)
         }
         
-        override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
-            guard !isOver else { return .none }
-            
+       override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
             do {
-                output = try nextPartialResult(output, input)
-                _ = downstream?.receive(output)
+                output = try operation(output, input)
+                return .success(output)
             } catch {
-                end()
-                downstream?.receive(completion: .failure(error))
+                return .failure(error)
             }
-            
-            return demand
         }
         
-        override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
-            guard !isOver else { return }
-            end()
-            
+        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
             let completion = completion.mapError { $0 as Downstream.Failure }
             downstream?.receive(completion: completion)
         }

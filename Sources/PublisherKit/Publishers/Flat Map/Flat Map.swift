@@ -33,7 +33,7 @@ extension Publishers {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let flatMapSubscriber = InternalSink(downstream: subscriber, transform: transform)
+            let flatMapSubscriber = Inner(downstream: subscriber, operation: transform)
             upstream.subscribe(flatMapSubscriber)
         }
     }
@@ -42,11 +42,9 @@ extension Publishers {
 extension Publishers.FlatMap {
     
     // MARK: FLATMAP SINK
-    private final class InternalSink<Downstream: Subscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
-        
-        private let transform: (Upstream.Output) -> NewPublisher
-        
-        private lazy var subscriber = Subscribers.ClosureOperatorSink<Downstream, NewPublisher.Output, NewPublisher.Failure>(downstream: downstream!, receiveCompletion: { (completion, downstream) in
+    private final class Inner<Downstream: Subscriber>: OperatorSubscriber<Downstream, Upstream, (Upstream.Output) -> NewPublisher> where Output == Downstream.Input, Failure == Downstream.Failure {
+       
+        private lazy var subscriber = Subscribers.InternalClosure<Downstream, NewPublisher.Output, NewPublisher.Failure>(downstream: downstream!, receiveCompletion: { (completion, downstream) in
             if let error = completion.getError() {
                 downstream?.receive(completion: .failure(error))
             }
@@ -54,25 +52,16 @@ extension Publishers.FlatMap {
             _ = downstream?.receive(input)
         }
         
-        init(downstream: Downstream, transform: @escaping (Upstream.Output) -> NewPublisher) {
-            self.transform = transform
-            super.init(downstream: downstream)
-        }
-        
-        override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
-            guard !isCancelled else { return .none }
-            
-            let publisher = transform(input)
+        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+            let publisher = operation(input)
             
             downstream?.receive(subscription: subscriber)
             publisher.subscribe(subscriber)
             
-            return demand
+            return nil
         }
         
-        override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
-            guard !isCancelled else { return }
-            end()
+        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
             downstream?.receive(completion: completion)
         }
     }

@@ -34,7 +34,7 @@ extension Publishers {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let catchSubscriber = InternalSink(downstream: subscriber, handler: handler)
+            let catchSubscriber = Inner(downstream: subscriber, operation: handler)
             upstream.subscribe(catchSubscriber)
         }
     }
@@ -43,26 +43,15 @@ extension Publishers {
 extension Publishers.Catch {
     
     // MARK: CATCH SINK
-    private final class InternalSink<Downstream: Subscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: OperatorSubscriber<Downstream, Upstream, (Upstream.Failure) -> NewPublisher> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        private let handler: (Upstream.Failure) -> NewPublisher
-        private lazy var subscriber = Subscribers.InternalSink<Downstream, Output, NewPublisher.Failure>(downstream: downstream!)
+        private lazy var subscriber = Subscribers.Inner<Downstream, Output, NewPublisher.Failure>(downstream: downstream!)
         
-        init(downstream: Downstream, handler: @escaping (Upstream.Failure) -> NewPublisher) {
-            self.handler = handler
-            super.init(downstream: downstream)
+        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+            .success(input)
         }
         
-        override func receive(_ input: Output) -> Subscribers.Demand {
-            guard !isCancelled else { return .none }
-            _ = downstream?.receive(input)
-            return demand
-        }
-        
-        override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
-            guard !isCancelled else { return }
-            end()
-            
+        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
             guard let error = completion.getError() else {
                 downstream?.receive(completion: .finished)
                 return
@@ -72,7 +61,7 @@ extension Publishers.Catch {
                 return
             }
             
-            let newPublisher = handler(error)
+            let newPublisher = operation(error)
             
             downstream.receive(subscription: subscriber)
             newPublisher.subscribe(subscriber)

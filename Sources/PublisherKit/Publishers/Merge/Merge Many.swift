@@ -27,7 +27,7 @@ extension Publishers {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let mergeSubscriber = InternalSink(downstream: subscriber)
+            let mergeSubscriber = Inner(downstream: subscriber)
             
             publishers.forEach { (publisher) in
                 publisher.subscribe(mergeSubscriber)
@@ -43,6 +43,6 @@ extension Publishers {
 extension Publishers.MergeMany {
 
     // MARK: MERGE ALL SINK
-    final class InternalSink<Downstream: Subscriber>: UpstreamInternalSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    final class Inner<Downstream: Subscriber>: Subscribers.Inner<Downstream, Upstream.Output, Upstream.Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
     }
 }

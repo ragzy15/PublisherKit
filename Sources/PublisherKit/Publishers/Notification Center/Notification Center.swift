@@ -58,7 +58,7 @@ extension NotificationCenter {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let notificationSubscriber = InternalSink(downstream: subscriber, center: center, name: name, object: object, queue: queue)
+            let notificationSubscriber = Inner(downstream: subscriber, center: center, name: name, object: object, queue: queue)
             
             subscriber.receive(subscription: notificationSubscriber)
             notificationSubscriber.request(.unlimited)
@@ -71,7 +71,7 @@ extension NotificationCenter {
 extension NotificationCenter.PKPublisher {
     
     // MARK: NOTIFICATION CENTER SINK
-    private final class InternalSink<Downstream: Subscriber>: Subscribers.SubscriptionSink<Downstream, Output, Failure> where Downstream.Failure == Failure, Downstream.Input == Output {
+    private final class Inner<Downstream: Subscriber>: Subscriptions.Internal<Downstream, Output, Failure> where Downstream.Failure == Failure, Downstream.Input == Output {
         
         private var center: NotificationCenter?
         private let name: Notification.Name
@@ -95,25 +95,8 @@ extension NotificationCenter.PKPublisher {
         }
         
         override func receive(input: Output) {
-            guard !isCancelled else { return }
+            guard !isTerminated else { return }
             _ = downstream?.receive(input)
-        }
-        
-        override func receive(completion: Subscribers.Completion<Failure>) {
-            guard !isCancelled else { return }
-            downstream?.receive(completion: completion)
-        }
-        
-        override func end() {
-            if let observer = observer {
-                center?.removeObserver(observer, name: name, object: object)
-            }
-            
-            observer = nil
-            object = nil
-            center = nil
-            queue = nil
-            super.end()
         }
         
         override func cancel() {

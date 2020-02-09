@@ -27,7 +27,7 @@ public extension Publishers {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let compactMapSubscriber = InternalSink(downstream: subscriber, transform: transform)
+            let compactMapSubscriber = Inner(downstream: subscriber, operation: transform)
             upstream.subscribe(compactMapSubscriber)
         }
     }
@@ -65,29 +65,18 @@ extension Publishers.CompactMap {
 extension Publishers.CompactMap {
     
     // MARK: COMPACTMAP SINK
-    private final class InternalSink<Downstream: Subscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: OperatorSubscriber<Downstream, Upstream, (Upstream.Output) -> Output?> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        private let transform: (Upstream.Output) -> Output?
-        
-        init(downstream: Downstream, transform: @escaping (Upstream.Output) -> Output?) {
-            self.transform = transform
-            super.init(downstream: downstream)
-        }
-        
-        override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
-            guard !isCancelled else { return .none }
-            
-            let output = self.transform(input)
+        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+            let output = operation(input)
             if let value = output {
-                _ = downstream?.receive(value)
+                return .success(value)
+            } else {
+                return nil
             }
-            
-            return demand
         }
         
-        override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
-            guard !isCancelled else { return }
-            end()
+        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
             downstream?.receive(completion: completion)
         }
     }

@@ -31,7 +31,7 @@ extension Publishers {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let tryAllSatisfySubscriber = InternalSink(downstream: subscriber, predicate: predicate)
+            let tryAllSatisfySubscriber = Inner(downstream: subscriber, operation: predicate)
             upstream.receive(subscriber: tryAllSatisfySubscriber)
         }
     }
@@ -40,32 +40,13 @@ extension Publishers {
 extension Publishers.TryAllSatisfy {
     
     // MARK: TRY ALL SATISFY SINK
-    private final class InternalSink<Downstream: Subscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: OperatorSubscriber<Downstream, Upstream, (Upstream.Output) throws -> Bool> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        private let predicate: (Upstream.Output) throws -> Bool
-        
-        init(downstream: Downstream, predicate: @escaping (Upstream.Output) throws -> Bool) {
-            self.predicate = predicate
-            super.init(downstream: downstream)
+        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+            Result { try operation(input) }
         }
         
-        override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
-            guard !isCancelled else { return .none }
-            
-            do {
-                let output = try self.predicate(input)
-                _ = downstream?.receive(output)
-            } catch {
-                end()
-                downstream?.receive(completion: .failure(error))
-            }
-            return demand
-        }
-        
-        override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
-            guard !isCancelled else { return }
-            end()
-            
+        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
             let completion = completion.mapError { $0 as Downstream.Failure }
             downstream?.receive(completion: completion)
         }

@@ -29,7 +29,7 @@ extension Publishers {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let filterSubscriber = InternalSink(downstream: subscriber, isIncluded: isIncluded)
+            let filterSubscriber = Inner(downstream: subscriber, operation: isIncluded)
             upstream.subscribe(filterSubscriber)
         }
     }
@@ -67,23 +67,14 @@ extension Publishers.Filter {
 extension Publishers.Filter {
 
     // MARK: FILTER SINK
-    private final class InternalSink<Downstream: Subscriber>: UpstreamInternalSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: OperatorSubscriber<Downstream, Upstream, (Upstream.Output) -> Bool> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        private let isIncluded: (Upstream.Output) -> Bool
-        
-        init(downstream: Downstream, isIncluded: @escaping (Upstream.Output) -> Bool) {
-            self.isIncluded = isIncluded
-            super.init(downstream: downstream)
+        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+            operation(input) ? .success(input) : nil
         }
         
-        override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
-            guard !isCancelled else { return .none }
-            
-            if isIncluded(input) {
-                _ = downstream?.receive(input)
-            }
-            
-            return demand
+        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
+            downstream?.receive(completion: completion)
         }
     }
 }

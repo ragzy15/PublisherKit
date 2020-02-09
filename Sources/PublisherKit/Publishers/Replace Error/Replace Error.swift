@@ -29,7 +29,7 @@ public extension Publishers {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let replaceErrorSubscriber = InternalSink(downstream: subscriber)
+            let replaceErrorSubscriber = Inner(downstream: subscriber)
             
             replaceErrorSubscriber.onError = { (downstream) in
                 _ = downstream?.receive(self.output)
@@ -43,19 +43,15 @@ public extension Publishers {
 extension Publishers.ReplaceError {
     
     // MARK: REPLACE ERROR SINK
-    private final class InternalSink<Downstream: Subscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: InternalSubscriber<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         var onError: ((Downstream?) -> Void)?
         
-        override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
-            guard !isCancelled else { return .none }
-            _ = downstream?.receive(input)
-            return demand
+        override func operate(on input: Input) -> Result<Downstream.Input, Downstream.Failure>? {
+            .success(input)
         }
         
-        override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
-            guard !isCancelled else { return }
-            end()
+        override func onCompletion(_ completion: Subscribers.Completion<Failure>) {
             
             if let error = completion.getError() {
                 Logger.default.log(error: error)

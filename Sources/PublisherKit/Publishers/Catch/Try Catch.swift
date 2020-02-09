@@ -34,7 +34,7 @@ extension Publishers {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let tryCatchSubscriber = InternalSink(downstream: subscriber, handler: handler)
+            let tryCatchSubscriber = Inner(downstream: subscriber, operation: handler)
             upstream.receive(subscriber: tryCatchSubscriber)
         }
     }
@@ -43,11 +43,9 @@ extension Publishers {
 extension Publishers.TryCatch {
     
     // MARK: TRY CATCH SINK
-    private final class InternalSink<Downstream: Subscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: OperatorSubscriber<Downstream, Upstream, (Upstream.Failure) throws -> NewPublisher> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        private let handler: (Upstream.Failure) throws -> NewPublisher
-        
-        private lazy var subscriber = Subscribers.ClosureOperatorSink<Downstream, Upstream.Output, NewPublisher.Failure>(downstream: downstream!, receiveCompletion: { (completion, downstream) in
+        private lazy var subscriber = Subscribers.InternalClosure<Downstream, Upstream.Output, NewPublisher.Failure>(downstream: downstream!, receiveCompletion: { (completion, downstream) in
             
             let completion = completion.mapError { $0 as Downstream.Failure }
             downstream?.receive(completion: completion)
@@ -56,20 +54,11 @@ extension Publishers.TryCatch {
             _ = downstream?.receive(input)
         }
         
-        init(downstream: Downstream, handler: @escaping (Upstream.Failure) throws -> NewPublisher) {
-            self.handler = handler
-            super.init(downstream: downstream)
+        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+            .success(input)
         }
         
-        override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
-            guard !isCancelled else { return .none }
-            _ = downstream?.receive(input)
-            return demand
-        }
-        
-        override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
-            guard !isCancelled else { return }
-            end()
+        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
             
             guard let error = completion.getError() else {
                 downstream?.receive(completion: .finished)
@@ -77,7 +66,7 @@ extension Publishers.TryCatch {
             }
             
             do {
-                let newPublisher = try handler(error)
+                let newPublisher = try operation(error)
                 
                 downstream?.receive(subscription: subscriber)
                 newPublisher.subscribe(subscriber)

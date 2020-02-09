@@ -29,7 +29,7 @@ public extension Publishers {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let replaceEmptySubscriber = InternalSink(downstream: subscriber)
+            let replaceEmptySubscriber = Inner(downstream: subscriber)
             
             replaceEmptySubscriber.onFinish = { (downstream) in
                 _ = downstream?.receive(self.output)
@@ -43,23 +43,17 @@ public extension Publishers {
 extension Publishers.ReplaceEmpty {
     
     // MARK: REPLACE EMPTY SINK
-    private final class InternalSink<Downstream: Subscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: InternalSubscriber<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private var inputReceived = false
         var onFinish: ((Downstream?) -> Void)?
         
-        override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
-            guard !isCancelled else { return .none }
-            
+        override func operate(on input: Input) -> Result<Downstream.Input, Downstream.Failure>? {
             inputReceived = true
-            _ = downstream?.receive(input)
-            
-            return demand
+            return .success(input)
         }
         
-        override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
-            guard !isCancelled else { return }
-            end()
+        override func onCompletion(_ completion: Subscribers.Completion<Failure>) {
             
             if let error = completion.getError() {
                 downstream?.receive(completion: .failure(error))
@@ -69,6 +63,7 @@ extension Publishers.ReplaceEmpty {
             if !inputReceived {
                 onFinish?(downstream)
             }
+            
             downstream?.receive(completion: .finished)
         }
     }

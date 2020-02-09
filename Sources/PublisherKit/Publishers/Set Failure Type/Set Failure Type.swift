@@ -27,7 +27,7 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            let failureTypeSubscriber = InternalSink(downstream: subscriber)
+            let failureTypeSubscriber = Inner(downstream: subscriber)
             upstream.subscribe(failureTypeSubscriber)
         }
         
@@ -40,17 +40,13 @@ extension Publishers {
 extension Publishers.SetFailureType {
     
     // MARK: SET FAILURE TYPE SINK
-    private final class InternalSink<Downstream: Subscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: InternalSubscriber<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
-            guard !isOver else { return .none }
-            _ = downstream?.receive(input)
-            return demand
+        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+            .success(input)
         }
         
-        override func receive(completion: Subscribers.Completion<Never>) {
-            guard !isOver else { return }
-            end()
+        override func onCompletion(_ completion: Subscribers.Completion<Never>) {
             downstream?.receive(completion: .finished)
         }
     }

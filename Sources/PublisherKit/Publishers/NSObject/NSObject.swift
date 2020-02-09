@@ -36,7 +36,7 @@ extension NSObject {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let nsObjectSubscriber = InternalSink(downstream: subscriber, object: object, keyPath: keyPath, options: options)
+            let nsObjectSubscriber = Inner(downstream: subscriber, object: object, keyPath: keyPath, options: options)
             
             subscriber.receive(subscription: nsObjectSubscriber)
             nsObjectSubscriber.request(.unlimited)
@@ -53,7 +53,7 @@ extension NSObject {
 extension NSObject.KeyValueObservingPKPublisher {
     
     // MARK: NSOBJECT SINK
-    private final class InternalSink<Downstream: Subscriber>: Subscribers.SubscriptionSink<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscriptions.Internal<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private var observer: NSKeyValueObservation?
         
@@ -84,20 +84,8 @@ extension NSObject.KeyValueObservingPKPublisher {
         }
         
         override func receive(input: Value) {
-            guard !isCancelled else { return }
+            guard !isTerminated else { return }
             _ = downstream?.receive(input)
-        }
-        
-        override func receive(completion: Subscribers.Completion<Failure>) {
-            guard !isCancelled else { return }
-            downstream?.receive(completion: completion)
-        }
-        
-        override func end() {
-            observer?.invalidate()
-            observer = nil
-            object = nil
-            super.end()
         }
         
         override func cancel() {

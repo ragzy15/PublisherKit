@@ -79,7 +79,7 @@ extension URLSession {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let downloadTaskSubscriber = InternalSink(downstream: subscriber)
+            let downloadTaskSubscriber = Inner(downstream: subscriber)
             
             subscriber.receive(subscription: downloadTaskSubscriber)
             downloadTaskSubscriber.request(.max(1))
@@ -97,17 +97,16 @@ extension URLSession {
 extension URLSession.DownloadTaskPKPublisher {
     
     // MARK: DOWNLOAD TASK SINK
-    private final class InternalSink<Downstream: Subscriber>: Subscribers.SubscriptionSink<Downstream, Output, Failure>, URLSessionTaskPublisherDelegate where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscriptions.Internal<Downstream, Output, Failure>, URLSessionTaskPublisherDelegate where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private var task: URLSessionDownloadTask?
         
         override func receive(input: Output) {
-            guard !isCancelled else { return }
+            guard !isTerminated else { return }
             _ = downstream?.receive(input)
         }
         
-        override func receive(completion: Subscribers.Completion<Failure>) {
-            guard !isCancelled else { return }
+        override func onCompletion(_ completion: Subscribers.Completion<Failure>) {
             downstream?.receive(completion: completion)
         }
         
@@ -126,7 +125,7 @@ extension URLSession.DownloadTaskPKPublisher {
             
             let completion: (URL?, URLResponse?, Error?) -> Void = { [weak self] (url, response, error) in
                 
-                guard let `self` = self, !self.isCancelled else { return }
+                guard let `self` = self, !self.isTerminated else { return }
                 
                 if let error = error as NSError? {
                     URLSession.DownloadTaskPKPublisher.queue.async {
@@ -144,13 +143,14 @@ extension URLSession.DownloadTaskPKPublisher {
             return completion
         }
         
-        override func end() {
+        override func end(completion: () -> Void) {
             task = nil
-            super.end()
+            super.end(completion: completion)
         }
         
         override func cancel() {
             task?.cancel()
+            task = nil
             super.cancel()
         }
     }

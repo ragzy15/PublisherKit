@@ -33,7 +33,7 @@ public struct Empty<Output, Failure: Error>: Publisher, Equatable {
     }
     
     public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-        let emptySubscriber = InternalSink(downstream: subscriber)
+        let emptySubscriber = Inner(downstream: subscriber)
         subscriber.receive(subscription: emptySubscriber)
         
         if completeImmediately {
@@ -42,15 +42,12 @@ public struct Empty<Output, Failure: Error>: Publisher, Equatable {
     }
 }
 
-
 extension Empty {
     
     // MARK: EMPTY SINK
-    private final class InternalSink<Downstream: Subscriber>: Subscribers.OperatorSink<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscriptions.Internal<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        override func receive(completion: Subscribers.Completion<Failure>) {
-            guard !isOver else { return }
-            end()
+        override func onCompletion(_ completion: Subscribers.Completion<Failure>) {
             downstream?.receive(completion: completion)
         }
     }

@@ -29,7 +29,7 @@ extension Publishers {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let tryFilterSubscriber = InternalSink(downstream: subscriber, isIncluded: isIncluded)
+            let tryFilterSubscriber = Inner(downstream: subscriber, operation: isIncluded)
             upstream.receive(subscriber: tryFilterSubscriber)
         }
     }
@@ -67,34 +67,19 @@ extension Publishers.TryFilter {
 extension Publishers.TryFilter {
     
     // MARK: TRY FILTER SINK
-    private final class InternalSink<Downstream: Subscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: OperatorSubscriber<Downstream, Upstream, (Upstream.Output) throws -> Bool> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        private let isIncluded: (Upstream.Output) throws -> Bool
-        
-        init(downstream: Downstream, isIncluded: @escaping (Upstream.Output) throws -> Bool) {
-            self.isIncluded = isIncluded
-            super.init(downstream: downstream)
-        }
-        
-        override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
-            guard !isCancelled else { return .none }
+         override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
             
             do {
-                if try isIncluded(input) {
-                    _ = downstream?.receive(input)
-                }
+                let isIncluded = try operation(input)
+                return isIncluded ? .success(input) : nil
             } catch {
-                end()
-                downstream?.receive(completion: .failure(error))
+                return .failure(error)
             }
-            
-            return demand
         }
         
-        override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
-            guard !isCancelled else { return }
-            end()
-            
+         override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
             let completion = completion.mapError { $0 as Downstream.Failure }
             downstream?.receive(completion: completion)
         }

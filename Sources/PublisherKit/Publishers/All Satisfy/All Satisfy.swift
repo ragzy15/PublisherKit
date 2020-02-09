@@ -31,7 +31,7 @@ extension Publishers {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let allSatisfySubscriber = InternalSink(downstream: subscriber, predicate: predicate)
+            let allSatisfySubscriber = Inner(downstream: subscriber, operation: predicate)
             upstream.subscribe(allSatisfySubscriber)
         }
     }
@@ -40,25 +40,13 @@ extension Publishers {
 extension Publishers.AllSatisfy {
     
     // MARK: ALL SATISFY SINK
-    private final class InternalSink<Downstream: Subscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: OperatorSubscriber<Downstream, Upstream, (Upstream.Output) -> Bool> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        private let predicate: (Upstream.Output) -> Bool
-        
-        init(downstream: Downstream, predicate: @escaping (Upstream.Output) -> Bool) {
-            self.predicate = predicate
-            super.init(downstream: downstream)
+        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+            .success(operation(input))
         }
         
-        override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
-            guard !isCancelled else { return .none }
-            let output = self.predicate(input)
-            _ = downstream?.receive(output)
-            return demand
-        }
-        
-        override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
-            guard !isCancelled else { return }
-            end()
+        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
             downstream?.receive(completion: completion)
         }
     }

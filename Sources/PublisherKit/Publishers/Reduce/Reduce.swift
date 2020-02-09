@@ -30,7 +30,7 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            let reduceSubscriber = InternalSink(downstream: subscriber, initial: initial, nextPartialResult: nextPartialResult)
+            let reduceSubscriber = Inner(downstream: subscriber, initial: initial, nextPartialResult: nextPartialResult)
             upstream.subscribe(reduceSubscriber)
         }
     }
@@ -39,29 +39,21 @@ extension Publishers {
 extension Publishers.Reduce {
     
     // MARK: REDUCE SINK
-    private final class InternalSink<Downstream: Subscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: OperatorSubscriber<Downstream, Upstream, (Output, Upstream.Output) -> Output> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        private let nextPartialResult: (Output, Upstream.Output) -> Output
         private var output: Output
         
         init(downstream: Downstream, initial: Output, nextPartialResult: @escaping (Output, Upstream.Output) -> Output) {
             self.output = initial
-            self.nextPartialResult = nextPartialResult
-            super.init(downstream: downstream)
+            super.init(downstream: downstream, operation: nextPartialResult)
         }
         
-        override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
-            guard !isOver else { return .none }
-            
-            output = nextPartialResult(output, input)
-            _ = downstream?.receive(output)
-            
-            return demand
+        override func operate(on input: Input) -> Result<Downstream.Input, Downstream.Failure>? {
+            output = operation(output, input)
+            return .success(output)
         }
         
-        override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
-            guard !isOver else { return }
-            end()
+       override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
             downstream?.receive(completion: completion)
         }
     }

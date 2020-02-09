@@ -32,7 +32,7 @@ extension Publishers {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let duplicatesSubscriber = InternalSink(downstream: subscriber, predicate: predicate)
+            let duplicatesSubscriber = Inner(downstream: subscriber, operation: predicate)
             upstream.subscribe(duplicatesSubscriber)
         }
     }
@@ -41,32 +41,20 @@ extension Publishers {
 extension Publishers.RemoveDuplicates {
     
     // MARK: REMOVE DUPLICATES SINK
-    private final class InternalSink<Downstream: Subscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: OperatorSubscriber<Downstream, Upstream, (Output, Output) -> Bool> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        private let predicate: (Output, Output) -> Bool
         private var previousValue: Output?
         
-        init(downstream: Downstream, predicate: @escaping (Output, Output) -> Bool) {
-            self.predicate = predicate
-            super.init(downstream: downstream)
-        }
-        
-        override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
-            guard !isCancelled else { return .none }
-            
-            if let previousValue = previousValue, predicate(previousValue, input) {
-                return demand
+        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+            if let previousValue = previousValue, operation(previousValue, input) {
+                return nil
             }
             
             previousValue = input
-            _ = downstream?.receive(input)
-            
-            return demand
+            return .success(input)
         }
         
-        override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
-            guard !isCancelled else { return }
-            end()
+        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
             downstream?.receive(completion: completion)
         }
     }

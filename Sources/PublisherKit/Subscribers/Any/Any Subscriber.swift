@@ -32,7 +32,7 @@ public struct AnySubscriber<Input, Failure: Error>: Subscriber {
     }
     
     public init<S: Subject>(_ subject: S) where Input == S.Output, Failure == S.Failure {
-        self.init(SubjectSubscriber(subject: subject))
+        self.init(Subscribers.InternalAnySubject(subject: subject))
     }
     
     /// Creates a type-erasing subscriber that executes the provided closures.

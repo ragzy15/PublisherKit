@@ -29,7 +29,7 @@ extension Publishers {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let mergeSubscriber = InternalSink(downstream: subscriber)
+            let mergeSubscriber = Inner(downstream: subscriber)
             
             b.subscribe(mergeSubscriber.bSubscriber)
             a.subscribe(mergeSubscriber.aSubscriber)
@@ -64,22 +64,18 @@ extension Publishers {
 extension Publishers.Merge {
     
     // MARK: MERGE SINK
-    private final class InternalSink<Downstream: Subscriber>: CombineSink<Downstream> where Downstream.Input == Output {
+    private final class Inner<Downstream: Subscriber>: Subscribers.InternalCombine<Downstream> where Downstream.Input == Output {
         
-        private(set) lazy var aSubscriber = Subscribers.ClosureOperatorSink<CombineSink<Downstream>, A.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var aSubscriber = Subscribers.InternalClosure<Inner, A.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
-        private(set) lazy var bSubscriber = Subscribers.ClosureOperatorSink<CombineSink<Downstream>, B.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var bSubscriber = Subscribers.InternalClosure<Inner, B.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
-        override init(downstream: Downstream) {
-            super.init(downstream: downstream)
-        }
-        
-        override func receive(completion: Subscribers.Completion<Failure>) {
-            guard !isCancelled else { return }
+        override func onCompletion(_ completion: Subscribers.Completion<Failure>) {
             
             switch completion {
             case .finished:
-                if aSubscriber.isOver && bSubscriber.isOver {
+                if aSubscriber.status.isTerminated && bSubscriber.status.isTerminated {
+                    end()
                     downstream?.receive(completion: .finished)
                 }
                 

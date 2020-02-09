@@ -17,7 +17,7 @@ final public class PassthroughSubject<Output, Failure: Error>: Subject {
     final private var _completion: Subscribers.Completion<Failure>? = nil
     
     private var upstreamSubscriptions: [Subscription] = []
-    private var downstreamSubscriptions: [InternalSink] = []
+    private var downstreamSubscriptions: [Inner] = []
     
     public init() {}
     
@@ -42,7 +42,7 @@ final public class PassthroughSubject<Output, Failure: Error>: Subject {
             subscriber.receive(subscription: Subscriptions.empty)
             subscriber.receive(completion: completion)
         } else {
-            let subscription = InternalSink(downstream: AnySubscriber(subscriber))
+            let subscription = Inner(downstream: AnySubscriber(subscriber))
             downstreamSubscriptions.append(subscription)
             
             subscriber.receive(subscription: subscription)
@@ -72,6 +72,6 @@ final public class PassthroughSubject<Output, Failure: Error>: Subject {
 extension PassthroughSubject {
     
     // MARK: PASSTHROUGH SUBJECT SINK
-    private final class InternalSink: SubjectBaseSubscriber<Output, Failure> {
+    private final class Inner: Subscriptions.InternalSubject<Output, Failure> {
     }
 }

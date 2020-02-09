@@ -53,13 +53,71 @@ extension Publishers {
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             
-            let handleEventsSubscriber = HandleEventsSink<S, Upstream>(downstream: subscriber,
+            let handleEventsSubscriber = HandleEvents<S, Upstream>(downstream: subscriber,
                                                                    receiveSubscription: receiveSubscription,
                                                                    receiveOutput: receiveOutput,
                                                                    receiveCompletion: receiveCompletion,
                                                                    receiveCancel: receiveCancel,
                                                                    receiveRequest: receiveRequest)
             upstream.subscribe(handleEventsSubscriber)
+        }
+    }
+}
+
+extension Publishers.HandleEvents {
+    
+    // MARK: HANDLE EVENTS SINK
+    final class HandleEvents<Downstream: Subscriber, Upstream: Publisher>: InternalSubscriber<Downstream, Upstream> where Downstream.Input == Upstream.Output, Downstream.Failure == Upstream.Failure {
+        
+        final let receiveOutput: ((Input) -> Void)?
+        
+        final let receiveCancel: (() -> Void)?
+        
+        final let receiveCompletion: ((Subscribers.Completion<Failure>) -> Void)?
+        
+        final let receiveSubscription: ((Subscription) -> Void)?
+        final let receiveRequest: ((Subscribers.Demand) -> Void)?
+        
+        init(downstream: Downstream,
+             receiveSubscription: ((Subscription) -> Void)? = nil,
+             receiveOutput: ((Input) -> Void)? = nil,
+             receiveCompletion: ((Subscribers.Completion<Failure>) -> Void)? = nil,
+             receiveCancel: (() -> Void)? = nil,
+             receiveRequest: ((Subscribers.Demand) -> Void)?) {
+            
+            self.receiveSubscription = receiveSubscription
+            self.receiveOutput = receiveOutput
+            self.receiveCompletion = receiveCompletion
+            self.receiveCancel = receiveCancel
+            self.receiveRequest = receiveRequest
+            
+            super.init(downstream: downstream)
+        }
+        
+        override func request(_ demand: Subscribers.Demand) {
+            receiveRequest?(demand)
+            super.request(demand)
+        }
+        
+        override func receive(subscription: Subscription) {
+            guard status == .awaiting else { return }
+            super.receive(subscription: subscription)
+            receiveSubscription?(subscription)
+        }
+        
+        override func operate(on input: Input) -> Result<Downstream.Input, Downstream.Failure>? {
+            receiveOutput?(input)
+            return .success(input)
+        }
+        
+        override func onCompletion(_ completion: Subscribers.Completion<Failure>) {
+            receiveCompletion?(completion)
+            downstream?.receive(completion: completion)
+        }
+        
+        override func cancel() {
+            receiveCancel?()
+            super.cancel()
         }
     }
 }

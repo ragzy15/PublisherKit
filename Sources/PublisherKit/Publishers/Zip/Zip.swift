@@ -29,7 +29,7 @@ extension Publishers {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let zipSubscriber = InternalSink(downstream: subscriber)
+            let zipSubscriber = Inner(downstream: subscriber)
             
             b.subscribe(zipSubscriber.bSubscriber)
             a.subscribe(zipSubscriber.aSubscriber)
@@ -47,21 +47,21 @@ extension Publishers.Zip: Equatable where A: Equatable, B: Equatable{
 extension Publishers.Zip {
     
     // MARK: ZIP SINK
-    final class InternalSink<Downstream: Subscriber>: CombineSink<Downstream> where Downstream.Input == Output {
+    final class Inner<Downstream: Subscriber>: Subscribers.InternalCombine<Downstream> where Downstream.Input == Output {
         
-        private(set) lazy var aSubscriber = Subscribers.ClosureOperatorSink<CombineSink<Downstream>, A.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var aSubscriber = Subscribers.InternalClosure<Inner, A.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
-        private(set) lazy var bSubscriber = Subscribers.ClosureOperatorSink<CombineSink<Downstream>, B.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var bSubscriber = Subscribers.InternalClosure<Inner, B.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
         private var aOutputs: [A.Output] = []
         private var bOutputs: [B.Output] = []
         
-        private func receive(a input: A.Output, downstream: CombineSink<Downstream>?) {
+        private func receive(a input: A.Output, downstream: Inner?) {
             aOutputs.append(input)
             checkAndSend()
         }
         
-        private func receive(b input: B.Output, downstream: CombineSink<Downstream>?) {
+        private func receive(b input: B.Output, downstream: Inner?) {
             bOutputs.append(input)
             checkAndSend()
         }
@@ -74,7 +74,12 @@ extension Publishers.Zip {
             let aOutput = aOutputs.removeFirst()
             let bOutput = bOutputs.removeFirst()
             
-            receive(input: (aOutput, bOutput))
+            _ = receive((aOutput, bOutput))
+        }
+        
+        override func onCompletion(_ completion: Subscribers.Completion<Failure>) {
+            end()
+            downstream?.receive(completion: completion)
         }
     }
 }
