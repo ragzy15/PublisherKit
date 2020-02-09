@@ -19,6 +19,8 @@ public typealias AnyPKSubscriber = AnySubscriber
 /// `AnySubscriber` can also be used to create a custom subscriber by providing closures for `Subscriber`’s methods, rather than implementing `Subscriber` directly.
 public struct AnySubscriber<Input, Failure: Error>: Subscriber {
     
+    public let combineIdentifier: CombineIdentifier
+    
     @usableFromInline var sink: AnySubscriberBaseSink<Input, Failure>
     
     /// Creates a type-erasing subscriber to wrap an existing subscriber.
@@ -26,6 +28,7 @@ public struct AnySubscriber<Input, Failure: Error>: Subscriber {
     /// - Parameter subscriber: The subscriber to type-erase.
     @inlinable public init<S: Subscriber>(_ subscriber: S) where Input == S.Input, Failure == S.Failure {
         sink = AnySubscriberSink(subscriber: subscriber)
+        combineIdentifier = subscriber.combineIdentifier
     }
     
     public init<S: Subject>(_ subject: S) where Input == S.Output, Failure == S.Failure {
@@ -41,7 +44,7 @@ public struct AnySubscriber<Input, Failure: Error>: Subscriber {
     @inlinable public init(receiveSubscription: ((Subscription) -> Void)? = nil,
                            receiveValue: ((Input) -> Subscribers.Demand)? = nil,
                            receiveCompletion: ((Subscribers.Completion<Failure>) -> Void)? = nil) {
-        
+        combineIdentifier = CombineIdentifier()
         sink = ClosureAnySubscriberSink(receiveSubscription: receiveSubscription,
                                         receiveValue: receiveValue,
                                         receiveCompletion: receiveCompletion)

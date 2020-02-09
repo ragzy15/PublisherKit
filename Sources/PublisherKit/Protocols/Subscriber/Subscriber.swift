@@ -13,7 +13,7 @@ public typealias NKSubscriber = Subscriber
 @available(*, deprecated, renamed: "Subscriber")
 public typealias PKSubscriber = Subscriber
 
-public protocol Subscriber {
+public protocol Subscriber: CustomCombineIdentifierConvertible {
     
     /// The kind of values this subscriber receives.
     associatedtype Input
@@ -39,4 +39,11 @@ public protocol Subscriber {
     ///
     /// - Parameter completion: A `Completion` case indicating whether publishing completed normally or with an error.
     func receive(completion: Subscribers.Completion<Failure>)
+}
+
+extension Subscriber where Input == Void {
+
+    public func receive() -> Subscribers.Demand {
+        receive(())
+    }
 }
