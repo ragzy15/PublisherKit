@@ -23,7 +23,9 @@ extension Subscriptions {
             self.demand = demand
         }
         
-        func receive(input: Input) { }
+        func receive(input: Input) {
+            /* abstract method, override in publishers that do not have an upstream publisher to send input downstream. */
+        }
         
         func receive(completion: Subscribers.Completion<Failure>) {
             guard !isTerminated else { return }
