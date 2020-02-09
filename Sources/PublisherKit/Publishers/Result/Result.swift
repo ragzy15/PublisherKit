@@ -9,8 +9,8 @@ import Foundation
 
 extension Result {
     
-    public var pkPublisher: Result<Success, Failure>.PKPublisher {
-        .init(self)
+    public var pkPublisher: PKPublisher {
+        PKPublisher(self)
     }
 }
 
@@ -22,7 +22,7 @@ extension Result {
     ///
     /// In contrast with `Just`, a `Once` publisher can terminate with an error instead of sending a value.
     /// In contrast with `Optional`, a `Once` publisher always sends one value (unless it terminates with an error).
-    public struct PKPublisher: PublisherKit.PKPublisher {
+    public struct PKPublisher: PublisherKit.Publisher {
         
         public typealias Output = Success
         
@@ -51,7 +51,7 @@ extension Result {
             result = .failure(failure)
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let resultSubscriber = InternalSink(downstream: subscriber)
             
@@ -72,7 +72,7 @@ extension Result {
 extension Result.PKPublisher {
     
     // MARK: RESULT SINK
-    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.SubscriptionSink<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: Subscriber>: Subscribers.SubscriptionSink<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         override func receive(input: Output) {
             guard !isCancelled else { return }
@@ -80,7 +80,7 @@ extension Result.PKPublisher {
             receive(completion: .finished)
         }
         
-        override func receive(completion: PKSubscribers.Completion<Failure>) {
+        override func receive(completion: Subscribers.Completion<Failure>) {
             guard !isCancelled else { return }
             downstream?.receive(completion: completion)
         }

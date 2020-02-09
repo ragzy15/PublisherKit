@@ -7,10 +7,10 @@
 
 import Foundation
 
-extension PKPublishers {
+extension Publishers {
     
     /// A publisher created by applying the zip function to two upstream publishers.
-    public struct Zip<A: PKPublisher, B: PKPublisher>: PKPublisher where A.Failure == B.Failure {
+    public struct Zip<A: Publisher, B: Publisher>: Publisher where A.Failure == B.Failure {
         
         public typealias Output = (A.Output, B.Output)
         
@@ -27,7 +27,7 @@ extension PKPublishers {
             self.b = b
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let zipSubscriber = InternalSink(downstream: subscriber)
             
@@ -37,21 +37,21 @@ extension PKPublishers {
     }
 }
 
-extension PKPublishers.Zip: Equatable where A: Equatable, B: Equatable{
+extension Publishers.Zip: Equatable where A: Equatable, B: Equatable{
     
-    public static func == (lhs: PKPublishers.Zip<A, B>, rhs: PKPublishers.Zip<A, B>) -> Bool {
+    public static func == (lhs: Publishers.Zip<A, B>, rhs: Publishers.Zip<A, B>) -> Bool {
         lhs.a == rhs.a && lhs.b == rhs.b
     }
 }
 
-extension PKPublishers.Zip {
+extension Publishers.Zip {
     
     // MARK: ZIP SINK
-    final class InternalSink<Downstream: PKSubscriber>: CombineSink<Downstream> where Downstream.Input == Output {
+    final class InternalSink<Downstream: Subscriber>: CombineSink<Downstream> where Downstream.Input == Output {
         
-        private(set) lazy var aSubscriber = PKSubscribers.ClosureOperatorSink<CombineSink<Downstream>, A.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var aSubscriber = Subscribers.ClosureOperatorSink<CombineSink<Downstream>, A.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
-        private(set) lazy var bSubscriber = PKSubscribers.ClosureOperatorSink<CombineSink<Downstream>, B.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var bSubscriber = Subscribers.ClosureOperatorSink<CombineSink<Downstream>, B.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
         private var aOutputs: [A.Output] = []
         private var bOutputs: [B.Output] = []

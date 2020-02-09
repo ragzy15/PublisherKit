@@ -7,9 +7,9 @@
 
 import Foundation
 
-extension PKPublishers {
+extension Publishers {
     
-    public struct MergeMany<Upstream: PKPublisher>: PKPublisher {
+    public struct MergeMany<Upstream: Publisher>: Publisher {
         
         public typealias Output = Upstream.Output
         
@@ -25,7 +25,7 @@ extension PKPublishers {
             publishers = upstream.map { $0 }
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let mergeSubscriber = InternalSink(downstream: subscriber)
             
@@ -34,15 +34,15 @@ extension PKPublishers {
             }
         }
         
-        public func merge(with other: Upstream) -> PKPublishers.MergeMany<Upstream> {
-            PKPublishers.MergeMany(publishers + [other])
+        public func merge(with other: Upstream) -> Publishers.MergeMany<Upstream> {
+            Publishers.MergeMany(publishers + [other])
         }
     }
 }
 
-extension PKPublishers.MergeMany {
+extension Publishers.MergeMany {
 
     // MARK: MERGE ALL SINK
-    final class InternalSink<Downstream: PKSubscriber>: UpstreamInternalSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    final class InternalSink<Downstream: Subscriber>: UpstreamInternalSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
     }
 }

@@ -7,10 +7,10 @@
 
 import Foundation
 
-extension PKPublishers {
+extension Publishers {
     
     /// A publisher that receives and combines the latest elements from two publishers.
-    public struct CombineLatest<A: PKPublisher, B: PKPublisher>: PKPublisher where A.Failure == B.Failure {
+    public struct CombineLatest<A: Publisher, B: Publisher>: Publisher where A.Failure == B.Failure {
         
         public typealias Output = (A.Output, B.Output)
         
@@ -27,7 +27,7 @@ extension PKPublishers {
             self.b = b
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let combineLatestSubscriber = InternalSink(downstream: subscriber)
             
@@ -37,21 +37,21 @@ extension PKPublishers {
     }
 }
 
-extension PKPublishers.CombineLatest: Equatable where A: Equatable, B: Equatable{
+extension Publishers.CombineLatest: Equatable where A: Equatable, B: Equatable{
     
-    public static func == (lhs: PKPublishers.CombineLatest<A, B>, rhs: PKPublishers.CombineLatest<A, B>) -> Bool {
+    public static func == (lhs: Publishers.CombineLatest<A, B>, rhs: Publishers.CombineLatest<A, B>) -> Bool {
         lhs.a == rhs.a && lhs.b == rhs.b
     }
 }
 
-extension PKPublishers.CombineLatest {
+extension Publishers.CombineLatest {
     
     // MARK: COMBINELATEST SINK
-    private final class InternalSink<Downstream: PKSubscriber>: CombineSink<Downstream> where Downstream.Input == Output {
+    private final class InternalSink<Downstream: Subscriber>: CombineSink<Downstream> where Downstream.Input == Output {
         
-        private(set) lazy var aSubscriber = PKSubscribers.ClosureOperatorSink<InternalSink, A.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var aSubscriber = Subscribers.ClosureOperatorSink<InternalSink, A.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
-        private(set) lazy var bSubscriber = PKSubscribers.ClosureOperatorSink<InternalSink, B.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var bSubscriber = Subscribers.ClosureOperatorSink<InternalSink, B.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
         private var aOutput: A.Output?
         private var bOutput: B.Output?
@@ -74,7 +74,7 @@ extension PKPublishers.CombineLatest {
             receive(input: (aOutput, bOutput))
         }
         
-        override func receive(completion: PKSubscribers.Completion<Failure>) {
+        override func receive(completion: Subscribers.Completion<Failure>) {
             guard !isCancelled else { return }
             
             if let error = completion.getError() {

@@ -7,9 +7,9 @@
 
 import Foundation
 
-extension PKSubscribers {
+extension Subscribers {
     
-    final public class Assign<Root, Input>: PKSubscriber, PKCancellable {
+    final public class Assign<Root, Input>: Subscriber, Cancellable {
         
         public typealias Failure = Never
         
@@ -18,7 +18,7 @@ extension PKSubscribers {
         
         private var _object: Root?
         
-        private var subscription: PKSubscription?
+        private var subscription: Subscription?
         
         private var isCancelled = false
         
@@ -34,18 +34,19 @@ extension PKSubscribers {
             self.keyPath = keyPath
         }
         
-        final public func receive(subscription: PKSubscription) {
+        final public func receive(subscription: Subscription) {
             guard !isCancelled else { return }
             self.subscription = subscription
+            subscription.request(.unlimited)
         }
         
-        final public func receive(_ value: Input) -> PKSubscribers.Demand {
+        final public func receive(_ value: Input) -> Subscribers.Demand {
             guard !isCancelled else { return .none }
             _object?[keyPath: keyPath] = value
             return .unlimited
         }
         
-        final public func receive(completion: PKSubscribers.Completion<Never>) {
+        final public func receive(completion: Subscribers.Completion<Never>) {
             guard !isCancelled else { return }
             end()
         }

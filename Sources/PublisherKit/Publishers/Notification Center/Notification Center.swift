@@ -21,7 +21,7 @@ extension NotificationCenter {
 
 extension NotificationCenter {
     
-    public struct PKPublisher: PublisherKit.PKPublisher {
+    public struct PKPublisher: PublisherKit.Publisher {
         
         public typealias Output = Notification
         
@@ -56,7 +56,7 @@ extension NotificationCenter {
             self.queue = queue
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let notificationSubscriber = InternalSink(downstream: subscriber, center: center, name: name, object: object, queue: queue)
             
@@ -71,7 +71,7 @@ extension NotificationCenter {
 extension NotificationCenter.PKPublisher {
     
     // MARK: NOTIFICATION CENTER SINK
-    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.SubscriptionSink<Downstream, Output, Failure> where Downstream.Failure == Failure, Downstream.Input == Output {
+    private final class InternalSink<Downstream: Subscriber>: Subscribers.SubscriptionSink<Downstream, Output, Failure> where Downstream.Failure == Failure, Downstream.Input == Output {
         
         private var center: NotificationCenter?
         private let name: Notification.Name
@@ -99,7 +99,7 @@ extension NotificationCenter.PKPublisher {
             _ = downstream?.receive(input)
         }
         
-        override func receive(completion: PKSubscribers.Completion<Failure>) {
+        override func receive(completion: Subscribers.Completion<Failure>) {
             guard !isCancelled else { return }
             downstream?.receive(completion: completion)
         }

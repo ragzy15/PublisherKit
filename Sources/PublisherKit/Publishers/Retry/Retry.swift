@@ -7,10 +7,10 @@
 
 import Foundation
 
-extension PKPublishers {
+extension Publishers {
     
     /// A publisher that attempts to recreate its subscription to a failed upstream publisher.
-    public struct Retry<Upstream: PKPublisher>: PKPublisher {
+    public struct Retry<Upstream: Publisher>: Publisher {
         
         public typealias Output = Upstream.Output
         
@@ -24,7 +24,7 @@ extension PKPublishers {
         /// If `nil`, this publisher attempts to reconnect with the upstream publisher an unlimited number of times.
         public let retries: Int?
         
-        private let demand: PKSubscribers.Demand
+        private let demand: Subscribers.Demand
         
         /// Creates a publisher that attempts to recreate its subscription to a failed upstream publisher.
         ///
@@ -42,7 +42,7 @@ extension PKPublishers {
             }
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let retrySubscriber = InternalSink(downstream: subscriber)
             
@@ -56,14 +56,14 @@ extension PKPublishers {
     }
 }
 
-extension PKPublishers.Retry {
+extension Publishers.Retry {
     
     // MARK: RETRY
-    private final class InternalSink<Downstream: PKSubscriber>: UpstreamInternalSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: Subscriber>: UpstreamInternalSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         var retrySubscription: (() -> Void)?
         
-        override func receive(completion: PKSubscribers.Completion<Failure>) {
+        override func receive(completion: Subscribers.Completion<Failure>) {
             guard !isCancelled else { return }
             
             guard let error = completion.getError() else {

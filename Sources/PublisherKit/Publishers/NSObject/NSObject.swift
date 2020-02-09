@@ -7,13 +7,13 @@
 
 import Foundation
 
-extension NSObject: NSObjectPKPublisher {
+extension NSObject: PublisherCompatible {
 }
 
 extension NSObject {
     
     /// A publisher that emits events when the value of a KVO-compliant property changes.
-    public struct KeyValueObservingPKPublisher<Subject: NSObject, Value>: Equatable, PKPublisher {
+    public struct KeyValueObservingPKPublisher<Subject: NSObject, Value>: Equatable, Publisher {
         
         public typealias Output = Value
         
@@ -34,7 +34,7 @@ extension NSObject {
             self.options = options
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let nsObjectSubscriber = InternalSink(downstream: subscriber, object: object, keyPath: keyPath, options: options)
             
@@ -53,7 +53,7 @@ extension NSObject {
 extension NSObject.KeyValueObservingPKPublisher {
     
     // MARK: NSOBJECT SINK
-    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.SubscriptionSink<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: Subscriber>: Subscribers.SubscriptionSink<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private var observer: NSKeyValueObservation?
         
@@ -88,7 +88,7 @@ extension NSObject.KeyValueObservingPKPublisher {
             _ = downstream?.receive(input)
         }
         
-        override func receive(completion: PKSubscribers.Completion<Failure>) {
+        override func receive(completion: Subscribers.Completion<Failure>) {
             guard !isCancelled else { return }
             downstream?.receive(completion: completion)
         }

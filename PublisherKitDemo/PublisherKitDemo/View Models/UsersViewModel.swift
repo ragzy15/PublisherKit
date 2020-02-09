@@ -10,7 +10,7 @@ import PublisherKit
 
 final class UsersViewModel {
     
-    private var cancellables = PKCancellables()
+    private var cancellables = CancellableBag()
     
     private let url = URL(string: "https://5da1e9ae76c28f0014bbe25f.mockapi.io/users")!
     

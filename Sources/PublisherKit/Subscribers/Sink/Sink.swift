@@ -7,38 +7,39 @@
 
 import Foundation
 
-public extension PKSubscribers {
+public extension Subscribers {
 
     /// A simple subscriber that requests an unlimited number of values upon subscription.
-    final class Sink<Input, Failure: Error>: PKSubscriber, PKCancellable {
+    final class Sink<Input, Failure: Error>: Subscriber, Cancellable {
 
         /// The closure to execute on receipt of a value.
         final public let receiveValue: (Input) -> Void
 
         /// The closure to execute on completion.
-        final public let receiveCompletion: (PKSubscribers.Completion<Failure>) -> Void
+        final public let receiveCompletion: (Subscribers.Completion<Failure>) -> Void
         
-        private var subscription: PKSubscription?
+        private var subscription: Subscription?
         
         var isCancelled = false
 
-        public init(receiveCompletion: @escaping ((PKSubscribers.Completion<Failure>) -> Void), receiveValue: @escaping ((Input) -> Void)) {
+        public init(receiveCompletion: @escaping ((Subscribers.Completion<Failure>) -> Void), receiveValue: @escaping ((Input) -> Void)) {
             self.receiveCompletion = receiveCompletion
             self.receiveValue = receiveValue
         }
 
-        final public func receive(subscription: PKSubscription) {
+        final public func receive(subscription: Subscription) {
             guard !isCancelled else { return }
             self.subscription = subscription
+            subscription.request(.unlimited)
         }
 
-        final public func receive(_ value: Input) -> PKSubscribers.Demand {
+        final public func receive(_ value: Input) -> Subscribers.Demand {
             guard !isCancelled else { return .none }
             receiveValue(value)
             return .unlimited
         }
 
-        final public func receive(completion: PKSubscribers.Completion<Failure>) {
+        final public func receive(completion: Subscribers.Completion<Failure>) {
             guard !isCancelled else { return }
             receiveCompletion(completion)
             end()

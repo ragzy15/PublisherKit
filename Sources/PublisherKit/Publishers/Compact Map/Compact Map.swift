@@ -7,10 +7,10 @@
 
 import Foundation
 
-public extension PKPublishers {
+public extension Publishers {
     
     /// A publisher that republishes all non-`nil` results of calling a closure with each received element.
-    struct CompactMap<Upstream: PKPublisher, Output>: PKPublisher {
+    struct CompactMap<Upstream: Publisher, Output>: Publisher {
         
         public typealias Failure = Upstream.Failure
         
@@ -25,7 +25,7 @@ public extension PKPublishers {
             self.transform = transform
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let compactMapSubscriber = InternalSink(downstream: subscriber, transform: transform)
             upstream.subscribe(compactMapSubscriber)
@@ -33,9 +33,9 @@ public extension PKPublishers {
     }
 }
 
-extension PKPublishers.CompactMap {
+extension Publishers.CompactMap {
     
-    public func compactMap<T>(_ transform: @escaping (Output) -> T?) -> PKPublishers.CompactMap<Upstream, T> {
+    public func compactMap<T>(_ transform: @escaping (Output) -> T?) -> Publishers.CompactMap<Upstream, T> {
         
         let newTransform: (Upstream.Output) -> T? = { output in
             if let newOutput = self.transform(output) {
@@ -45,10 +45,10 @@ extension PKPublishers.CompactMap {
             }
         }
         
-        return PKPublishers.CompactMap<Upstream, T>(upstream: upstream, transform: newTransform)
+        return Publishers.CompactMap<Upstream, T>(upstream: upstream, transform: newTransform)
     }
     
-    public func map<T>(_ transform: @escaping (Output) -> T) -> PKPublishers.CompactMap<Upstream, T> {
+    public func map<T>(_ transform: @escaping (Output) -> T) -> Publishers.CompactMap<Upstream, T> {
         
         let newTransform: (Upstream.Output) -> T? = { output in
             if let newOutput = self.transform(output) {
@@ -58,14 +58,14 @@ extension PKPublishers.CompactMap {
             }
         }
         
-        return PKPublishers.CompactMap<Upstream, T>(upstream: upstream, transform: newTransform)
+        return Publishers.CompactMap<Upstream, T>(upstream: upstream, transform: newTransform)
     }
 }
 
-extension PKPublishers.CompactMap {
+extension Publishers.CompactMap {
     
     // MARK: COMPACTMAP SINK
-    private final class InternalSink<Downstream: PKSubscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: Subscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private let transform: (Upstream.Output) -> Output?
         
@@ -74,7 +74,7 @@ extension PKPublishers.CompactMap {
             super.init(downstream: downstream)
         }
         
-        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
+        override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
             guard !isCancelled else { return .none }
             
             let output = self.transform(input)
@@ -85,7 +85,7 @@ extension PKPublishers.CompactMap {
             return demand
         }
         
-        override func receive(completion: PKSubscribers.Completion<Upstream.Failure>) {
+        override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
             guard !isCancelled else { return }
             end()
             downstream?.receive(completion: completion)

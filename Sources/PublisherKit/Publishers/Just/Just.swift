@@ -7,13 +7,12 @@
 
 import Foundation
 
-extension PKPublishers {
+extension Publishers {
     
-    /// /// A publisher that emits an output to each subscriber just once, and then finishes.
+    /// A publisher that emits an output to each subscriber just once, and then finishes.
     ///
     /// A `Just` publisher can be used to start a chain of publishers. A `Just` publisher is also useful when replacing a value with `Catch` publisher.
-    ///
-    public struct Just<Output>: PKPublisher {
+    public struct Just<Output>: Publisher {
         
         public typealias Failure = Never
         
@@ -26,7 +25,7 @@ extension PKPublishers {
             self.output = output
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let justSubscriber = InternalSink(downstream: subscriber)
             
@@ -38,13 +37,16 @@ extension PKPublishers {
     }
 }
 
-extension PKPublishers.Just {
+extension Publishers.Just: Equatable where Output: Equatable {
+}
+
+extension Publishers.Just {
     
     // MARK: JUST SINK
-    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.SubscriptionSink<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: Subscriber>: Subscribers.SubscriptionSink<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         override func receive(input: Output) {
-            guard !isCancelled else { return }
+            guard !isOver else { return }
             _ = downstream?.receive(input)
             downstream?.receive(completion: .finished)
         }

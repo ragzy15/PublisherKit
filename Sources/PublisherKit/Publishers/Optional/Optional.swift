@@ -19,7 +19,7 @@ extension Optional {
     /// A publisher that publishes an optional value to each subscriber exactly once, if the optional has a value.
     ///
     /// In contrast with `Just`, an `Optional` publisher may send no value before completion.
-    public struct PKPublisher: PublisherKit.PKPublisher {
+    public struct PKPublisher: PublisherKit.Publisher {
         
         public typealias Output = Wrapped
         
@@ -35,7 +35,7 @@ extension Optional {
             self.output = output
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let optionalSubscriber = InternalSink(downstream: subscriber)
             
@@ -54,14 +54,14 @@ extension Optional {
 extension Optional.PKPublisher {
     
     // MARK: OPTIONAL SINK
-    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.SubscriptionSink<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: Subscriber>: Subscribers.SubscriptionSink<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         override func receive(input: Output) {
             guard !isCancelled else { return }
             _ = downstream?.receive(input)
         }
         
-        override func receive(completion: PKSubscribers.Completion<Failure>) {
+        override func receive(completion: Subscribers.Completion<Failure>) {
             guard !isCancelled else { return }
             downstream?.receive(completion: completion)
         }

@@ -7,10 +7,10 @@
 
 import Foundation
 
-public extension PKPublishers {
+public extension Publishers {
     
     /// A publisher that decodes elements received from an upstream publisher into the specified type.
-    struct Decode<Upstream: PKPublisher, Output: Decodable, Decoder: PKDecoder>: PKPublisher where Upstream.Output == Decoder.Input {
+    struct Decode<Upstream: Publisher, Output: Decodable, Decoder: TopLevelDecoder>: Publisher where Upstream.Output == Decoder.Input {
         
         public typealias Failure = Error
         
@@ -20,33 +20,43 @@ public extension PKPublishers {
         /// The decoder used for decoding the elements received from the upstream publisher.
         private let decoder: Decoder
         
+        /// Log output to console using serializer.
+        public var logOutput = false
+        
         public init(upstream: Upstream, decoder: Decoder) {
             self.upstream = upstream
             self.decoder = decoder
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let decodeSubscriber = InternalSink(downstream: subscriber, decoder: decoder)
+            decodeSubscriber.logOutput = logOutput
             upstream.subscribe(decodeSubscriber)
         }
     }
 }
 
-extension PKPublishers.Decode {
+extension Publishers.Decode {
     
     // MARK: DECODE SINK
-    private final class InternalSink<Downstream: PKSubscriber, Output: Decodable, Decoder: PKDecoder>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure, Upstream.Output == Decoder.Input {
+    private final class InternalSink<Downstream: Subscriber, Output: Decodable, Decoder: TopLevelDecoder>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure, Upstream.Output == Decoder.Input {
         
         private let decoder: Decoder
+        
+        var logOutput = false
         
         init(downstream: Downstream, decoder: Decoder) {
             self.decoder = decoder
             super.init(downstream: downstream)
         }
         
-        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
+        override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
             guard !isCancelled else { return .none }
+
+            if logOutput {
+                decoder.log(from: input)
+            }
             
             do {
                 let output = try decoder.decode(Output.self, from: input)
@@ -59,7 +69,7 @@ extension PKPublishers.Decode {
             return demand
         }
         
-        override func receive(completion: PKSubscribers.Completion<Upstream.Failure>) {
+        override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
             guard !isCancelled else { return }
             end()
             

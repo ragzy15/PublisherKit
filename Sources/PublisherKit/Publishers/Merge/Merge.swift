@@ -7,10 +7,10 @@
 
 import Foundation
 
-extension PKPublishers {
+extension Publishers {
     
     /// A publisher created by applying the merge function to two upstream publishers. Combines elements from all upstream publisher delivering an interleaved sequence of elements.
-    public struct Merge<A: PKPublisher, B: PKPublisher>: PKPublisher where A.Output == B.Output, A.Failure == B.Failure {
+    public struct Merge<A: Publisher, B: Publisher>: Publisher where A.Output == B.Output, A.Failure == B.Failure {
         
         public typealias Output = A.Output
         
@@ -27,7 +27,7 @@ extension PKPublishers {
             self.b = b
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let mergeSubscriber = InternalSink(downstream: subscriber)
             
@@ -35,50 +35,46 @@ extension PKPublishers {
             a.subscribe(mergeSubscriber.aSubscriber)
         }
         
-        public func merge<P: PKPublisher>(with other: P) -> PKPublishers.Merge3<A, B, P> {
-            PKPublishers.Merge3(a, b, other)
+        public func merge<P: Publisher>(with other: P) -> Publishers.Merge3<A, B, P> {
+            Publishers.Merge3(a, b, other)
         }
         
-        public func merge<P: PKPublisher, Q: PKPublisher>(with p: P, _ q: Q) -> PKPublishers.Merge4<A, B, P, Q> {
-            PKPublishers.Merge4(a, b, p, q)
+        public func merge<P: Publisher, Q: Publisher>(with p: P, _ q: Q) -> Publishers.Merge4<A, B, P, Q> {
+            Publishers.Merge4(a, b, p, q)
         }
         
-        public func merge<P: PKPublisher, Q: PKPublisher, R: PKPublisher>(with p: P, _ q: Q, _ r: R) -> PKPublishers.Merge5<A, B, P, Q, R> {
-            PKPublishers.Merge5(a, b, p, q, r)
+        public func merge<P: Publisher, Q: Publisher, R: Publisher>(with p: P, _ q: Q, _ r: R) -> Publishers.Merge5<A, B, P, Q, R> {
+            Publishers.Merge5(a, b, p, q, r)
         }
         
-        public func merge<P: PKPublisher, Q: PKPublisher, R: PKPublisher, S: PKPublisher>(with p: P, _ q: Q, _ r: R, _ s: S) -> PKPublishers.Merge6<A, B, P, Q, R, S> {
-            PKPublishers.Merge6(a, b, p, q, r, s)
+        public func merge<P: Publisher, Q: Publisher, R: Publisher, S: Publisher>(with p: P, _ q: Q, _ r: R, _ s: S) -> Publishers.Merge6<A, B, P, Q, R, S> {
+            Publishers.Merge6(a, b, p, q, r, s)
         }
         
-        public func merge<P: PKPublisher, Q: PKPublisher, R: PKPublisher, S: PKPublisher, T: PKPublisher>(with p: P, _ q: Q, _ r: R, _ s: S, _ t: T) -> PKPublishers.Merge7<A, B, P, Q, R, S, T> {
-            PKPublishers.Merge7(a, b, p, q, r, s, t)
+        public func merge<P: Publisher, Q: Publisher, R: Publisher, S: Publisher, T: Publisher>(with p: P, _ q: Q, _ r: R, _ s: S, _ t: T) -> Publishers.Merge7<A, B, P, Q, R, S, T> {
+            Publishers.Merge7(a, b, p, q, r, s, t)
         }
         
-        public func merge<P: PKPublisher, Q: PKPublisher, R: PKPublisher, S: PKPublisher, T: PKPublisher, U: PKPublisher>(with p: P, _ q: Q, _ r: R, _ s: S, _ t: T, _ u: U) -> PKPublishers.Merge8<A, B, P, Q, R, S, T, U> {
-            PKPublishers.Merge8(a, b, p, q, r, s, t, u)
+        public func merge<P: Publisher, Q: Publisher, R: Publisher, S: Publisher, T: Publisher, U: Publisher>(with p: P, _ q: Q, _ r: R, _ s: S, _ t: T, _ u: U) -> Publishers.Merge8<A, B, P, Q, R, S, T, U> {
+            Publishers.Merge8(a, b, p, q, r, s, t, u)
         }
     }
 }
 
-extension PKPublishers.Merge {
+extension Publishers.Merge {
     
     // MARK: MERGE SINK
-    private final class InternalSink<Downstream: PKSubscriber>: CombineSink<Downstream> where Downstream.Input == Output {
+    private final class InternalSink<Downstream: Subscriber>: CombineSink<Downstream> where Downstream.Input == Output {
         
-        private(set) lazy var aSubscriber = PKSubscribers.ClosureOperatorSink<CombineSink<Downstream>, A.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var aSubscriber = Subscribers.ClosureOperatorSink<CombineSink<Downstream>, A.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
-        private(set) lazy var bSubscriber = PKSubscribers.ClosureOperatorSink<CombineSink<Downstream>, B.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var bSubscriber = Subscribers.ClosureOperatorSink<CombineSink<Downstream>, B.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
         override init(downstream: Downstream) {
             super.init(downstream: downstream)
         }
         
-        override func sendSubscription() {
-            super.sendSubscription()
-        }
-        
-        override func receive(completion: PKSubscribers.Completion<Failure>) {
+        override func receive(completion: Subscribers.Completion<Failure>) {
             guard !isCancelled else { return }
             
             switch completion {

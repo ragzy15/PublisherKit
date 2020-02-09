@@ -7,16 +7,16 @@
 
 import Foundation
 
-class CombineSink<Downstream: PKSubscriber>: PKSubscribers.OperatorSink<Downstream, Downstream.Input, Downstream.Failure> {
+class CombineSink<Downstream: Subscriber>: Subscribers.OperatorSink<Downstream, Downstream.Input, Downstream.Failure> {
     
-    private var subscriptions: [PKSubscription] = []
+    private var subscriptions: [Subscription] = []
     
-    override func receive(subscription: PKSubscription) {
+    override func receive(subscription: Subscription) {
         guard !isCancelled else { return }
         subscriptions.append(subscription)
     }
     
-    override func receive(_ input: Input) -> PKSubscribers.Demand {
+    override func receive(_ input: Input) -> Subscribers.Demand {
         guard !isCancelled else { return .none }
         _ = downstream?.receive(input)
         return demand
@@ -29,11 +29,11 @@ class CombineSink<Downstream: PKSubscriber>: PKSubscribers.OperatorSink<Downstre
     
     func checkAndSend() { }
     
-    func receive(completion: PKSubscribers.Completion<Failure>, downstream: CombineSink?) {
+    func receive(completion: Subscribers.Completion<Failure>, downstream: CombineSink?) {
         receive(completion: completion)
     }
     
-    override func receive(completion: PKSubscribers.Completion<Failure>) {
+    override func receive(completion: Subscribers.Completion<Failure>) {
         guard !isCancelled else { return }
         end()
         downstream?.receive(completion: completion)

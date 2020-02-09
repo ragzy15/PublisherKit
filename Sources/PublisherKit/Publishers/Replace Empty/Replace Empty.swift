@@ -7,10 +7,10 @@
 
 import Foundation
 
-public extension PKPublishers {
+public extension Publishers {
     
     /// A publisher that replaces an empty stream with a provided element.
-    struct ReplaceEmpty<Upstream: PKPublisher>: PKPublisher {
+    struct ReplaceEmpty<Upstream: Publisher>: Publisher {
         
         public typealias Output = Upstream.Output
         
@@ -27,7 +27,7 @@ public extension PKPublishers {
             self.output = output
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let replaceEmptySubscriber = InternalSink(downstream: subscriber)
             
@@ -40,15 +40,15 @@ public extension PKPublishers {
     }
 }
 
-extension PKPublishers.ReplaceEmpty {
+extension Publishers.ReplaceEmpty {
     
     // MARK: REPLACE EMPTY SINK
-    private final class InternalSink<Downstream: PKSubscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: Subscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private var inputReceived = false
         var onFinish: ((Downstream?) -> Void)?
         
-        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
+        override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
             guard !isCancelled else { return .none }
             
             inputReceived = true
@@ -57,7 +57,7 @@ extension PKPublishers.ReplaceEmpty {
             return demand
         }
         
-        override func receive(completion: PKSubscribers.Completion<Upstream.Failure>) {
+        override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
             guard !isCancelled else { return }
             end()
             

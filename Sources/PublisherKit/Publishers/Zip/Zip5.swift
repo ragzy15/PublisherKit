@@ -7,10 +7,10 @@
 
 import Foundation
 
-extension PKPublishers {
+extension Publishers {
     
     /// A publisher created by applying the zip function to five upstream publishers.
-    public struct Zip5<A: PKPublisher, B: PKPublisher, C: PKPublisher, D: PKPublisher, E: PKPublisher>: PKPublisher where A.Failure == B.Failure, B.Failure == C.Failure, C.Failure == D.Failure, D.Failure == E.Failure {
+    public struct Zip5<A: Publisher, B: Publisher, C: Publisher, D: Publisher, E: Publisher>: Publisher where A.Failure == B.Failure, B.Failure == C.Failure, C.Failure == D.Failure, D.Failure == E.Failure {
         
         public typealias Output = (A.Output, B.Output, C.Output, D.Output, E.Output)
         
@@ -39,7 +39,7 @@ extension PKPublishers {
             self.e = e
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let zipSubscriber = InternalSink(downstream: subscriber)
             
@@ -52,27 +52,27 @@ extension PKPublishers {
     }
 }
 
-extension PKPublishers.Zip5: Equatable where A: Equatable, B: Equatable, C: Equatable, D: Equatable, E: Equatable {
+extension Publishers.Zip5: Equatable where A: Equatable, B: Equatable, C: Equatable, D: Equatable, E: Equatable {
     
-    public static func == (lhs: PKPublishers.Zip5<A, B, C, D, E>, rhs: PKPublishers.Zip5<A, B, C, D, E>) -> Bool {
+    public static func == (lhs: Publishers.Zip5<A, B, C, D, E>, rhs: Publishers.Zip5<A, B, C, D, E>) -> Bool {
         lhs.a == rhs.a && lhs.b == rhs.b && lhs.c == rhs.c && lhs.d == rhs.d && lhs.e == rhs.e
     }
 }
 
-extension PKPublishers.Zip5 {
+extension Publishers.Zip5 {
     
     // MARK: ZIP5 SINK
-    private final class InternalSink<Downstream: PKSubscriber>: CombineSink<Downstream> where Downstream.Input == Output {
+    private final class InternalSink<Downstream: Subscriber>: CombineSink<Downstream> where Downstream.Input == Output {
         
-        private(set) lazy var aSubscriber = PKSubscribers.ClosureOperatorSink<CombineSink<Downstream>, A.Output, Downstream.Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var aSubscriber = Subscribers.ClosureOperatorSink<CombineSink<Downstream>, A.Output, Downstream.Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
-        private(set) lazy var bSubscriber = PKSubscribers.ClosureOperatorSink<CombineSink<Downstream>, B.Output, Downstream.Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var bSubscriber = Subscribers.ClosureOperatorSink<CombineSink<Downstream>, B.Output, Downstream.Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
-        private(set) lazy var cSubscriber = PKSubscribers.ClosureOperatorSink<CombineSink<Downstream>, C.Output, Downstream.Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var cSubscriber = Subscribers.ClosureOperatorSink<CombineSink<Downstream>, C.Output, Downstream.Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
-        private(set) lazy var dSubscriber = PKSubscribers.ClosureOperatorSink<CombineSink<Downstream>, D.Output, Downstream.Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var dSubscriber = Subscribers.ClosureOperatorSink<CombineSink<Downstream>, D.Output, Downstream.Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
-        private(set) lazy var eSubscriber = PKSubscribers.ClosureOperatorSink<CombineSink<Downstream>, E.Output, Downstream.Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var eSubscriber = Subscribers.ClosureOperatorSink<CombineSink<Downstream>, E.Output, Downstream.Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
         private var aOutputs: [A.Output] = []
         private var bOutputs: [B.Output] = []

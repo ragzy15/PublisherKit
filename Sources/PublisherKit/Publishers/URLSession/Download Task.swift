@@ -7,6 +7,10 @@
 
 import Foundation
 
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+
 extension URLSession {
     
     /// Returns a publisher that wraps a URL session download task for a given URL.
@@ -43,7 +47,7 @@ extension URLSession {
 
 extension URLSession {
     
-    public struct DownloadTaskPKPublisher: PKPublisher {
+    public struct DownloadTaskPKPublisher: PublisherKit.Publisher {
         
         public typealias Output = (url: URL, response: HTTPURLResponse)
         
@@ -73,7 +77,7 @@ extension URLSession {
             self.session = session
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let downloadTaskSubscriber = InternalSink(downstream: subscriber)
             
@@ -93,7 +97,7 @@ extension URLSession {
 extension URLSession.DownloadTaskPKPublisher {
     
     // MARK: DOWNLOAD TASK SINK
-    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.SubscriptionSink<Downstream, Output, Failure>, URLSessionTaskPublisherDelegate where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class InternalSink<Downstream: Subscriber>: Subscribers.SubscriptionSink<Downstream, Output, Failure>, URLSessionTaskPublisherDelegate where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private var task: URLSessionDownloadTask?
         
@@ -102,7 +106,7 @@ extension URLSession.DownloadTaskPKPublisher {
             _ = downstream?.receive(input)
         }
         
-        override func receive(completion: PKSubscribers.Completion<Failure>) {
+        override func receive(completion: Subscribers.Completion<Failure>) {
             guard !isCancelled else { return }
             downstream?.receive(completion: completion)
         }
