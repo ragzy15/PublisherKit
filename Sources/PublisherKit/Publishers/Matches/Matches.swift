@@ -75,13 +75,9 @@ extension Publishers.Matches {
         }
         
         override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
-            switch result {
-            case .success(let expression):
+            result.map { (expression) -> Downstream.Input in
                 let matches = expression.matches(in: input, options: matchOptions, range: NSRange(location: 0, length: input.utf8.count))
-                return .success(matches)
-                
-            case .failure(let error):
-                return .failure(error)
+                return matches
             }
         }
         

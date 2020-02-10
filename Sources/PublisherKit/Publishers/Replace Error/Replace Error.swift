@@ -52,7 +52,6 @@ extension Publishers.ReplaceError {
         }
         
         override func onCompletion(_ completion: Subscribers.Completion<Failure>) {
-            
             if let error = completion.getError() {
                 Logger.default.log(error: error)
                 onError?(downstream)

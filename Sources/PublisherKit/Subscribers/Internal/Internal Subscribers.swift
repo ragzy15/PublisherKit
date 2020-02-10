@@ -23,8 +23,8 @@ extension Subscribers {
         }
         
         func onSubscription(_ subscription: Subscription) {
-            downstream?.receive(subscription: self)
             status = .subscribed(to: subscription)
+            downstream?.receive(subscription: self)
             subscription.request(.unlimited)
         }
         
@@ -64,16 +64,14 @@ extension Subscribers {
             
             switch status {
             case .subscribed(let subscription):
-                subscription.cancel()
                 status = .terminated
-                downstream = nil
+                subscription.cancel()
                 
             case .multipleSubscription(let subscriptions):
+                status = .terminated
                 subscriptions.forEach { (subscription) in
                     subscription.cancel()
                 }
-                status = .terminated
-                downstream = nil
                 
             default: break
             }
@@ -82,7 +80,6 @@ extension Subscribers {
         override func end(completion: () -> Void) {
             status = .terminated
             super.end(completion: completion)
-            downstream = nil
         }
     }
     

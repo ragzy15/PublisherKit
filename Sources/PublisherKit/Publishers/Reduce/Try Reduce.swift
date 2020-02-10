@@ -50,12 +50,10 @@ extension Publishers.TryReduce {
             super.init(downstream: downstream, operation: nextPartialResult)
         }
         
-       override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
-            do {
+        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+            Result {
                 output = try operation(output, input)
-                return .success(output)
-            } catch {
-                return .failure(error)
+                return output
             }
         }
         

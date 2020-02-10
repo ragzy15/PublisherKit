@@ -44,13 +44,12 @@ extension Publishers {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let retrySubscriber = Inner(downstream: subscriber)
+            let retrySubscriber = Inner(downstream: subscriber, demand: demand)
             
             retrySubscriber.retrySubscription = {
                 self.upstream.subscribe(retrySubscriber)
             }
             
-            retrySubscriber.request(demand)
             upstream.subscribe(retrySubscriber)
         }
     }
@@ -62,6 +61,21 @@ extension Publishers.Retry {
     private final class Inner<Downstream: Subscriber>: InternalSubscriber<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         var retrySubscription: (() -> Void)?
+        
+        let _demand: Subscribers.Demand
+        
+        init(downstream: Downstream, demand: Subscribers.Demand) {
+            _demand = demand
+            super.init(downstream: downstream)
+        }
+        
+        override func request(_ demand: Subscribers.Demand) {
+            super.request(_demand)
+        }
+        
+        override func operate(on input: Input) -> Result<Downstream.Input, Downstream.Failure>? {
+            .success(input)
+        }
         
         override func receive(completion: Subscribers.Completion<Failure>) {
             guard status.isSubscribed else { return }

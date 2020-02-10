@@ -41,11 +41,13 @@ extension Subscriptions {
         
         func cancel() {
             isTerminated = true
+            downstream = nil
         }
         
         func end(completion: () -> Void) {
             isTerminated = true
             completion()
+            downstream = nil
         }
     }
     

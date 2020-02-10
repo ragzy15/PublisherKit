@@ -78,9 +78,14 @@ extension Publishers.Debounce {
             return demand
         }
         
-        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
+        override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
+            guard status.isSubscribed else { return }
+            status = .terminated
+            
             scheduler.schedule {
-                self.downstream?.receive(completion: completion)
+                self.end {
+                    self.downstream?.receive(completion: completion)
+                }
             }
         }
     }

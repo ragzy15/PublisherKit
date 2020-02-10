@@ -89,10 +89,10 @@ extension NSObject.KeyValueObservingPKPublisher {
         }
         
         override func cancel() {
+            super.cancel()
             observer?.invalidate()
             observer = nil
             object = nil
-            super.cancel()
         }
     }
 }

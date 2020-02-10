@@ -54,7 +54,6 @@ extension Publishers.ReplaceEmpty {
         }
         
         override func onCompletion(_ completion: Subscribers.Completion<Failure>) {
-            
             if let error = completion.getError() {
                 downstream?.receive(completion: .failure(error))
                 return

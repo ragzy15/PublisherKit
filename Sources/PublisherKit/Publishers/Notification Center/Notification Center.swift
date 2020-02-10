@@ -100,6 +100,8 @@ extension NotificationCenter.PKPublisher {
         }
         
         override func cancel() {
+            super.cancel()
+            
             if let observer = observer {
                 center?.removeObserver(observer, name: name, object: object)
             }
@@ -108,7 +110,6 @@ extension NotificationCenter.PKPublisher {
             object = nil
             center = nil
             queue = nil
-            super.cancel()
         }
     }
 }
