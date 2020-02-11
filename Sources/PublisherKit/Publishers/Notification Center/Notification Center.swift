@@ -111,5 +111,13 @@ extension NotificationCenter.PKPublisher {
             center = nil
             queue = nil
         }
+        
+        override var description: String {
+            "NotificationCenter Observer"
+        }
+        
+        override var customMirror: Mirror {
+            Mirror(self, children: [])
+        }
     }
 }

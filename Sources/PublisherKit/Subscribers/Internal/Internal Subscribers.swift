@@ -15,9 +15,9 @@ extension Subscribers {
     
     class InternalBase<Downstream: Subscriber, Input, Failure: Error>: Subscriptions.Internal<Downstream, Input, Failure>, Subscriber {
         
-        var status: SubscriptionStatus = .awaiting
+        final var status: SubscriptionStatus = .awaiting
         
-        func receive(subscription: Subscription) {
+        final func receive(subscription: Subscription) {
             guard status == .awaiting else { return }
             onSubscription(subscription)
         }
@@ -57,6 +57,19 @@ extension Subscribers {
             }
             
             return demand
+        }
+        
+        override var description: String {
+            "Inner"
+        }
+        
+        override var customMirror: Mirror {
+            let children: [Mirror.Child] = [
+                ("downstream", downstream ?? "nil"),
+                ("status", status)
+            ]
+            
+            return Mirror(self, children: children)
         }
         
         override func cancel() {
@@ -129,7 +142,7 @@ extension Subscribers {
         }
     }
     
-    class InternalCombine<Downstream: Subscriber>: Subscriber, Subscription {
+    class InternalCombine<Downstream: Subscriber>: Subscriber, Subscription, CustomStringConvertible, CustomReflectable {
         
         typealias Input = Downstream.Input
         
@@ -205,6 +218,14 @@ extension Subscribers {
             
             subscriptions = []
             downstream = nil
+        }
+        
+        var description: String {
+            "Internal Combine"
+        }
+        
+        var customMirror: Mirror {
+            Mirror(self, children: [])
         }
     }
     

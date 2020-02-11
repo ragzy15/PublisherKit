@@ -95,5 +95,9 @@ extension Publishers.Zip3 {
             end()
             downstream?.receive(completion: completion)
         }
+        
+        override var description: String {
+            "Zip3"
+        }
     }
 }

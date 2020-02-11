@@ -14,9 +14,11 @@ extension URLSessionTaskPublisherDelegate {
     
     func handleCompletion<Downstream: Subscriber>(queue: DispatchQueue, subscriber: Subscriptions.Internal<Downstream, URLSession.DataTaskPKPublisher.Output, URLSession.DataTaskPKPublisher.Failure>) -> (Data?, URLResponse?, Error?) -> Void {
         
-        let completion: (Data?, URLResponse?, Error?) -> Void = { (data, response, error) in
+        let completion: (Data?, URLResponse?, Error?) -> Void = { [weak subscriber] (data, response, error) in
             
-            guard !subscriber.isTerminated else { return }
+            guard let subscriber = subscriber, !subscriber.isTerminated else {
+                return
+            }
             
             if let error = error {
                 queue.async {

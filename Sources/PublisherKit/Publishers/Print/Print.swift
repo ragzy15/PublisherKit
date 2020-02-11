@@ -75,10 +75,9 @@ extension Publishers.Print {
             super.init(downstream: downstream)
         }
         
-        override func receive(subscription: Subscription) {
-            guard status == .awaiting else { return }
+        override func onSubscription(_ subscription: Subscription) {
             print("receive subscription: (\(subscription))")
-            super.receive(subscription: subscription)
+            super.onSubscription(subscription)
         }
         
         override func request(_ demand: Subscribers.Demand) {
@@ -119,6 +118,10 @@ extension Publishers.Print {
             } else {
                 Swift.print(text)
             }
+        }
+        
+        override var description: String {
+            "Print"
         }
     }
 }

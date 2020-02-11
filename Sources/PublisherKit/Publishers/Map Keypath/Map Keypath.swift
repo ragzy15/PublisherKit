@@ -52,5 +52,15 @@ extension Publishers.MapKeyPath {
         override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
             downstream?.receive(completion: completion)
         }
+        
+        override var description: String {
+            switch status {
+            case .subscribed(let subscription):
+                return "\(subscription)"
+                
+            default:
+                return "MapKeyPath"
+            }
+        }
     }
 }

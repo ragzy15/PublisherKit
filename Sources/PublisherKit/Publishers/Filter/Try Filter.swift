@@ -83,5 +83,9 @@ extension Publishers.TryFilter {
             let completion = completion.mapError { $0 as Downstream.Failure }
             downstream?.receive(completion: completion)
         }
+        
+        override var description: String {
+            "TryFilter"
+        }
     }
 }

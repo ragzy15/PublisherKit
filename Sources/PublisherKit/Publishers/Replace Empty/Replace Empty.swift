@@ -65,5 +65,9 @@ extension Publishers.ReplaceEmpty {
             
             downstream?.receive(completion: .finished)
         }
+        
+        override var description: String {
+            "ReplaceEmpty"
+        }
     }
 }

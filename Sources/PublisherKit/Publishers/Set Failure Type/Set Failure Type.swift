@@ -49,5 +49,9 @@ extension Publishers.SetFailureType {
         override func onCompletion(_ completion: Subscribers.Completion<Never>) {
             downstream?.receive(completion: .finished)
         }
+        
+        override var description: String {
+            "SetFailureType"
+        }
     }
 }

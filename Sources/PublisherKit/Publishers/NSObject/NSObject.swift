@@ -94,5 +94,9 @@ extension NSObject.KeyValueObservingPKPublisher {
             observer = nil
             object = nil
         }
+        
+        override var description: String {
+            "NSObject KeyValueObserving"
+        }
     }
 }

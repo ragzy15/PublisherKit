@@ -66,5 +66,9 @@ extension Publishers.Catch {
             downstream.receive(subscription: subscriber)
             newPublisher.subscribe(subscriber)
         }
+        
+        override var description: String {
+            "Catch"
+        }
     }
 }

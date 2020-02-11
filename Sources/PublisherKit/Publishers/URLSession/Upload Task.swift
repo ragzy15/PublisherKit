@@ -48,7 +48,7 @@ extension URLSession {
 
 extension URLSession {
     
-    public struct UploadTaskPKPublisher: PublisherKit.Publisher, URLSessionTaskPublisherDelegate {
+    public struct UploadTaskPKPublisher: PublisherKit.Publisher {
         
         public typealias Output = (data: Data, response: HTTPURLResponse)
         
@@ -151,6 +151,10 @@ extension URLSession.UploadTaskPKPublisher {
             task?.cancel()
             task = nil
             super.cancel()
+        }
+        
+        override var description: String {
+            "Upload Task Publisher"
         }
     }
 }

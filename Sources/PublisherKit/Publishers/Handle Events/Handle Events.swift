@@ -99,9 +99,8 @@ extension Publishers.HandleEvents {
             super.request(demand)
         }
         
-        override func receive(subscription: Subscription) {
-            guard status == .awaiting else { return }
-            super.receive(subscription: subscription)
+        override func onSubscription(_ subscription: Subscription) {
+            super.onSubscription(subscription)
             receiveSubscription?(subscription)
         }
         
@@ -118,6 +117,14 @@ extension Publishers.HandleEvents {
         override func cancel() {
             receiveCancel?()
             super.cancel()
+        }
+        
+        override var description: String {
+            "HandleEvents"
+        }
+        
+        override var customMirror: Mirror {
+            Mirror(self, children: [])
         }
     }
 }

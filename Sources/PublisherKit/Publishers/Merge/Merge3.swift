@@ -89,5 +89,9 @@ extension Publishers.Merge3 {
                 downstream?.receive(completion: .failure(error))
             }
         }
+        
+        override var description: String {
+            "Merge3"
+        }
     }
 }

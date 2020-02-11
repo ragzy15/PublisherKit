@@ -7,7 +7,7 @@
 
 extension Subscriptions {
     
-    class Internal<Downstream: Subscriber, Input, Failure: Error>: Subscription {
+    class Internal<Downstream: Subscriber, Input, Failure: Error>: Subscription, CustomStringConvertible, CustomReflectable {
         
         private(set) var isTerminated = false
         
@@ -48,6 +48,19 @@ extension Subscriptions {
             isTerminated = true
             completion()
             downstream = nil
+        }
+        
+        var description: String {
+            "Internal Subscription"
+        }
+        
+        var customMirror: Mirror {
+            let children: [Mirror.Child] = [
+                ("downstream", downstream ?? "nil"),
+                ("isTerminated", isTerminated)
+            ]
+            
+            return Mirror(self, children: children)
         }
     }
     

@@ -42,9 +42,13 @@ extension Publishers.MapError {
             .success(input)
         }
         
-         override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
+        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
             let completion = completion.mapError { operation($0) }
             downstream?.receive(completion: completion)
+        }
+        
+        override var description: String {
+            "MapError"
         }
     }
 }

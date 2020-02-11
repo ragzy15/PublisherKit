@@ -103,5 +103,9 @@ extension Publishers.Merge7 {
                 downstream?.receive(completion: .failure(error))
             }
         }
+        
+        override var description: String {
+            "Merge7"
+        }
     }
 }

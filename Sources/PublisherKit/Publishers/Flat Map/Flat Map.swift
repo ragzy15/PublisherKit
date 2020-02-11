@@ -64,5 +64,9 @@ extension Publishers.FlatMap {
         override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
             downstream?.receive(completion: completion)
         }
+        
+        override var description: String {
+            "FlatMap"
+        }
     }
 }

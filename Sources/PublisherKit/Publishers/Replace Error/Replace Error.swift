@@ -59,5 +59,9 @@ extension Publishers.ReplaceError {
             
             downstream?.receive(completion: .finished)
         }
+        
+        override var description: String {
+            "ReplaceError"
+        }
     }
 }

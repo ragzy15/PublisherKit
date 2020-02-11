@@ -86,5 +86,9 @@ extension Publishers.CombineLatest {
                 downstream?.receive(completion: .finished)
             }
         }
+        
+        override var description: String {
+            "CombineLatest"
+        }
     }
 }

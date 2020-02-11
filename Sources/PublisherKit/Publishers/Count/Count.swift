@@ -54,5 +54,9 @@ extension Publishers.Count {
                 downstream?.receive(completion: .failure(error))
             }
         }
+        
+        override var description: String {
+            "Count"
+        }
     }
 }

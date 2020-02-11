@@ -110,5 +110,19 @@ extension Publishers.Breakpoint {
             
             downstream?.receive(completion: completion)
         }
+        
+        override var description: String {
+            "Breakpoint"
+        }
+        
+        override var customMirror: Mirror {
+            let children: [Mirror.Child] = [
+                ("receiveSubscription", receiveSubscription ?? "nil"),
+                ("receiveOutput", receiveOutput ?? "nil"),
+                ("receiveCompletion", receiveCompletion ?? "nil")
+            ]
+            
+            return Mirror(self, children: children)
+        }
     }
 }

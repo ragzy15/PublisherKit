@@ -96,5 +96,9 @@ extension Publishers.Merge5 {
                 downstream?.receive(completion: .failure(error))
             }
         }
+        
+        override var description: String {
+            "Merge5"
+        }
     }
 }

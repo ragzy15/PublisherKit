@@ -112,5 +112,9 @@ extension Publishers.CombineLatest4 {
                 downstream?.receive(completion: .finished)
             }
         }
+        
+        override var description: String {
+            "CombineLatest4"
+        }
     }
 }

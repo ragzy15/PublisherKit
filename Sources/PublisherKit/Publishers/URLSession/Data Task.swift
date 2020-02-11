@@ -50,7 +50,7 @@ extension URLSession {
     @available(*, deprecated, renamed: "DataTaskPKPublisher")
     public typealias NKDataTaskPublisher = DataTaskPKPublisher
     
-    public struct DataTaskPKPublisher: PublisherKit.Publisher, URLSessionTaskPublisherDelegate {
+    public struct DataTaskPKPublisher: PublisherKit.Publisher {
         
         public typealias Output = (data: Data, response: HTTPURLResponse)
         
@@ -126,6 +126,10 @@ extension URLSession.DataTaskPKPublisher {
             task?.cancel()
             task = nil
             super.cancel()
+        }
+        
+        override var description: String {
+            "Data Task Publisher"
         }
     }
 }

@@ -125,5 +125,9 @@ extension Publishers.CombineLatest5 {
                 downstream?.receive(completion: .finished)
             }
         }
+        
+        override var description: String {
+            "CombineLatest5"
+        }
     }
 }

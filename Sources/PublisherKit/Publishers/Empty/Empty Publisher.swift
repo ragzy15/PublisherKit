@@ -50,5 +50,9 @@ extension Empty {
         override func onCompletion(_ completion: Subscribers.Completion<Failure>) {
             downstream?.receive(completion: completion)
         }
+        
+        override var description: String {
+            "Empty"
+        }
     }
 }

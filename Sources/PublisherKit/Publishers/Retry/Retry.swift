@@ -81,7 +81,9 @@ extension Publishers.Retry {
             guard status.isSubscribed else { return }
             
             guard let error = completion.getError() else {
-                downstream?.receive(completion: .finished)
+                end {
+                    downstream?.receive(completion: completion)
+                }
                 return
             }
             
@@ -95,7 +97,22 @@ extension Publishers.Retry {
             }
             
             demand -= 1
+            status = .awaiting
             retrySubscription?()
+        }
+        
+        override func end(completion: () -> Void) {
+            retrySubscription = nil
+            super.end(completion: completion)
+        }
+        
+        override func cancel() {
+            retrySubscription = nil
+            super.cancel()
+        }
+        
+        override var description: String {
+            "Retry"
         }
     }
 }

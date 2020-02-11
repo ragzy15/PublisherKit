@@ -123,5 +123,9 @@ extension Publishers.Zip5 {
             end()
             downstream?.receive(completion: completion)
         }
+        
+        override var description: String {
+            "Zip5"
+        }
     }
 }

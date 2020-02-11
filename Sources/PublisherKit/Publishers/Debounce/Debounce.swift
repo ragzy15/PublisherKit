@@ -88,5 +88,9 @@ extension Publishers.Debounce {
                 }
             }
         }
+        
+        override var description: String {
+            "Debounce"
+        }
     }
 }

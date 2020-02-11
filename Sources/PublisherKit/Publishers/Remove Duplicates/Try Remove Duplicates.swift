@@ -45,7 +45,7 @@ extension Publishers.TryRemoveDuplicates {
         
         private var previousValue: Output? = nil
         
-       override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
             do {
                 if let previousValue = previousValue, try operation(previousValue, input) {
                     return nil
@@ -59,9 +59,13 @@ extension Publishers.TryRemoveDuplicates {
             }
         }
         
-         override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
+        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
             let completion = completion.mapError { $0 as Downstream.Failure }
             downstream?.receive(completion: completion)
+        }
+        
+        override var description: String {
+            "TryRemoveDuplicates"
         }
     }
 }

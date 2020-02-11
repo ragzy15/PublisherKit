@@ -97,7 +97,7 @@ extension URLSession {
 extension URLSession.DownloadTaskPKPublisher {
     
     // MARK: DOWNLOAD TASK SINK
-    private final class Inner<Downstream: Subscriber>: Subscriptions.Internal<Downstream, Output, Failure>, URLSessionTaskPublisherDelegate where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscriptions.Internal<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private var task: URLSessionDownloadTask?
         
@@ -152,6 +152,10 @@ extension URLSession.DownloadTaskPKPublisher {
             task?.cancel()
             task = nil
             super.cancel()
+        }
+        
+        override var description: String {
+            "Download Task Publisher"
         }
     }
 }

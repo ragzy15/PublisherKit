@@ -66,5 +66,9 @@ extension Publishers.ReceiveOn {
                 }
             }
         }
+        
+        override var description: String {
+            "ReceiveOn"
+        }
     }
 }

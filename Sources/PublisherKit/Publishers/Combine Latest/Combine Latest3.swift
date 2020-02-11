@@ -99,5 +99,9 @@ extension Publishers.CombineLatest3 {
                 downstream?.receive(completion: .finished)
             }
         }
+        
+        override var description: String {
+            "CombineLatest3"
+        }
     }
 }

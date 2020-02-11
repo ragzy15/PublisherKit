@@ -75,5 +75,9 @@ extension Publishers.TryCatch {
                 downstream?.receive(completion: .failure(catchError as Downstream.Failure))
             }
         }
+        
+        override var description: String {
+            "TryCatch"
+        }
     }
 }
