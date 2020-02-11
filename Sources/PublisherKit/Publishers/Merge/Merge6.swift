@@ -90,13 +90,15 @@ extension Publishers.Merge6 {
                     cSubscriber.status.isTerminated && dSubscriber.status.isTerminated &&
                     eSubscriber.status.isTerminated && fSubscriber.status.isTerminated {
                     
-                    end()
-                    downstream?.receive(completion: .finished)
+                    end {
+                        downstream?.receive(completion: .finished)
+                    }
                 }
                 
             case .failure(let error):
-                end()
-                downstream?.receive(completion: .failure(error))
+                end {
+                    downstream?.receive(completion: .failure(error))
+                }
             }
         }
         

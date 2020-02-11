@@ -36,9 +36,9 @@ extension NotificationCenter {
         /// The object posting the named notfication.
         public let object: AnyObject?
         
-        /// The operation queue to which block should be added.
+        /// The operation queue to which the elemets should be published.
         ///
-        /// If you pass nil, the block is run synchronously on the posting thread. Default value is nil.
+        /// If you pass `nil`, the block is run synchronously on the posting thread. Default value is `nil`.
         public let queue: OperationQueue?
         
         /// Creates a publisher that emits events when broadcasting notifications.

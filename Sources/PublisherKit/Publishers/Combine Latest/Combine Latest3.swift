@@ -90,13 +90,15 @@ extension Publishers.CombineLatest3 {
         override func onCompletion(_ completion: Subscribers.Completion<Failure>) {
             
             if let error = completion.getError() {
-                end()
-                downstream?.receive(completion: .failure(error))
+                end {
+                    downstream?.receive(completion: .failure(error))
+                }
             }
             
             if aSubscriber.status.isTerminated && bSubscriber.status.isTerminated && cSubscriber.status.isTerminated {
-                end()
-                downstream?.receive(completion: .finished)
+                end {
+                    downstream?.receive(completion: .finished)
+                }
             }
         }
         

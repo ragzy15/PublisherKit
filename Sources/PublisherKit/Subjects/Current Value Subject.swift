@@ -100,5 +100,14 @@ extension CurrentValueSubject {
                 receive(value)
             }
         }
+        
+        @inlinable override func finish() {
+            subject = nil
+            super.finish()
+        }
+        
+        override var description: String {
+            "CurrentValueSubject"
+        }
     }
 }

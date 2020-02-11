@@ -75,13 +75,15 @@ extension Publishers.Merge {
             switch completion {
             case .finished:
                 if aSubscriber.status.isTerminated && bSubscriber.status.isTerminated {
-                    end()
-                    downstream?.receive(completion: .finished)
+                    end {
+                        downstream?.receive(completion: .finished)
+                    }
                 }
                 
             case .failure(let error):
-                end()
-                downstream?.receive(completion: .failure(error))
+                end {
+                    downstream?.receive(completion: .failure(error))
+                }
             }
         }
         

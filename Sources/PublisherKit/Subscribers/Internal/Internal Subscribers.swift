@@ -119,9 +119,9 @@ extension Subscribers {
     
     class InternalClosure<Downstream: Subscriber, Input, Failure: Error>: InternalBase<Downstream, Input, Failure> {
         
-        final let receiveValue: ((Input, Downstream?) -> Void)
+        private final var receiveValue: ((Input, Downstream?) -> Void)?
         
-        final let receiveCompletion: ((Subscribers.Completion<Failure>, Downstream?) -> Void)
+        private final var receiveCompletion: ((Subscribers.Completion<Failure>, Downstream?) -> Void)?
         
         init(downstream: Downstream,
              receiveCompletion: @escaping (Subscribers.Completion<Failure>, Downstream?) -> Void,
@@ -133,28 +133,32 @@ extension Subscribers {
         }
         
         override func operate(on input: Input) -> Result<Downstream.Input, Downstream.Failure>? {
-            receiveValue(input, downstream)
+            receiveValue?(input, downstream)
             return nil
         }
         
         override func onCompletion(_ completion: Subscribers.Completion<Failure>) {
-            receiveCompletion(completion, downstream)
+            end {
+                receiveCompletion?(completion, downstream)
+            }
+        }
+        
+        override func end(completion: () -> Void) {
+            super.end(completion: completion)
+            receiveValue = nil
+            receiveCompletion = nil
+        }
+        
+        override func cancel() {
+            super.cancel()
+            receiveValue = nil
+            receiveCompletion = nil
         }
     }
     
-    class InternalCombine<Downstream: Subscriber>: Subscriber, Subscription, CustomStringConvertible, CustomReflectable {
-        
-        typealias Input = Downstream.Input
-        
-        typealias Failure = Downstream.Failure
-        
-        private(set) final var downstream: Downstream?
-        
-        private(set) final var demand: Subscribers.Demand = .none
+    class InternalCombine<Downstream: Subscriber>: Subscriptions.Internal<Downstream, Downstream.Input, Downstream.Failure>, Subscriber {
         
         final var subscriptions: [Subscription] = []
-        
-        final var isTerminated: Bool = false
         
         final var awaitingSubscription: Bool {
             subscriptions.isEmpty
@@ -164,14 +168,7 @@ extension Subscribers {
             !awaitingSubscription && !isTerminated
         }
         
-        init(downstream: Downstream) {
-            self.downstream = downstream
-        }
-        
         func checkAndSend() {
-        }
-        
-        func onCompletion(_ completion: Subscribers.Completion<Failure>) {
         }
         
         final func receive(subscription: Subscription) {
@@ -181,55 +178,49 @@ extension Subscribers {
             subscription.request(.unlimited)
         }
         
-        final func receive(_ input: Input) -> Subscribers.Demand {
+        final func receive(_ input: Downstream.Input) -> Subscribers.Demand {
             guard !isTerminated else { return .none }
             _ = downstream?.receive(input)
             return demand
         }
         
-        final func receive(completion: Subscribers.Completion<Failure>) {
+        final override func receive(completion: Subscribers.Completion<Downstream.Failure>) {
             guard !isTerminated else { return }
             onCompletion(completion)
         }
         
-        final func receive(completion: Subscribers.Completion<Failure>, downstream: InternalCombine?) {
+        final func receive(completion: Subscribers.Completion<Downstream.Failure>, downstream: InternalCombine?) {
             receive(completion: completion)
         }
         
-        final func receive(input: Input, downstream: InternalCombine?) {
+        final func receive(input: Downstream.Input, downstream: InternalCombine?) {
             _ = receive(input)
         }
         
-        final func end() {
-            isTerminated = true
+        final override func end(completion: () -> Void) {
+            super.end(completion: completion)
             subscriptions = []
-            downstream = nil
         }
         
-        final func request(_ demand: Subscribers.Demand) {
-            self.demand = demand
-        }
-        
-        final func cancel() {
-            isTerminated = true
+        final override func cancel() {
+            super.cancel()
             subscriptions.forEach { (subscription) in
                 subscription.cancel()
             }
             
             subscriptions = []
-            downstream = nil
         }
         
-        var description: String {
+        override var description: String {
             "Internal Combine"
         }
         
-        var customMirror: Mirror {
+        override var customMirror: Mirror {
             Mirror(self, children: [])
         }
     }
     
-    final class InternalSubject<DownstreamSubject: Subject>: Subscriber, Subscription {
+    final class InternalSubject<DownstreamSubject: Subject>: Subscriber, Subscription, CustomStringConvertible, CustomReflectable {
         
         typealias Input = DownstreamSubject.Output
         
@@ -281,6 +272,14 @@ extension Subscribers {
             status = .terminated
             subscription.cancel()
             subject = nil
+        }
+        
+        var description: String {
+            "Internal Subject"
+        }
+        
+        var customMirror: Mirror {
+            Mirror(self, children: [])
         }
     }
 }

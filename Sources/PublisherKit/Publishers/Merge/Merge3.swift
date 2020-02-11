@@ -80,13 +80,15 @@ extension Publishers.Merge3 {
                 if aSubscriber.status.isTerminated && bSubscriber.status.isTerminated &&
                     cSubscriber.status.isTerminated {
                     
-                    end()
-                    downstream?.receive(completion: .finished)
+                    end {
+                        downstream?.receive(completion: .finished)
+                    }
                 }
                 
             case .failure(let error):
-                end()
-                downstream?.receive(completion: .failure(error))
+                end {
+                    downstream?.receive(completion: .failure(error))
+                }
             }
         }
         

@@ -46,8 +46,8 @@ public struct AnySubscriber<Input, Failure: Error>: Subscriber {
                            receiveCompletion: ((Subscribers.Completion<Failure>) -> Void)? = nil) {
         combineIdentifier = CombineIdentifier()
         sink = InternalClosureAnySubscriber(receiveSubscription: receiveSubscription,
-                                        receiveValue: receiveValue,
-                                        receiveCompletion: receiveCompletion)
+                                            receiveValue: receiveValue,
+                                            receiveCompletion: receiveCompletion)
     }
     
     @inlinable public func receive(subscription: Subscription) {
@@ -73,7 +73,7 @@ extension AnySubscriber {
         
         @usableFromInline func receive(completion: Subscribers.Completion<Failure>) { }
     }
-
+    
     @usableFromInline final class InternalAnySubscriber<BaseSubscriber: Subscriber>: AnySubscriberBase<BaseSubscriber.Input, BaseSubscriber.Failure> {
         
         @usableFromInline var subscriber: BaseSubscriber?
@@ -90,22 +90,22 @@ extension AnySubscriber {
         @usableFromInline override func receive(_ input: BaseSubscriber.Input) -> Subscribers.Demand {
             subscriber?.receive(input) ?? .none
         }
-
+        
         @usableFromInline override func receive(completion: Subscribers.Completion<BaseSubscriber.Failure>) {
             subscriber?.receive(completion: completion)
+            subscriber = nil
         }
     }
-
+    
     @usableFromInline final class InternalClosureAnySubscriber<Input, Failure: Error>: AnySubscriberBase<Input, Failure> {
-        
         
         @usableFromInline var receiveSubscription: ((Subscription) -> Void)?
         @usableFromInline var receiveValue: ((Input) -> Subscribers.Demand)?
         @usableFromInline var receiveCompletion: ((Subscribers.Completion<Failure>) -> Void)?
         
         @usableFromInline init(receiveSubscription: ((Subscription) -> Void)?,
-                        receiveValue: ((Input) -> Subscribers.Demand)?,
-                        receiveCompletion: ((Subscribers.Completion<Failure>) -> Void)?) {
+                               receiveValue: ((Input) -> Subscribers.Demand)?,
+                               receiveCompletion: ((Subscribers.Completion<Failure>) -> Void)?) {
             
             self.receiveSubscription = receiveSubscription
             self.receiveValue = receiveValue
@@ -124,5 +124,4 @@ extension AnySubscriber {
             receiveCompletion?(completion)
         }
     }
-
 }

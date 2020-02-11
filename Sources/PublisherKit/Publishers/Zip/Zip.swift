@@ -78,8 +78,9 @@ extension Publishers.Zip {
         }
         
         override func onCompletion(_ completion: Subscribers.Completion<Failure>) {
-            end()
-            downstream?.receive(completion: completion)
+            end {
+                downstream?.receive(completion: completion)
+            }
         }
         
         override var description: String {

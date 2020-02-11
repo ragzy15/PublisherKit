@@ -13,7 +13,7 @@ extension Subscriptions {
         
         var demand: Subscribers.Demand = .none
         
-        var downstream: Downstream?
+        private(set) var downstream: Downstream?
         
         init(downstream: Downstream) {
             self.downstream = downstream
@@ -64,15 +64,15 @@ extension Subscriptions {
         }
     }
     
-    class InternalSubject<Output, Failure: Error>: Subscription {
+    class InternalSubject<Input, Failure: Error>: Subscription, CustomStringConvertible, CustomReflectable {
         
-        private var downstream: AnySubscriber<Output, Failure>?
+        private var downstream: AnySubscriber<Input, Failure>?
         
         private(set) var isTerminated = false
         
         private(set) var _demand: Subscribers.Demand = .none
         
-        init(downstream: AnySubscriber<Output, Failure>) {
+        init(downstream: AnySubscriber<Input, Failure>) {
             self.downstream = downstream
         }
         
@@ -81,7 +81,7 @@ extension Subscriptions {
             _demand += demand
         }
         
-        final func receive(_ input: Output) {
+        final func receive(_ input: Input) {
             guard !isTerminated, _demand > .none else { return }
             let newDemand = downstream?.receive(input)
             _demand = newDemand ?? .none
@@ -100,6 +100,14 @@ extension Subscriptions {
         @inlinable func finish() {
             isTerminated = true
             downstream = nil
+        }
+        
+        var description: String {
+            "Internal Subject Subscription"
+        }
+        
+        var customMirror: Mirror {
+            Mirror(self, children: [])
         }
     }
 }

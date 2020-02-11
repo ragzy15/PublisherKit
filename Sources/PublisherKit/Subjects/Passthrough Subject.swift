@@ -73,5 +73,9 @@ extension PassthroughSubject {
     
     // MARK: PASSTHROUGH SUBJECT SINK
     private final class Inner: Subscriptions.InternalSubject<Output, Failure> {
+        
+        override var description: String {
+            "PassthroughSubject"
+        }
     }
 }

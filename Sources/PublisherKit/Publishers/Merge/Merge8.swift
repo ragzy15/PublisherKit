@@ -97,13 +97,15 @@ extension Publishers.Merge8 {
                     eSubscriber.status.isTerminated && fSubscriber.status.isTerminated &&
                     gSubscriber.status.isTerminated && hSubscriber.status.isTerminated {
                     
-                    end()
-                    downstream?.receive(completion: .finished)
+                    end {
+                        downstream?.receive(completion: .finished)
+                    }
                 }
                 
             case .failure(let error):
-                end()
-                downstream?.receive(completion: .failure(error))
+                end {
+                    downstream?.receive(completion: .failure(error))
+                }
             }
         }
         
