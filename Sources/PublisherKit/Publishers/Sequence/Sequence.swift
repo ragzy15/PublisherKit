@@ -41,7 +41,7 @@ extension Publishers {
             sequenceSubscriber.request(.unlimited)
             
             for element in sequence {
-                if !sequenceSubscriber.isTerminated { break }
+                if sequenceSubscriber.isTerminated { break }
                 sequenceSubscriber.receive(input: element)
             }
             
