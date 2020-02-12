@@ -82,9 +82,9 @@ extension Publishers.Debounce {
             guard status.isSubscribed else { return }
             status = .terminated
             
-            scheduler.schedule {
-                self.end {
-                    self.downstream?.receive(completion: completion)
+            scheduler.schedule { [weak self] in
+                self?.end {
+                    self?.downstream?.receive(completion: completion)
                 }
             }
         }

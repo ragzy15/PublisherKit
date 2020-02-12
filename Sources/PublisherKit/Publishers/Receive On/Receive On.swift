@@ -50,8 +50,8 @@ extension Publishers.ReceiveOn {
         override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
             guard status.isSubscribed else { return .none }
             
-            scheduler.schedule {
-                _ = self.downstream?.receive(input)
+            scheduler.schedule { [weak self] in
+                _ = self?.downstream?.receive(input)
             }
             
             return demand
@@ -60,9 +60,9 @@ extension Publishers.ReceiveOn {
         override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
             guard status.isSubscribed else { return }
             status = .terminated
-            scheduler.schedule {
-                self.end {
-                    self.downstream?.receive(completion: completion)
+            scheduler.schedule { [weak self] in
+                self?.end {
+                    self?.downstream?.receive(completion: completion)
                 }
             }
         }
