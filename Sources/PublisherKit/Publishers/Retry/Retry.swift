@@ -102,13 +102,13 @@ extension Publishers.Retry {
         }
         
         override func end(completion: () -> Void) {
-            retrySubscription = nil
             super.end(completion: completion)
+            retrySubscription = nil
         }
         
         override func cancel() {
-            retrySubscription = nil
             super.cancel()
+            retrySubscription = nil
         }
         
         override var description: String {
