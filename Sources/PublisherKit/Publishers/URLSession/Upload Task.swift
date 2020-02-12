@@ -143,14 +143,14 @@ extension URLSession.UploadTaskPKPublisher {
         }
         
         override func end(completion: () -> Void) {
-            task = nil
             super.end(completion: completion)
+            task = nil
         }
         
         override func cancel() {
+            super.cancel()
             task?.cancel()
             task = nil
-            super.cancel()
         }
         
         override var description: String {
