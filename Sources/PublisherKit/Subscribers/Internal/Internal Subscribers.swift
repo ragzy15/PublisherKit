@@ -22,6 +22,11 @@ extension Subscribers {
             onSubscription(subscription)
         }
         
+        override func request(_ demand: Subscribers.Demand) {
+            guard status.isSubscribed else { return }
+            super.request(demand)
+        }
+        
         func onSubscription(_ subscription: Subscription) {
             status = .subscribed(to: subscription)
             downstream?.receive(subscription: self)
@@ -124,8 +129,8 @@ extension Subscribers {
         private final var receiveCompletion: ((Subscribers.Completion<Failure>, Downstream?) -> Void)?
         
         init(downstream: Downstream,
-             receiveCompletion: @escaping (Subscribers.Completion<Failure>, Downstream?) -> Void,
-             receiveValue: @escaping ((Input, Downstream?) -> Void)) {
+             receiveCompletion: ((Subscribers.Completion<Failure>, Downstream?) -> Void)?,
+             receiveValue: ((Input, Downstream?) -> Void)?) {
             
             self.receiveCompletion = receiveCompletion
             self.receiveValue = receiveValue

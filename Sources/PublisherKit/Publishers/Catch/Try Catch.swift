@@ -45,15 +45,6 @@ extension Publishers.TryCatch {
     // MARK: TRY CATCH SINK
     private final class Inner<Downstream: Subscriber>: OperatorSubscriber<Downstream, Upstream, (Upstream.Failure) throws -> NewPublisher> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        private lazy var subscriber = Subscribers.InternalClosure<Downstream, Upstream.Output, NewPublisher.Failure>(downstream: downstream!, receiveCompletion: { (completion, downstream) in
-            
-            let completion = completion.mapError { $0 as Downstream.Failure }
-            downstream?.receive(completion: completion)
-            
-        }) { (input, downstream) in
-            _ = downstream?.receive(input)
-        }
-        
         override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
             .success(input)
         }
@@ -68,7 +59,7 @@ extension Publishers.TryCatch {
             do {
                 let newPublisher = try operation(error)
                 
-                downstream?.receive(subscription: subscriber)
+                let subscriber = CatchInner(downstream: downstream)
                 newPublisher.subscribe(subscriber)
                 
             } catch let catchError {
@@ -78,6 +69,34 @@ extension Publishers.TryCatch {
         
         override var description: String {
             "TryCatch"
+        }
+        
+        private final class CatchInner: Subscriber {
+            
+            private var subscription: Subscription?
+            
+            private var downstream: Downstream?
+            
+            init(downstream: Downstream?) {
+                self.downstream = downstream
+            }
+            
+            final func receive(subscription: Subscription) {
+                self.subscription = subscription
+                subscription.request(.unlimited)
+            }
+            
+            final func receive(_ input: Upstream.Output) -> Subscribers.Demand {
+                downstream?.receive(input) ?? .none
+            }
+            
+            final func receive(completion: Subscribers.Completion<NewPublisher.Failure>) {
+                let newCompletion = completion.mapError { $0 as Downstream.Failure }
+                downstream?.receive(completion: newCompletion)
+                
+                subscription = nil
+                downstream = nil
+            }
         }
     }
 }
