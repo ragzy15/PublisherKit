@@ -27,7 +27,7 @@ public extension Publishers {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let mapErrorSubscriber = InternalSink(downstream: subscriber, transform: transform)
+            let mapErrorSubscriber = Inner(downstream: subscriber, operation: transform)
             upstream.subscribe(mapErrorSubscriber)
         }
     }
@@ -36,27 +36,19 @@ public extension Publishers {
 extension Publishers.MapError {
     
     // MARK: MAPERROR SINK
-    private final class InternalSink<Downstream: Subscriber, Failure>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber, Failure>: OperatorSubscriber<Downstream, Upstream, (Upstream.Failure) -> Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        private let transform: (Upstream.Failure) -> Failure
-        
-        init(downstream: Downstream, transform: @escaping (Upstream.Failure) -> Failure) {
-            self.transform = transform
-            super.init(downstream: downstream)
+        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+            .success(input)
         }
         
-        override func receive(_ input: Output) -> Subscribers.Demand {
-            guard !isCancelled else { return .none }
-            _ = downstream?.receive(input)
-            return demand
-        }
-        
-        override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
-            guard !isCancelled else { return }
-            end()
-            
-            let completion = completion.mapError { self.transform($0) }
+        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
+            let completion = completion.mapError { operation($0) }
             downstream?.receive(completion: completion)
+        }
+        
+        override var description: String {
+            "MapError"
         }
     }
 }

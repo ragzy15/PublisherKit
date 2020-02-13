@@ -54,7 +54,7 @@ extension Publishers {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let matchesSubscriber = InternalSink(downstream: subscriber, result: result, matchOptions: matchOptions)
+            let matchesSubscriber = Inner(downstream: subscriber, result: result, matchOptions: matchOptions)
             upstream.subscribe(matchesSubscriber)
         }
     }
@@ -63,7 +63,7 @@ extension Publishers {
 extension Publishers.Matches {
     
     // MARK: MATCHES SINK
-    private final class InternalSink<Downstream: Subscriber>: Subscribers.OperatorSink<Downstream, Upstream.Output, Upstream.Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: InternalSubscriber<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private let result: Result<NSRegularExpression, Error>
         private let matchOptions: NSRegularExpression.MatchingOptions
@@ -74,28 +74,20 @@ extension Publishers.Matches {
             super.init(downstream: downstream)
         }
         
-        override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
-            guard !isCancelled else { return .none }
-            
-            switch result {
-            case .success(let expression):
+        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+            result.map { (expression) -> Downstream.Input in
                 let matches = expression.matches(in: input, options: matchOptions, range: NSRange(location: 0, length: input.utf8.count))
-                _ = downstream?.receive(matches)
-                
-            case .failure(let error):
-                end()
-                downstream?.receive(completion: .failure(error))
+                return matches
             }
-            
-            return demand
         }
         
-        override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
-            guard !isCancelled else { return }
-            end()
-            
+        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
             let completion = completion.mapError { $0 as Downstream.Failure }
             downstream?.receive(completion: completion)
+        }
+        
+        override var description: String {
+            "Matches"
         }
     }
 }

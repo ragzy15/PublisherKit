@@ -27,7 +27,7 @@ public extension Publishers {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let mapKeypathSubscriber = InternalSink(downstream: subscriber, keyPath: keyPath)
+            let mapKeypathSubscriber = Inner(downstream: subscriber, keyPath: keyPath)
             upstream.subscribe(mapKeypathSubscriber)
         }
     }
@@ -36,7 +36,7 @@ public extension Publishers {
 extension Publishers.MapKeyPath {
     
     // MARK: MAPKEYPATH SINK
-    private final class InternalSink<Downstream: Subscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: InternalSubscriber<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private let keyPath: KeyPath<Upstream.Output, Output>
         
@@ -45,20 +45,22 @@ extension Publishers.MapKeyPath {
             super.init(downstream: downstream)
         }
         
-        override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
-            guard !isCancelled else { return .none }
-            
-            let output = input[keyPath: keyPath]
-            
-            _ = downstream?.receive(output)
-            
-            return demand
+        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+            .success(input[keyPath: keyPath])
         }
         
-        override func receive(completion: Subscribers.Completion<Failure>) {
-            guard !isCancelled else { return }
-            end()
+        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
             downstream?.receive(completion: completion)
+        }
+        
+        override var description: String {
+            switch status {
+            case .subscribed(let subscription):
+                return "\(subscription)"
+                
+            default:
+                return "MapKeyPath"
+            }
         }
     }
 }

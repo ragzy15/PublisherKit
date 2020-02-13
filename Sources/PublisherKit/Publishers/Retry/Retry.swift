@@ -44,14 +44,12 @@ extension Publishers {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let retrySubscriber = InternalSink(downstream: subscriber)
+            let retrySubscriber = Inner(downstream: subscriber, demand: demand)
             
             retrySubscriber.retrySubscription = {
                 self.upstream.subscribe(retrySubscriber)
             }
             
-            subscriber.receive(subscription: retrySubscriber)
-            retrySubscriber.request(demand)
             upstream.subscribe(retrySubscriber)
         }
     }
@@ -60,28 +58,61 @@ extension Publishers {
 extension Publishers.Retry {
     
     // MARK: RETRY
-    private final class InternalSink<Downstream: Subscriber>: UpstreamInternalSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: InternalSubscriber<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         var retrySubscription: (() -> Void)?
         
+        let _demand: Subscribers.Demand
+        
+        init(downstream: Downstream, demand: Subscribers.Demand) {
+            _demand = demand
+            super.init(downstream: downstream)
+        }
+        
+        override func request(_ demand: Subscribers.Demand) {
+            super.request(_demand)
+        }
+        
+        override func operate(on input: Input) -> Result<Downstream.Input, Downstream.Failure>? {
+            .success(input)
+        }
+        
         override func receive(completion: Subscribers.Completion<Failure>) {
-            guard !isCancelled else { return }
+            guard status.isSubscribed else { return }
             
             guard let error = completion.getError() else {
-                downstream?.receive(completion: .finished)
+                end {
+                    downstream?.receive(completion: completion)
+                }
                 return
             }
             
             Logger.default.log(error: error)
             
             guard demand != .none else {
-                end()
-                downstream?.receive(completion: .failure(error))
+                end {
+                    downstream?.receive(completion: .failure(error))
+                }
                 return
             }
             
             demand -= 1
+            status = .awaiting
             retrySubscription?()
+        }
+        
+        override func end(completion: () -> Void) {
+            super.end(completion: completion)
+            retrySubscription = nil
+        }
+        
+        override func cancel() {
+            super.cancel()
+            retrySubscription = nil
+        }
+        
+        override var description: String {
+            "Retry"
         }
     }
 }

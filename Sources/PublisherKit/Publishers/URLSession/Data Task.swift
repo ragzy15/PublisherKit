@@ -50,7 +50,7 @@ extension URLSession {
     @available(*, deprecated, renamed: "DataTaskPKPublisher")
     public typealias NKDataTaskPublisher = DataTaskPKPublisher
     
-    public struct DataTaskPKPublisher: PublisherKit.Publisher, URLSessionTaskPublisherDelegate {
+    public struct DataTaskPKPublisher: PublisherKit.Publisher {
         
         public typealias Output = (data: Data, response: HTTPURLResponse)
         
@@ -72,9 +72,10 @@ extension URLSession {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let dataTaskSubscriber = InternalSink(downstream: subscriber)
+            let dataTaskSubscriber = Inner(downstream: subscriber)
             
             subscriber.receive(subscription: dataTaskSubscriber)
+            dataTaskSubscriber.request(.max(1))
             
             dataTaskSubscriber.resume(with: request, in: session)
             
@@ -97,7 +98,7 @@ extension URLSession.DataTaskPKPublisher {
 extension URLSession.DataTaskPKPublisher {
     
     // MARK: DATA TASK SINK
-    private final class InternalSink<Downstream: Subscriber>: Subscribers.InternalSink<Downstream, Output, Failure>, URLSessionTaskPublisherDelegate where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscriptions.Internal<Downstream, Output, Failure>, URLSessionTaskPublisherDelegate where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private var task: URLSessionTask?
         
@@ -107,14 +108,28 @@ extension URLSession.DataTaskPKPublisher {
             task?.resume()
         }
         
-        override func end() {
+        override func receive(input: Output) {
+            guard !isTerminated else { return }
+            _ = downstream?.receive(input)
+        }
+        
+        override func onCompletion(_ completion: Subscribers.Completion<Failure>) {
+            downstream?.receive(completion: completion)
+        }
+        
+        override func end(completion: () -> Void) {
+            super.end(completion: completion)
             task = nil
-            super.end()
         }
         
         override func cancel() {
-            task?.cancel()
             super.cancel()
+            task?.cancel()
+            task = nil
+        }
+        
+        override var description: String {
+            "Data Task Publisher"
         }
     }
 }

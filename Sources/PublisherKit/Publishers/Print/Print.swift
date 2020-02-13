@@ -45,7 +45,7 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            let printSubscriber = InternalSink(downstream: subscriber, prefix: prefix, to: stream)
+            let printSubscriber = Inner(downstream: subscriber, prefix: prefix, to: stream)
             upstream.subscribe(printSubscriber)
         }
     }
@@ -55,7 +55,7 @@ extension Publishers {
 extension Publishers.Print {
     
     // MARK: PRINT SINK
-    private final class InternalSink<Downstream: Subscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: InternalSubscriber<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private let prefix: String
         
@@ -75,14 +75,13 @@ extension Publishers.Print {
             super.init(downstream: downstream)
         }
         
-        override func receive(subscription: Subscription) {
-            guard !isOver else { return }
+        override func onSubscription(_ subscription: Subscription) {
             print("receive subscription: (\(subscription))")
-            super.receive(subscription: subscription)
+            super.onSubscription(subscription)
         }
         
         override func request(_ demand: Subscribers.Demand) {
-            guard !isOver else { return }
+            guard status.isSubscribed else { return }
             
             if let max = demand.max {
                 print("request max: (\(max))")
@@ -94,15 +93,13 @@ extension Publishers.Print {
         }
         
         override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
-            guard !isOver else { return .none }
+            guard status.isSubscribed else { return .none }
             print("receive value: (\(input))")
             _ = downstream?.receive(input)
             return demand
         }
         
-        override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
-            guard !isOver else { return }
-            
+        override func onCompletion(_ completion: Subscribers.Completion<Failure>) {
             switch completion {
             case .finished:
                 print("receive finished")
@@ -110,7 +107,6 @@ extension Publishers.Print {
                 print("receive error: (\(error))")
             }
             
-            end()
             downstream?.receive(completion: completion)
         }
         
@@ -122,6 +118,10 @@ extension Publishers.Print {
             } else {
                 Swift.print(text)
             }
+        }
+        
+        override var description: String {
+            "Print"
         }
     }
 }

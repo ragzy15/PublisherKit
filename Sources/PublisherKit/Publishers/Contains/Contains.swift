@@ -28,7 +28,7 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            let containsSubscriber = InternalSink(downstream: subscriber, output: output)
+            let containsSubscriber = Inner(downstream: subscriber, output: output)
             upstream.subscribe(containsSubscriber)
         }
     }
@@ -37,7 +37,8 @@ extension Publishers {
 extension Publishers.Contains {
     
     // MARK: CONTAINS SINK
-    private final class InternalSink<Downstream: Subscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: InternalSubscriber<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+        
         let output: Upstream.Output
         
         init(downstream: Downstream, output: Upstream.Output) {
@@ -45,16 +46,16 @@ extension Publishers.Contains {
             super.init(downstream: downstream)
         }
         
-        override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
-            guard !isOver else { return .none }
-            _ = downstream?.receive(input == output)
-            return demand
+        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+            .success(input == output)
         }
         
-        override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
-            guard !isOver else { return }
-            end()
+        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
             downstream?.receive(completion: completion)
+        }
+        
+        override var description: String {
+            "Contains"
         }
     }
 }

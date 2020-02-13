@@ -27,7 +27,7 @@ public extension Publishers {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let mapSubscriber = InternalSink(downstream: subscriber, transform: transform)
+            let mapSubscriber = Inner(downstream: subscriber, operation: transform)
             upstream.subscribe(mapSubscriber)
         }
     }
@@ -59,28 +59,18 @@ extension Publishers.Map {
 extension Publishers.Map {
     
     // MARK: MAP SINK
-    private final class InternalSink<Downstream: Subscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: OperatorSubscriber<Downstream, Upstream, (Upstream.Output) -> Output> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        private let transform: (Upstream.Output) -> Output
-        
-        init(downstream: Downstream, transform: @escaping (Upstream.Output) -> Output) {
-            self.transform = transform
-            super.init(downstream: downstream)
+        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+            .success(operation(input))
         }
         
-        override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
-            guard !isCancelled else { return .none }
-            
-            let output = transform(input)
-            _ = downstream?.receive(output)
-            
-            return demand
-        }
-        
-        override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
-            guard !isCancelled else { return }
-            end()
+        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
             downstream?.receive(completion: completion)
+        }
+        
+        override var description: String {
+            "Map"
         }
     }
 }

@@ -35,3 +35,19 @@ public extension Subscribers {
         }
     }
 }
+
+extension Subscribers.Completion: Decodable where Failure: Decodable {
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let failure = try? container.decode(Failure.self) {
+            self = .failure(failure)
+        } else {
+            self = .finished
+        }
+    }
+}
+
+extension Subscribers.Completion: Equatable, Hashable where Failure: Hashable {
+    
+}

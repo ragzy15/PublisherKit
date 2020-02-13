@@ -36,9 +36,9 @@ extension NotificationCenter {
         /// The object posting the named notfication.
         public let object: AnyObject?
         
-        /// The operation queue to which block should be added.
+        /// The operation queue to which the elemets should be published.
         ///
-        /// If you pass nil, the block is run synchronously on the posting thread. Default value is nil.
+        /// If you pass `nil`, the block is run synchronously on the posting thread. Default value is `nil`.
         public let queue: OperationQueue?
         
         /// Creates a publisher that emits events when broadcasting notifications.
@@ -58,8 +58,10 @@ extension NotificationCenter {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let notificationSubscriber = InternalSink(downstream: subscriber, center: center, name: name, object: object, queue: queue)
+            let notificationSubscriber = Inner(downstream: subscriber, center: center, name: name, object: object, queue: queue)
+            
             subscriber.receive(subscription: notificationSubscriber)
+            notificationSubscriber.request(.unlimited)
             
             notificationSubscriber.observe()
         }
@@ -69,7 +71,7 @@ extension NotificationCenter {
 extension NotificationCenter.PKPublisher {
     
     // MARK: NOTIFICATION CENTER SINK
-    private final class InternalSink<Downstream: Subscriber>: Subscribers.OperatorSink<Downstream, Output, Failure> where Downstream.Failure == Failure, Downstream.Input == Output {
+    private final class Inner<Downstream: Subscriber>: Subscriptions.Internal<Downstream, Output, Failure> where Downstream.Failure == Failure, Downstream.Input == Output {
         
         private var center: NotificationCenter?
         private let name: Notification.Name
@@ -92,29 +94,14 @@ extension NotificationCenter.PKPublisher {
             }
         }
         
-        func receive(input: Output) {
-            guard !isCancelled else { return }
+        override func receive(input: Output) {
+            guard !isTerminated else { return }
             _ = downstream?.receive(input)
         }
         
-        override func receive(completion: Subscribers.Completion<Failure>) {
-            guard !isCancelled else { return }
-            downstream?.receive(completion: completion)
-        }
-        
-        override func end() {
-            if let observer = observer {
-                center?.removeObserver(observer, name: name, object: object)
-            }
-            
-            observer = nil
-            object = nil
-            center = nil
-            queue = nil
-            super.end()
-        }
-        
         override func cancel() {
+            super.cancel()
+            
             if let observer = observer {
                 center?.removeObserver(observer, name: name, object: object)
             }
@@ -123,7 +110,14 @@ extension NotificationCenter.PKPublisher {
             object = nil
             center = nil
             queue = nil
-            super.cancel()
+        }
+        
+        override var description: String {
+            "NotificationCenter Observer"
+        }
+        
+        override var customMirror: Mirror {
+            Mirror(self, children: [])
         }
     }
 }

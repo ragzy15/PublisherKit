@@ -29,7 +29,7 @@ public extension Publishers {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let encodeSubscriber = InternalSink(downstream: subscriber, encoder: encoder)
+            let encodeSubscriber = Inner(downstream: subscriber, encoder: encoder)
             upstream.subscribe(encodeSubscriber)
         }
     }
@@ -38,7 +38,7 @@ public extension Publishers {
 extension Publishers.Encode {
     
     // MARK: ENCODE SINK
-    private final class InternalSink<Downstream: Subscriber, Encoder: TopLevelEncoder>: UpstreamOperatorSink<Downstream, Upstream> where Encoder.Output == Downstream.Input, Failure == Downstream.Failure, Upstream.Output: Encodable {
+    private final class Inner<Downstream: Subscriber, Encoder: TopLevelEncoder>: InternalSubscriber<Downstream, Upstream> where Encoder.Output == Downstream.Input, Failure == Downstream.Failure, Upstream.Output: Encodable {
         
         private let encoder: Encoder
         
@@ -47,26 +47,17 @@ extension Publishers.Encode {
             super.init(downstream: downstream)
         }
         
-        override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
-            guard !isCancelled else { return .none }
-            
-            do {
-                let output = try encoder.encode(input)
-                _ = downstream?.receive(output)
-                
-            } catch {
-                downstream?.receive(completion: .failure(error))
-            }
-            
-            return demand
+        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+            return Result { try encoder.encode(input) }
         }
         
-        override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
-            guard !isCancelled else { return }
-            end()
-            
+        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
             let completion = completion.mapError { $0 as Downstream.Failure }
             downstream?.receive(completion: completion)
+        }
+        
+        override var description: String {
+            "Encode"
         }
     }
 }

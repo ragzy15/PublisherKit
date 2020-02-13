@@ -29,7 +29,7 @@ extension Publishers {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let receiveOnSubscriber = InternalSink(downstream: subscriber, scheduler: scheduler)
+            let receiveOnSubscriber = Inner(downstream: subscriber, scheduler: scheduler)
             upstream.subscribe(receiveOnSubscriber)
         }
     }
@@ -38,7 +38,7 @@ extension Publishers {
 extension Publishers.ReceiveOn {
     
     // MARK: RECEIVEON SINK
-    private final class InternalSink<Downstream: Subscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: InternalSubscriber<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private let scheduler: Scheduler
         
@@ -48,22 +48,27 @@ extension Publishers.ReceiveOn {
         }
         
         override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
-            guard !isCancelled else { return .none }
+            guard status.isSubscribed else { return .none }
             
-            scheduler.schedule {
-                _ = self.downstream?.receive(input)
+            scheduler.schedule { [weak self] in
+                _ = self?.downstream?.receive(input)
             }
             
             return demand
         }
         
         override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
-            guard !isCancelled else { return }
-            end()
-            
-            scheduler.schedule {
-                self.downstream?.receive(completion: completion)
+            guard status.isSubscribed else { return }
+            status = .terminated
+            scheduler.schedule { [weak self] in
+                self?.end {
+                    self?.downstream?.receive(completion: completion)
+                }
             }
+        }
+        
+        override var description: String {
+            "ReceiveOn"
         }
     }
 }

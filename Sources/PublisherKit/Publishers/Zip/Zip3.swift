@@ -33,13 +33,7 @@ extension Publishers {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let zipSubscriber = InternalSink(downstream: subscriber)
-            
-            zipSubscriber.receiveSubscription()
-            
-            subscriber.receive(subscription: zipSubscriber)
-            
-            zipSubscriber.sendRequest()
+            let zipSubscriber = Inner(downstream: subscriber)
             
             c.subscribe(zipSubscriber.cSubscriber)
             b.subscribe(zipSubscriber.bSubscriber)
@@ -58,42 +52,29 @@ extension Publishers.Zip3: Equatable where A: Equatable, B: Equatable, C: Equata
 extension Publishers.Zip3 {
     
     // MARK: ZIP3 SINK
-    private final class InternalSink<Downstream: Subscriber>: CombineSink<Downstream> where Downstream.Input == Output {
+    private final class Inner<Downstream: Subscriber>: Subscribers.InternalCombine<Downstream> where Downstream.Input == Output {
         
-        private(set) lazy var aSubscriber = Subscribers.FinalOperatorSink<CombineSink<Downstream>, A.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var aSubscriber = Subscribers.InternalClosure<Inner, A.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
-        private(set) lazy var bSubscriber = Subscribers.FinalOperatorSink<CombineSink<Downstream>, B.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var bSubscriber = Subscribers.InternalClosure<Inner, B.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
-        private(set) lazy var cSubscriber = Subscribers.FinalOperatorSink<CombineSink<Downstream>, C.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var cSubscriber = Subscribers.InternalClosure<Inner, C.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
         private var aOutputs: [A.Output] = []
         private var bOutputs: [B.Output] = []
         private var cOutputs: [C.Output] = []
         
-        override func receiveSubscription() {
-            receive(subscription: aSubscriber)
-            receive(subscription: bSubscriber)
-            receive(subscription: cSubscriber)
-        }
-        
-        override func sendRequest() {
-            request(.unlimited)
-            aSubscriber.request(.unlimited)
-            bSubscriber.request(.unlimited)
-            cSubscriber.request(.unlimited)
-        }
-        
-        private func receive(a input: A.Output, downstream: CombineSink<Downstream>?) {
+        private func receive(a input: A.Output, downstream: Inner?) {
             aOutputs.append(input)
             checkAndSend()
         }
         
-        private func receive(b input: B.Output, downstream: CombineSink<Downstream>?) {
+        private func receive(b input: B.Output, downstream: Inner?) {
             bOutputs.append(input)
             checkAndSend()
         }
         
-        private func receive(c input: C.Output, downstream: CombineSink<Downstream>?) {
+        private func receive(c input: C.Output, downstream: Inner?) {
             cOutputs.append(input)
             checkAndSend()
         }
@@ -107,7 +88,17 @@ extension Publishers.Zip3 {
             let bOutput = bOutputs.removeFirst()
             let cOutput = cOutputs.removeFirst()
             
-            receive(input: (aOutput, bOutput, cOutput))
+            _ = receive((aOutput, bOutput, cOutput))
+        }
+        
+        override func onCompletion(_ completion: Subscribers.Completion<Failure>) {
+            end {
+                downstream?.receive(completion: completion)
+            }
+        }
+        
+        override var description: String {
+            "Zip3"
         }
     }
 }

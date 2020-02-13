@@ -33,13 +33,7 @@ extension Publishers {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let combineLatestSubscriber = InternalSink(downstream: subscriber)
-            
-            combineLatestSubscriber.receiveSubscription()
-            
-            subscriber.receive(subscription: combineLatestSubscriber)
-            
-            combineLatestSubscriber.sendRequest()
+            let combineLatestSubscriber = Inner(downstream: subscriber)
             
             c.subscribe(combineLatestSubscriber.cSubscriber)
             b.subscribe(combineLatestSubscriber.bSubscriber)
@@ -58,42 +52,29 @@ extension Publishers.CombineLatest3: Equatable where A: Equatable, B: Equatable,
 extension Publishers.CombineLatest3 {
     
     // MARK: COMBINELATEST3 SINK
-    private final class InternalSink<Downstream: Subscriber>: CombineSink<Downstream> where Downstream.Input == Output {
+    private final class Inner<Downstream: Subscriber>: Subscribers.InternalCombine<Downstream> where Output == Downstream.Input {
         
-        private(set) lazy var aSubscriber = Subscribers.FinalOperatorSink<InternalSink, A.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var aSubscriber = Subscribers.InternalClosure<Inner, A.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
-        private(set) lazy var bSubscriber = Subscribers.FinalOperatorSink<InternalSink, B.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var bSubscriber = Subscribers.InternalClosure<Inner, B.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
-        private(set) lazy var cSubscriber = Subscribers.FinalOperatorSink<InternalSink, C.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var cSubscriber = Subscribers.InternalClosure<Inner, C.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
         private var aOutput: A.Output?
         private var bOutput: B.Output?
         private var cOutput: C.Output?
         
-        override func receiveSubscription() {
-            receive(subscription: aSubscriber)
-            receive(subscription: bSubscriber)
-            receive(subscription: cSubscriber)
-        }
-        
-        override func sendRequest() {
-            request(.unlimited)
-            aSubscriber.request(.unlimited)
-            bSubscriber.request(.unlimited)
-            cSubscriber.request(.unlimited)
-        }
-        
-        private func receive(a input: A.Output, downstream: InternalSink?) {
+        private func receive(a input: A.Output, downstream: Inner?) {
             aOutput = input
             checkAndSend()
         }
         
-        private func receive(b input: B.Output, downstream: InternalSink?) {
+        private func receive(b input: B.Output, downstream: Inner?) {
             bOutput = input
             checkAndSend()
         }
         
-        private func receive(c input: C.Output, downstream: InternalSink?) {
+        private func receive(c input: C.Output, downstream: Inner?) {
             cOutput = input
             checkAndSend()
         }
@@ -103,21 +84,26 @@ extension Publishers.CombineLatest3 {
                 return
             }
             
-            receive(input: (aOutput, bOutput, cOutput))
+            _ = receive((aOutput, bOutput, cOutput))
         }
         
-        override func receive(completion: Subscribers.Completion<Failure>) {
-            guard !isCancelled else { return }
+        override func onCompletion(_ completion: Subscribers.Completion<Failure>) {
             
             if let error = completion.getError() {
-                end()
-                downstream?.receive(completion: .failure(error))
+                end {
+                    downstream?.receive(completion: .failure(error))
+                }
             }
             
-            if aSubscriber.isOver && bSubscriber.isOver && cSubscriber.isOver {
-                end()
-                downstream?.receive(completion: .finished)
+            if aSubscriber.status.isTerminated && bSubscriber.status.isTerminated && cSubscriber.status.isTerminated {
+                end {
+                    downstream?.receive(completion: .finished)
+                }
             }
+        }
+        
+        override var description: String {
+            "CombineLatest3"
         }
     }
 }

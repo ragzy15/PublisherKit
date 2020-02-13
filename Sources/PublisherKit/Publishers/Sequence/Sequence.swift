@@ -35,12 +35,13 @@ extension Publishers {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let sequenceSubscriber = InternalSink(downstream: subscriber)
+            let sequenceSubscriber = Inner(downstream: subscriber)
             
             subscriber.receive(subscription: sequenceSubscriber)
+            sequenceSubscriber.request(.unlimited)
             
             for element in sequence {
-                if sequenceSubscriber.isCancelled { break }
+                if sequenceSubscriber.isTerminated { break }
                 sequenceSubscriber.receive(input: element)
             }
             
@@ -52,16 +53,19 @@ extension Publishers {
 extension Publishers.Sequence {
 
     // MARK: SEQUENCE SINK
-    private final class InternalSink<Downstream: Subscriber>: Subscribers.InternalSink<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscriptions.Internal<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        func receive(input: Input) {
-            guard !isCancelled else { return }
+        override func receive(input: Output) {
+            guard !isTerminated else { return }
             _ = downstream?.receive(input)
         }
         
-        override func receive(completion: Subscribers.Completion<Failure>) {
-            guard !isCancelled else { return }
+        override func onCompletion(_ completion: Subscribers.Completion<Failure>) {
             downstream?.receive(completion: completion)
+        }
+        
+        override var description: String {
+            "Sequence"
         }
     }
 }

@@ -27,11 +27,13 @@ extension Publishers {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let justSubscriber = InternalSink(downstream: subscriber)
+            let justSubscriber = Inner(downstream: subscriber)
+            
             subscriber.receive(subscription: justSubscriber)
             justSubscriber.request(.max(1))
             
             justSubscriber.receive(input: output)
+            justSubscriber.receive(completion: .finished)
         }
     }
 }
@@ -42,13 +44,19 @@ extension Publishers.Just: Equatable where Output: Equatable {
 extension Publishers.Just {
     
     // MARK: JUST SINK
-    private final class InternalSink<Downstream: Subscriber>: Subscribers.OperatorSink<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscriptions.Internal<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        func receive(input: Output) {
-            guard !isOver else { return }
+        override func receive(input: Output) {
+            guard !isTerminated else { return }
             _ = downstream?.receive(input)
-            end()
-            downstream?.receive(completion: .finished)
+        }
+        
+        override func onCompletion(_ completion: Subscribers.Completion<Failure>) {
+            downstream?.receive(completion: completion)
+        }
+        
+        override var description: String {
+            "Just"
         }
     }
 }

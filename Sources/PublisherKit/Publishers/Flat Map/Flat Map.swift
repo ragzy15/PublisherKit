@@ -33,10 +33,7 @@ extension Publishers {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let flatMapSubscriber = InternalSink(downstream: subscriber, transform: transform)
-            
-            subscriber.receive(subscription: flatMapSubscriber)
-            flatMapSubscriber.request(maxPublishers)
+            let flatMapSubscriber = Inner(downstream: subscriber, maxPublishers: maxPublishers, operation: transform)
             upstream.subscribe(flatMapSubscriber)
         }
     }
@@ -45,38 +42,161 @@ extension Publishers {
 extension Publishers.FlatMap {
     
     // MARK: FLATMAP SINK
-    private final class InternalSink<Downstream: Subscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber, NewPublisher: Publisher>: OperatorSubscriber<Downstream, Upstream, (Upstream.Output) -> NewPublisher> where NewPublisher.Output == Downstream.Input, Failure == Downstream.Failure, NewPublisher.Failure == Failure {
         
-        private let transform: (Upstream.Output) -> NewPublisher
+        private let maxPublishers: Subscribers.Demand
         
-        private lazy var subscriber = Subscribers.FinalOperatorSink<Downstream, NewPublisher.Output, NewPublisher.Failure>(downstream: downstream!, receiveCompletion: { (completion, downstream) in
-            if let error = completion.getError() {
-                downstream?.receive(completion: .failure(error))
-            }
-        }) { (input, downstream) in
-            _ = downstream?.receive(input)
+        private var innerStatus: SubscriptionStatus = .awaiting
+        private var innerSubscriptions: [Int: Subscription] = [:]
+        
+        private var currentIndex = 0
+        private var pendingSubscriptions = 0
+        
+        init(downstream: Downstream, maxPublishers: Subscribers.Demand, operation: @escaping (Upstream.Output) -> NewPublisher) {
+            self.maxPublishers = maxPublishers
+            super.init(downstream: downstream, operation: operation)
         }
         
-        init(downstream: Downstream, transform: @escaping (Upstream.Output) -> NewPublisher) {
-            self.transform = transform
-            super.init(downstream: downstream)
+        override final func onSubscription(_ subscription: Subscription) {
+            status = .subscribed(to: subscription)
+            downstream?.receive(subscription: self)
+            subscription.request(maxPublishers)
         }
         
-        override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
-            guard !isCancelled else { return .none }
+        override func request(_ demand: Subscribers.Demand) {
+            super.request(self.demand + demand)
+        }
+        
+        override final func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+            let publisher = operation(input)
             
-            let publisher = transform(input)
+            currentIndex += 1
+            pendingSubscriptions += 1
             
-            downstream?.receive(subscription: subscriber)
+            let subscriber = MapInner(outer: self, index: currentIndex)
             publisher.subscribe(subscriber)
             
-            return demand
+            return nil
         }
         
         override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
-            guard !isCancelled else { return }
-            end()
-            downstream?.receive(completion: completion)
+            guard status.isSubscribed else { return }
+            
+            status = .terminated
+            
+            switch completion {
+            case .finished:
+                sendCompletionIfPossible()
+                
+            case .failure(let error):
+                cancelInnerSubscriptions()
+                end {
+                    downstream?.receive(completion: .failure(error))
+                }
+            }
+        }
+        
+        override func cancel() {
+            switch status {
+            case .subscribed(let subscription):
+                status = .terminated
+                cancelInnerSubscriptions()
+                subscription.cancel()
+                
+            default: break
+            }
+            
+            super.cancel()
+        }
+        
+        func receiveInner(subscription: Subscription, for index: Int) {
+            pendingSubscriptions -= 1
+            innerSubscriptions[index] = subscription
+            subscription.request(demand == .unlimited ? .unlimited : .max(1))
+        }
+        
+        func receiveInner(input: NewPublisher.Output, for index: Int) -> Subscribers.Demand {
+            
+            guard demand != .unlimited else {
+                _ = downstream?.receive(input)
+                return .unlimited
+            }
+            
+            guard demand != .none else { return .none }
+            
+            demand -= 1
+            let newDemand = downstream?.receive(input) ?? .none
+            if newDemand > .none {
+                demand += newDemand
+            }
+            
+            return .max(1)
+        }
+        
+        func receiveInner(completion: Subscribers.Completion<NewPublisher.Failure>, for index: Int) {
+            innerSubscriptions.removeValue(forKey: index)
+            
+            switch completion {
+            case .finished:
+                sendCompletionIfPossible()
+                
+            case .failure(let error):
+                cancelInnerSubscriptions()
+                
+                end {
+                    downstream?.receive(completion: .failure(error))
+                }
+            }
+        }
+        
+        func cancelInnerSubscriptions() {
+
+            innerSubscriptions.forEach { (_, innerSubscription) in
+                innerSubscription.cancel()
+            }
+            
+            innerSubscriptions = [:]
+        }
+        
+        func sendCompletionIfPossible() {
+            guard status.isTerminated, innerSubscriptions.count + pendingSubscriptions == 0 else {
+                return
+            }
+            
+            end {
+                downstream?.receive(completion: .finished)
+            }
+        }
+        
+        override var description: String {
+            "FlatMap"
+        }
+        
+        private final class MapInner: Subscriber {
+            
+            typealias Input = NewPublisher.Output
+            
+            typealias Failure = NewPublisher.Failure
+            
+            private let outer: Inner
+            private let index: Int
+            
+            init(outer: Inner, index: Int) {
+                self.outer = outer
+                self.index = index
+            }
+            
+            func receive(subscription: Subscription) {
+                outer.receiveInner(subscription: subscription, for: index)
+            }
+            
+            func receive(_ input: NewPublisher.Output) -> Subscribers.Demand {
+                outer.receiveInner(input: input, for: index)
+            }
+            
+            func receive(completion: Subscribers.Completion<NewPublisher.Failure>) {
+                outer.receiveInner(completion: completion, for: index)
+            }
         }
     }
 }

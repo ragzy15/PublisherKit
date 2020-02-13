@@ -53,13 +53,7 @@ extension Publishers {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let mergeSubscriber = InternalSink(downstream: subscriber)
-            
-            mergeSubscriber.receiveSubscription()
-            
-            subscriber.receive(subscription: mergeSubscriber)
-            
-            mergeSubscriber.sendRequest()
+            let mergeSubscriber = Inner(downstream: subscriber)
             
             a.subscribe(mergeSubscriber.aSubscriber)
             b.subscribe(mergeSubscriber.bSubscriber)
@@ -76,64 +70,47 @@ extension Publishers {
 extension Publishers.Merge8 {
     
     // MARK: MERGE8 SINK
-    private final class InternalSink<Downstream: Subscriber>: CombineSink<Downstream> where Downstream.Input == Output {
+    private final class Inner<Downstream: Subscriber>: Subscribers.InternalCombine<Downstream> where Output == Downstream.Input {
         
-        private(set) lazy var aSubscriber = Subscribers.FinalOperatorSink<CombineSink<Downstream>, Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var aSubscriber = Subscribers.InternalClosure<Inner, Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
-        private(set) lazy var bSubscriber = Subscribers.FinalOperatorSink<CombineSink<Downstream>, Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var bSubscriber = Subscribers.InternalClosure<Inner, Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
-        private(set) lazy var cSubscriber = Subscribers.FinalOperatorSink<CombineSink<Downstream>, Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var cSubscriber = Subscribers.InternalClosure<Inner, Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
-        private(set) lazy var dSubscriber = Subscribers.FinalOperatorSink<CombineSink<Downstream>, Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var dSubscriber = Subscribers.InternalClosure<Inner, Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
-        private(set) lazy var eSubscriber = Subscribers.FinalOperatorSink<CombineSink<Downstream>, Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var eSubscriber = Subscribers.InternalClosure<Inner, Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
-        private(set) lazy var fSubscriber = Subscribers.FinalOperatorSink<CombineSink<Downstream>, Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var fSubscriber = Subscribers.InternalClosure<Inner, Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
-        private(set) lazy var gSubscriber = Subscribers.FinalOperatorSink<CombineSink<Downstream>, Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var gSubscriber = Subscribers.InternalClosure<Inner, Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
-        private(set) lazy var hSubscriber = Subscribers.FinalOperatorSink<CombineSink<Downstream>, Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var hSubscriber = Subscribers.InternalClosure<Inner, Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
-        override func receiveSubscription() {
-            receive(subscription: aSubscriber)
-            receive(subscription: bSubscriber)
-            receive(subscription: cSubscriber)
-            receive(subscription: dSubscriber)
-            receive(subscription: eSubscriber)
-            receive(subscription: fSubscriber)
-            receive(subscription: gSubscriber)
-            receive(subscription: hSubscriber)
-        }
-        
-        override func sendRequest() {
-            request(.unlimited)
-            aSubscriber.request(.unlimited)
-            bSubscriber.request(.unlimited)
-            cSubscriber.request(.unlimited)
-            dSubscriber.request(.unlimited)
-            eSubscriber.request(.unlimited)
-            fSubscriber.request(.unlimited)
-            gSubscriber.request(.unlimited)
-            hSubscriber.request(.unlimited)
-        }
-        
-        override func receive(completion: Subscribers.Completion<Failure>) {
-            guard !isCancelled else { return }
+        override func onCompletion(_ completion: Subscribers.Completion<Failure>) {
             
             switch completion {
             case .finished:
-                if aSubscriber.isOver && bSubscriber.isOver &&
-                    cSubscriber.isOver && dSubscriber.isOver &&
-                    eSubscriber.isOver && fSubscriber.isOver &&
-                    gSubscriber.isOver && hSubscriber.isOver {
+                if aSubscriber.status.isTerminated && bSubscriber.status.isTerminated &&
+                    cSubscriber.status.isTerminated && dSubscriber.status.isTerminated &&
+                    eSubscriber.status.isTerminated && fSubscriber.status.isTerminated &&
+                    gSubscriber.status.isTerminated && hSubscriber.status.isTerminated {
                     
-                    downstream?.receive(completion: .finished)
+                    end {
+                        downstream?.receive(completion: .finished)
+                    }
                 }
                 
             case .failure(let error):
-                end()
-                downstream?.receive(completion: .failure(error))
+                end {
+                    downstream?.receive(completion: .failure(error))
+                }
             }
+        }
+        
+        override var description: String {
+            "Merge8"
         }
     }
 }

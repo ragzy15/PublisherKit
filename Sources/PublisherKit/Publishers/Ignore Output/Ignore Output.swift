@@ -25,7 +25,7 @@ extension Publishers {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let ignoreOutputSubscriber = InternalSink(downstream: subscriber)
+            let ignoreOutputSubscriber = Inner(downstream: subscriber)
             upstream.subscribe(ignoreOutputSubscriber)
         }
     }
@@ -34,16 +34,14 @@ extension Publishers {
 extension Publishers.IgnoreOutput {
     
     // MARK: IGNORE OUTPUT SINK
-    private final class InternalSink<Downstream: Subscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
-        
-        override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
-            demand
+    private final class Inner<Downstream: Subscriber>: InternalSubscriber<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+       
+        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
+            downstream?.receive(completion: completion)
         }
         
-        override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
-            guard !isCancelled else { return }
-            end()
-            downstream?.receive(completion: completion)
+        override var description: String {
+            "IgnoreOutput"
         }
     }
 }

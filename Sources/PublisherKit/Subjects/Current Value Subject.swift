@@ -15,7 +15,7 @@ final public class CurrentValueSubject<Output, Failure: Error>: Subject {
     final private var _completion: Subscribers.Completion<Failure>? = nil
     
     private var upstreamSubscriptions: [Subscription] = []
-    private var downstreamSubscriptions: [InternalSink] = []
+    private var downstreamSubscriptions: [Inner] = []
     
     private var _value: Output
     
@@ -56,7 +56,7 @@ final public class CurrentValueSubject<Output, Failure: Error>: Subject {
             subscriber.receive(subscription: Subscriptions.empty)
             subscriber.receive(completion: completion)
         } else {
-            let subscription = InternalSink(downstream: AnySubscriber(subscriber))
+            let subscription = Inner(downstream: AnySubscriber(subscriber))
             subscription.subject = self
             downstreamSubscriptions.append(subscription)
             
@@ -88,17 +88,26 @@ final public class CurrentValueSubject<Output, Failure: Error>: Subject {
 extension CurrentValueSubject {
     
     // MARK: CURRENT VALUE SUBJECT SINK
-    private final class InternalSink: SubjectBaseSubscriber<Output, Failure> {
+    private final class Inner: Subscriptions.InternalSubject<Output, Failure> {
         
         var subject: CurrentValueSubject?
         
         override func request(_ demand: Subscribers.Demand) {
             super.request(demand)
-            guard !isOver, demand > .none else { return }
+            guard !isTerminated, demand > .none else { return }
             
             if let value = subject?.value {
                 receive(value)
             }
+        }
+        
+        @inlinable override func finish() {
+            subject = nil
+            super.finish()
+        }
+        
+        override var description: String {
+            "CurrentValueSubject"
         }
     }
 }

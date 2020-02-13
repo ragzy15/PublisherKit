@@ -48,7 +48,7 @@ extension URLSession {
 
 extension URLSession {
     
-    public struct UploadTaskPKPublisher: PublisherKit.Publisher, URLSessionTaskPublisherDelegate {
+    public struct UploadTaskPKPublisher: PublisherKit.Publisher {
         
         public typealias Output = (data: Data, response: HTTPURLResponse)
         
@@ -84,9 +84,10 @@ extension URLSession {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let uploadTaskSubscriber = InternalSink(downstream: subscriber)
+            let uploadTaskSubscriber = Inner(downstream: subscriber)
             
             subscriber.receive(subscription: uploadTaskSubscriber)
+            uploadTaskSubscriber.request(.max(1))
             
             if let url = fileUrl {
                 uploadTaskSubscriber.resume(with: request, fromFile: url, in: session)
@@ -113,9 +114,18 @@ extension URLSession.UploadTaskPKPublisher {
 extension URLSession.UploadTaskPKPublisher {
     
     // MARK: UPLOAD TASK SINK
-    private final class InternalSink<Downstream: Subscriber>: Subscribers.InternalSink<Downstream, Output, Failure>, URLSessionTaskPublisherDelegate where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscriptions.Internal<Downstream, Output, Failure>, URLSessionTaskPublisherDelegate where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private var task: URLSessionUploadTask?
+        
+        override func receive(input: Output) {
+            guard !isTerminated else { return }
+            _ = downstream?.receive(input)
+        }
+        
+        override func onCompletion(_ completion: Subscribers.Completion<Failure>) {
+            downstream?.receive(completion: completion)
+        }
         
         func resume(with request: URLRequest, from data: Data?, in session: URLSession) {
             task = session.uploadTask(with: request, from: data, completionHandler: getCompletion())
@@ -132,14 +142,19 @@ extension URLSession.UploadTaskPKPublisher {
             handleCompletion(queue: URLSession.UploadTaskPKPublisher.queue, subscriber: self)
         }
         
-        override func end() {
+        override func end(completion: () -> Void) {
+            super.end(completion: completion)
             task = nil
-            super.end()
         }
         
         override func cancel() {
-            task?.cancel()
             super.cancel()
+            task?.cancel()
+            task = nil
+        }
+        
+        override var description: String {
+            "Upload Task Publisher"
         }
     }
 }

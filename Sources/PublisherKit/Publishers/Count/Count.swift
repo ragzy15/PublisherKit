@@ -26,7 +26,7 @@ extension Publishers {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let countSubscriber = InternalSink(downstream: subscriber)
+            let countSubscriber = Inner(downstream: subscriber)
             upstream.subscribe(countSubscriber)
         }
     }
@@ -35,20 +35,16 @@ extension Publishers {
 extension Publishers.Count {
     
     // MARK: COUNT SINK
-    private final class InternalSink<Downstream: Subscriber>: Subscribers.OperatorSink<Downstream, Upstream.Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: InternalSubscriber<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private var counter = 0
         
-        override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
-            guard !isCancelled else { return .none }
+        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
             counter += 1
-            return demand
+            return nil
         }
         
-        override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
-            guard !isCancelled else { return }
-            end()
-            
+        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
             switch completion {
             case .finished:
                 _ = downstream?.receive(counter)
@@ -57,6 +53,10 @@ extension Publishers.Count {
             case .failure(let error):
                 downstream?.receive(completion: .failure(error))
             }
+        }
+        
+        override var description: String {
+            "Count"
         }
     }
 }

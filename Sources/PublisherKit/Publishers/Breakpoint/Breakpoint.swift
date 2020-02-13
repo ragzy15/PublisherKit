@@ -52,7 +52,7 @@ extension Publishers {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let breakpointSubscriber = InternalSink(downstream: subscriber,
+            let breakpointSubscriber = Inner(downstream: subscriber,
                                                     receiveSubscription: receiveSubscription,
                                                     receiveOutput: receiveOutput,
                                                     receiveCompletion: receiveCompletion)
@@ -66,7 +66,7 @@ extension Publishers {
 extension Publishers.Breakpoint {
     
     // MARK: BREAKPOINT SINK
-    private final class InternalSink<Downstream: Subscriber>: Subscribers.OperatorSink<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: InternalSubscriber<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private let receiveSubscription: ((Subscription) -> Bool)?
         
@@ -87,35 +87,42 @@ extension Publishers.Breakpoint {
             super.init(downstream: downstream)
         }
         
-        override func receive(subscription: Subscription) {
+        override func onSubscription(_ subscription: Subscription) {
+            super.onSubscription(subscription)
+            
             if receiveSubscription?(subscription) ?? false {
                 Darwin.raise(signal)
             }
-            
-            super.receive(subscription: subscription)
         }
         
-        override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
-            guard !isOver else { return .none }
-            
+        override func operate(on input: Upstream.Output) -> Result<Output, Failure>? {
             if receiveOutput?(input) ?? false {
                 Darwin.raise(signal)
             }
             
-            _ = downstream?.receive(input)
-            
-            return demand
+            return .success(input)
         }
         
-        override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
-            guard !isOver else { return }
-            end()
-            
+        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
             if receiveCompletion?(completion) ?? false {
                 Darwin.raise(signal)
             }
             
             downstream?.receive(completion: completion)
+        }
+        
+        override var description: String {
+            "Breakpoint"
+        }
+        
+        override var customMirror: Mirror {
+            let children: [Mirror.Child] = [
+                ("receiveSubscription", receiveSubscription ?? "nil"),
+                ("receiveOutput", receiveOutput ?? "nil"),
+                ("receiveCompletion", receiveCompletion ?? "nil")
+            ]
+            
+            return Mirror(self, children: children)
         }
     }
 }

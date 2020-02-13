@@ -13,11 +13,11 @@ import FoundationNetworking
 
 extension Publishers {
     
-    public struct Validate<Upstream: Publisher>: Publisher where Upstream.Output == (data: Data, response: HTTPURLResponse) {
+    public struct Validate<Upstream: Publisher>: Publisher where Upstream.Output == (data: Data, response: HTTPURLResponse), Upstream.Failure == Error {
         
         public typealias Output = Upstream.Output
         
-        public typealias Failure = Error
+        public typealias Failure = Upstream.Failure
         
         public let upstream: Upstream
         
@@ -46,9 +46,8 @@ extension Publishers {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let validationSubscriber = InternalSink(downstream: subscriber, acceptableStatusCodes: acceptableStatusCodes, acceptableContentTypes: acceptableContentTypes)
+            let validationSubscriber = Inner(downstream: subscriber, acceptableStatusCodes: acceptableStatusCodes, acceptableContentTypes: acceptableContentTypes)
             
-            subscriber.receive(subscription: validationSubscriber)
             validationSubscriber.request(.max(1))
             upstream.subscribe(validationSubscriber)
         }
@@ -58,7 +57,7 @@ extension Publishers {
 extension Publishers.Validate {
     
     // MARK: VALIDATE SINK
-    fileprivate final class InternalSink<Downstream: Subscriber>: UpstreamOperatorSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    fileprivate final class Inner<Downstream: Subscriber>: InternalSubscriber<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private let acceptableStatusCodes: [Int]
         private let acceptableContentTypes: [String]?
@@ -69,24 +68,17 @@ extension Publishers.Validate {
             super.init(downstream: downstream)
         }
         
-        override func receive(_ input: (data: Data, response: HTTPURLResponse)) -> Subscribers.Demand {
-            let result = validate(input: input)
-            
-            switch result {
-            case .success(let newOutput):
-                _ = downstream?.receive(newOutput)
-                
-            case .failure(let error):
-                end()
-                downstream?.receive(completion: .failure(error))
-            }
-            
-            return demand
+        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+            return validate(input: input)
+        }
+        
+        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
+            downstream?.receive(completion: completion)
         }
     }
 }
 
-private extension Publishers.Validate.InternalSink {
+private extension Publishers.Validate.Inner {
     
     func validate(input: Input) -> Result<Downstream.Input, Downstream.Failure> {
         
@@ -144,7 +136,7 @@ private extension Publishers.Validate.InternalSink {
 }
 
 
-private extension Publishers.Validate.InternalSink {
+private extension Publishers.Validate.Inner {
     
     /// ACCEPTABLE CONTENT TYPE CHECK
     struct MIMEType {
