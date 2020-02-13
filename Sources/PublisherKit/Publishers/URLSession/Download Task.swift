@@ -61,8 +61,6 @@ extension URLSession {
         
         public var name: String
         
-        private static let queue = DispatchQueue(label: "com.PublisherKit.download-task-thread", qos: .utility, attributes: .concurrent)
-        
         public init(name: String = "", request: URLRequest, session: URLSession) {
             self.name = name
             resumeData = nil
@@ -101,46 +99,43 @@ extension URLSession.DownloadTaskPKPublisher {
         
         private var task: URLSessionDownloadTask?
         
-        override func receive(input: Output) {
-            guard !isTerminated else { return }
-            _ = downstream?.receive(input)
-        }
-        
-        override func onCompletion(_ completion: Subscribers.Completion<Failure>) {
-            downstream?.receive(completion: completion)
-        }
-        
         func resume(with request: URLRequest, in session: URLSession) {
-            task = session.downloadTask(with: request, completionHandler: getCompletion())
+            getLock().lock()
+            guard task == nil else { getLock().unlock(); return }
+            
+            task = session.downloadTask(with: request, completionHandler: getCompletion)
+            
+            getLock().unlock()
+            
             task?.resume()
         }
         
         func resume(withResumeData data: Data, in session: URLSession) {
-            task = session.downloadTask(withResumeData: data, completionHandler: getCompletion())
+            getLock().lock()
+            guard task == nil else { getLock().unlock(); return }
+            
+            task = session.downloadTask(withResumeData: data, completionHandler: getCompletion)
+            
+            getLock().unlock()
+            
             task?.resume()
         }
         
-        @inline(__always)
-        private func getCompletion() -> (URL?, URLResponse?, Error?) -> Void {
+        private func getCompletion(url: URL?, response: URLResponse?, error: Error?) {
+            getLock().lock()
+            guard !isTerminated else { getLock().unlock(); return }
             
-            let completion: (URL?, URLResponse?, Error?) -> Void = { [weak self] (url, response, error) in
+            getLock().unlock()
+            
+            if let error = error as NSError? {
+                receive(completion: .failure(error))
                 
-                guard let `self` = self, !self.isTerminated else { return }
-                
-                if let error = error as NSError? {
-                    URLSession.DownloadTaskPKPublisher.queue.async {
-                        self.receive(completion: .failure(error))
-                    }
-                    
-                } else if let response = response as? HTTPURLResponse, let url = url {
-                    URLSession.DownloadTaskPKPublisher.queue.async {
-                        self.receive(input: (url, response))
-                        self.receive(completion: .finished)
-                    }
-                }
+            } else if let response = response as? HTTPURLResponse, let url = url {
+                receive(input: (url, response))
+                receive(completion: .finished)
+            } else {
+                receive(completion: .failure(URLError(.unknown)))
             }
-            
-            return completion
         }
         
         override func end(completion: () -> Void) {

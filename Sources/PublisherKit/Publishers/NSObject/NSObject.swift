@@ -83,11 +83,6 @@ extension NSObject.KeyValueObservingPKPublisher {
             }
         }
         
-        override func receive(input: Value) {
-            guard !isTerminated else { return }
-            _ = downstream?.receive(input)
-        }
-        
         override func cancel() {
             super.cancel()
             observer?.invalidate()

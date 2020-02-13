@@ -94,11 +94,6 @@ extension NotificationCenter.PKPublisher {
             }
         }
         
-        override func receive(input: Output) {
-            guard !isTerminated else { return }
-            _ = downstream?.receive(input)
-        }
-        
         override func cancel() {
             super.cancel()
             

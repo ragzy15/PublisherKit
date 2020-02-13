@@ -52,41 +52,78 @@ extension Publishers.Debounce {
         
         private let scheduler: Context
         
+        private let downstreamLock = RecursiveLock()
+        
         init(downstream: Downstream, scheduler: Context, dueTime: SchedulerTime) {
             self.scheduler = scheduler
             self.dueTime = dueTime
             super.init(downstream: downstream)
         }
         
+        override func onSubscription(_ subscription: Subscription) {
+            status = .subscribed(to: subscription)
+            getLock().unlock()
+            
+            downstreamLock.lock()
+            downstream?.receive(subscription: self)
+            downstreamLock.unlock()
+            
+            subscription.request(.unlimited)
+        }
+        
+        
         override func receive(_ input: Output) -> Subscribers.Demand {
-            guard status.isSubscribed else { return .none }
+            getLock().lock()
+            guard status.isSubscribed else { getLock().unlock(); return .none }
             
             newOutput = input
             
             outputCounter += 1
+            getLock().unlock()
             
             scheduler.schedule(after: dueTime) { [weak self] in
-                guard let `self` = self, self.status.isSubscribed else { return }
-                
-                self.outputCounter -= 1
-                
-                guard self.outputCounter <= 0, let output = self.newOutput else { return }
-                
-                _ = self.downstream?.receive(output)
+                self?.sendInput()
             }
             
             return demand
         }
         
+        private func sendInput() {
+            getLock().lock()
+            guard status.isSubscribed else { getLock().unlock(); return }
+            outputCounter -= 1
+            getLock().unlock()
+            
+            getLock().lock()
+            guard outputCounter <= 0, let output = newOutput else {
+                getLock().unlock()
+                return
+            }
+            
+            getLock().unlock()
+            
+            downstreamLock.lock()
+            _ = downstream?.receive(output)
+            downstreamLock.unlock()
+        }
+        
         override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
-            guard status.isSubscribed else { return }
+            getLock().lock()
+            guard status.isSubscribed else { getLock().unlock(); return }
+            
             status = .terminated
+            getLock().unlock()
             
             scheduler.schedule { [weak self] in
                 self?.end {
                     self?.downstream?.receive(completion: completion)
                 }
             }
+        }
+        
+        override func end(completion: () -> Void) {
+            completion()
+            downstream = nil
         }
         
         override var description: String {

@@ -13,29 +13,39 @@ typealias InternalSubscriber<Downstream: Subscriber, Upstream: Publisher> = Subs
 
 extension Subscribers {
     
-    class InternalBase<Downstream: Subscriber, Input, Failure: Error>: Subscriptions.Internal<Downstream, Input, Failure>, Subscriber {
+    class InternalBase<Downstream: Subscriber, Input, Failure: Error>: Subscriptions.InternalBase<Downstream, Input, Failure>, Subscriber {
         
         final var status: SubscriptionStatus = .awaiting
         
+        private let lock = Lock()
+        
+        final func getLock() -> Lock {
+            lock
+        }
+        
         final func receive(subscription: Subscription) {
-            guard status == .awaiting else { return }
+            lock.lock()
+            guard status == .awaiting else { lock.unlock(); return }
             onSubscription(subscription)
         }
         
         override func request(_ demand: Subscribers.Demand) {
-            guard status.isSubscribed else { return }
+            lock.lock()
+            guard status.isSubscribed else { lock.unlock(); return }
             super.request(demand)
+            lock.unlock()
         }
         
         func onSubscription(_ subscription: Subscription) {
             status = .subscribed(to: subscription)
+            lock.unlock()
             downstream?.receive(subscription: self)
             subscription.request(.unlimited)
         }
         
         override func receive(completion: Subscribers.Completion<Failure>) {
-            guard status.isSubscribed else { return }
-            
+            lock.lock()
+            guard status.isSubscribed else { lock.unlock(); return }
             end {
                 onCompletion(completion)
             }
@@ -47,8 +57,9 @@ extension Subscribers {
         }
         
         func receive(_ input: Input) -> Subscribers.Demand {
-            guard status.isSubscribed else { return .none }
-            
+            lock.lock()
+            guard status.isSubscribed else { lock.unlock(); return .none }
+            lock.unlock()
             switch operate(on: input) {
             case .success(let output):
                 _ = downstream?.receive(output)
@@ -78,26 +89,31 @@ extension Subscribers {
         }
         
         override func cancel() {
-            super.cancel()
-            
+            lock.lock()
             switch status {
             case .subscribed(let subscription):
                 status = .terminated
+                lock.unlock()
                 subscription.cancel()
                 
             case .multipleSubscription(let subscriptions):
                 status = .terminated
+                lock.unlock()
                 subscriptions.forEach { (subscription) in
                     subscription.cancel()
                 }
                 
-            default: break
+            default: lock.unlock()
             }
+            
+            downstream = nil
         }
         
         override func end(completion: () -> Void) {
             status = .terminated
-            super.end(completion: completion)
+            lock.unlock()
+            completion()
+            downstream = nil
         }
     }
     
@@ -143,9 +159,7 @@ extension Subscribers {
         }
         
         override func onCompletion(_ completion: Subscribers.Completion<Failure>) {
-            end {
-                receiveCompletion?(completion, downstream)
-            }
+            receiveCompletion?(completion, downstream)
         }
         
         override func end(completion: () -> Void) {
@@ -161,9 +175,13 @@ extension Subscribers {
         }
     }
     
-    class InternalCombine<Downstream: Subscriber>: Subscriptions.Internal<Downstream, Downstream.Input, Downstream.Failure>, Subscriber {
+    class InternalCombine<Downstream: Subscriber>: Subscriptions.InternalBase<Downstream, Downstream.Input, Downstream.Failure>, Subscriber {
         
         final var subscriptions: [Subscription] = []
+        
+        final private(set) var isTerminated = false
+        
+        private let lock = Lock()
         
         final var awaitingSubscription: Bool {
             subscriptions.isEmpty
@@ -177,20 +195,25 @@ extension Subscribers {
         }
         
         final func receive(subscription: Subscription) {
-            guard !isTerminated else { return }
+            lock.lock()
+            guard !isTerminated else { lock.unlock(); return }
+            lock.unlock()
             downstream?.receive(subscription: self)
             subscriptions.append(subscription)
             subscription.request(.unlimited)
         }
         
         final func receive(_ input: Downstream.Input) -> Subscribers.Demand {
-            guard !isTerminated else { return .none }
+            lock.lock()
+            guard !isTerminated else { lock.unlock(); return .none }
+            lock.unlock()
             _ = downstream?.receive(input)
             return demand
         }
         
         final override func receive(completion: Subscribers.Completion<Downstream.Failure>) {
-            guard !isTerminated else { return }
+            lock.lock()
+            guard !isTerminated else { lock.unlock(); return }
             onCompletion(completion)
         }
         
@@ -208,7 +231,12 @@ extension Subscribers {
         }
         
         final override func cancel() {
+            lock.lock()
+            isTerminated = true
+            lock.unlock()
+            
             super.cancel()
+            
             subscriptions.forEach { (subscription) in
                 subscription.cancel()
             }
@@ -237,30 +265,40 @@ extension Subscribers {
         
         private var demand: Subscribers.Demand = .none
         
+        private let lock = Lock()
+        
         init(subject: DownstreamSubject) {
             self.subject = subject
         }
         
         final func request(_ demand: Subscribers.Demand) {
-            guard case let .subscribed(subscription) = status else { return }
+            lock.lock()
+            guard case let .subscribed(subscription) = status else { lock.unlock(); return }
             self.demand = demand
+            lock.unlock()
             subscription.request(demand)
         }
         
         final func receive(subscription: Subscription) {
-            guard status == .awaiting else { return }
+            lock.lock()
+            guard status == .awaiting else { lock.unlock(); return }
             status = .subscribed(to: subscription)
+            lock.unlock()
             subject?.send(subscription: self)
         }
         
         final func receive(_ input: Input) -> Subscribers.Demand {
-            guard status.isSubscribed else { return .none }
+            lock.lock()
+            guard status.isSubscribed else { lock.unlock(); return .none }
+            lock.unlock()
             subject?.send(input)
             return demand
         }
         
         final func receive(completion: Subscribers.Completion<Failure>) {
-            guard status.isSubscribed else { return }
+            lock.lock()
+            guard status.isSubscribed else { lock.unlock(); return }
+            
             end {
                 subject?.send(completion: completion)
             }
@@ -268,13 +306,17 @@ extension Subscribers {
         
         final func end(completion: () -> Void) {
             status = .terminated
+            lock.unlock()
             completion()
             subject = nil
         }
         
         final func cancel() {
-           guard case let .subscribed(subscription) = status else { return }
+            lock.lock()
+            guard case let .subscribed(subscription) = status else { lock.unlock(); return }
             status = .terminated
+            lock.unlock()
+            
             subscription.cancel()
             subject = nil
         }

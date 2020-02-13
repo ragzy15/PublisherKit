@@ -78,7 +78,8 @@ extension Publishers.Retry {
         }
         
         override func receive(completion: Subscribers.Completion<Failure>) {
-            guard status.isSubscribed else { return }
+            getLock().lock()
+            guard status.isSubscribed else { getLock().unlock(); return }
             
             guard let error = completion.getError() else {
                 end {

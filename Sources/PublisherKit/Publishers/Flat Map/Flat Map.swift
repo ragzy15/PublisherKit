@@ -52,6 +52,8 @@ extension Publishers.FlatMap {
         private var currentIndex = 0
         private var pendingSubscriptions = 0
         
+        private let downstreamLock = RecursiveLock()
+        
         init(downstream: Downstream, maxPublishers: Subscribers.Demand, operation: @escaping (Upstream.Output) -> NewPublisher) {
             self.maxPublishers = maxPublishers
             super.init(downstream: downstream, operation: operation)
@@ -59,7 +61,12 @@ extension Publishers.FlatMap {
         
         override final func onSubscription(_ subscription: Subscription) {
             status = .subscribed(to: subscription)
+            getLock().unlock()
+            
+            downstreamLock.lock()
             downstream?.receive(subscription: self)
+            downstreamLock.unlock()
+            
             subscription.request(maxPublishers)
         }
         
@@ -70,8 +77,10 @@ extension Publishers.FlatMap {
         override final func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
             let publisher = operation(input)
             
+            getLock().lock()
             currentIndex += 1
             pendingSubscriptions += 1
+            getLock().unlock()
             
             let subscriber = MapInner(outer: self, index: currentIndex)
             publisher.subscribe(subscriber)
@@ -80,8 +89,8 @@ extension Publishers.FlatMap {
         }
         
         override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
-            guard status.isSubscribed else { return }
-            
+            getLock().lock()
+            guard status.isSubscribed else { getLock().unlock(); return }
             status = .terminated
             
             switch completion {
@@ -91,7 +100,9 @@ extension Publishers.FlatMap {
             case .failure(let error):
                 cancelInnerSubscriptions()
                 end {
+                    downstreamLock.lock()
                     downstream?.receive(completion: .failure(error))
+                    downstreamLock.unlock()
                 }
             }
         }
@@ -110,30 +121,48 @@ extension Publishers.FlatMap {
         }
         
         func receiveInner(subscription: Subscription, for index: Int) {
+            getLock().lock()
+            
             pendingSubscriptions -= 1
             innerSubscriptions[index] = subscription
+            
+            getLock().unlock()
+            
             subscription.request(demand == .unlimited ? .unlimited : .max(1))
         }
         
         func receiveInner(input: NewPublisher.Output, for index: Int) -> Subscribers.Demand {
+            getLock().lock()
             
             guard demand != .unlimited else {
+                getLock().unlock()
+                downstreamLock.lock()
                 _ = downstream?.receive(input)
+                downstreamLock.unlock()
                 return .unlimited
             }
             
-            guard demand != .none else { return .none }
+            guard demand != .none else { getLock().unlock(); return .none }
             
             demand -= 1
+            
+            getLock().unlock()
+            
+            downstreamLock.lock()
             let newDemand = downstream?.receive(input) ?? .none
+            downstreamLock.unlock()
+            
             if newDemand > .none {
+                getLock().lock()
                 demand += newDemand
+                getLock().unlock()
             }
             
             return .max(1)
         }
         
         func receiveInner(completion: Subscribers.Completion<NewPublisher.Failure>, for index: Int) {
+            getLock().lock()
             innerSubscriptions.removeValue(forKey: index)
             
             switch completion {
@@ -144,13 +173,14 @@ extension Publishers.FlatMap {
                 cancelInnerSubscriptions()
                 
                 end {
+                    downstreamLock.lock()
                     downstream?.receive(completion: .failure(error))
+                    downstreamLock.unlock()
                 }
             }
         }
         
         func cancelInnerSubscriptions() {
-
             innerSubscriptions.forEach { (_, innerSubscription) in
                 innerSubscription.cancel()
             }
@@ -160,11 +190,14 @@ extension Publishers.FlatMap {
         
         func sendCompletionIfPossible() {
             guard status.isTerminated, innerSubscriptions.count + pendingSubscriptions == 0 else {
+                getLock().unlock()
                 return
             }
             
             end {
+                downstreamLock.lock()
                 downstream?.receive(completion: .finished)
+                downstreamLock.unlock()
             }
         }
         

@@ -92,18 +92,24 @@ extension CurrentValueSubject {
         
         var subject: CurrentValueSubject?
         
+        private var hasDeliveredOnRequest = false
+        
         override func request(_ demand: Subscribers.Demand) {
-            super.request(demand)
-            guard !isTerminated, demand > .none else { return }
-            
-            if let value = subject?.value {
-                receive(value)
+            getLock().do {
+                guard !isTerminated, !hasDeliveredOnRequest, _demand >= .none else { getLock().unlock(); return }
+                _demand += demand
+                
+                if let value = subject?.value {
+                    receive(value)
+                }
+                
+                hasDeliveredOnRequest = true
             }
         }
         
         @inlinable override func finish() {
-            subject = nil
             super.finish()
+            subject = nil
         }
         
         override var description: String {
