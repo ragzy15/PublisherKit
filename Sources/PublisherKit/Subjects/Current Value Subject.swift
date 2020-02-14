@@ -110,14 +110,16 @@ extension CurrentValueSubject {
         private var hasDeliveredOnRequest = false
         
         override func request(_ demand: Subscribers.Demand) {
-            guard !isTerminated, !hasDeliveredOnRequest, _demand >= .none else { return }
-            _demand += demand
-            
-            if let value = subject?.value {
-                receive(value)
+            lock?.do {
+                guard !isTerminated, !hasDeliveredOnRequest, _demand >= .none else { return }
+                _demand += demand
+                
+                if let value = subject?.value {
+                    receive(value)
+                }
+                
+                hasDeliveredOnRequest = true
             }
-            
-            hasDeliveredOnRequest = true
         }
         
         @inlinable override func finish() {
