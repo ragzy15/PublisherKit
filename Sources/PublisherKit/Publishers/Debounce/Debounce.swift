@@ -122,7 +122,9 @@ extension Publishers.Debounce {
         }
         
         override func end(completion: () -> Void) {
+            downstreamLock.lock()
             completion()
+            downstreamLock.unlock()
             downstream = nil
         }
         
