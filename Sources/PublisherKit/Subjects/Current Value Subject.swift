@@ -17,6 +17,8 @@ final public class CurrentValueSubject<Output, Failure: Error>: Subject {
     private var upstreamSubscriptions: [Subscription] = []
     private var downstreamSubscriptions: [Inner] = []
     
+    private let _lock = RecursiveLock()
+    
     private var _value: Output
     
     /// The value wrapped by this subject, published as a new element whenever it changes.
@@ -40,48 +42,60 @@ final public class CurrentValueSubject<Output, Failure: Error>: Subject {
             subscription.cancel()
         }
         
+        upstreamSubscriptions = []
+        
         downstreamSubscriptions.forEach { (subscription) in
             subscription.cancel()
         }
+        
+        downstreamSubscriptions = []
     }
     
     final public func send(subscription: Subscription) {
-        upstreamSubscriptions.append(subscription)
-        subscription.request(_completion == nil ? .unlimited : .none)
+        _lock.do {
+            upstreamSubscriptions.append(subscription)
+            subscription.request(_completion == nil ? .unlimited : .none)
+        }
     }
     
     final public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-        
-        if let completion = _completion {
-            subscriber.receive(subscription: Subscriptions.empty)
-            subscriber.receive(completion: completion)
-        } else {
-            let subscription = Inner(downstream: AnySubscriber(subscriber))
-            subscription.subject = self
-            downstreamSubscriptions.append(subscription)
-            
-            subscriber.receive(subscription: subscription)
+        _lock.do {
+            if let completion = _completion {
+                subscriber.receive(subscription: Subscriptions.empty)
+                subscriber.receive(completion: completion)
+            } else {
+                let subscription = Inner(downstream: AnySubscriber(subscriber))
+                subscription.subject = self
+                subscription.lock = _lock
+                downstreamSubscriptions.append(subscription)
+                
+                subscriber.receive(subscription: subscription)
+            }
         }
     }
     
     final public func send(_ input: Output) {
-        guard _completion == nil else { return }    // if subject has been completed, do not send or save any more inputs.
-        
-        _value = input
-        downstreamSubscriptions.forEach { (subscription) in
-            subscription.receive(input)
+        _lock.do {
+            guard _completion == nil else { return }    // if subject has been completed, do not send or save any more inputs.
+            
+            _value = input
+            downstreamSubscriptions.forEach { (subscription) in
+                subscription.receive(input)
+            }
         }
     }
     
     final public func send(completion: Subscribers.Completion<Failure>) {
-        guard _completion == nil else { return }    // if subject has been completed, do not send or save future completions.
-        
-        _completion = completion
-        downstreamSubscriptions.forEach { (subscription) in
-            subscription.receive(completion: completion)
+        _lock.do {
+            guard _completion == nil else { return }    // if subject has been completed, do not send or save future completions.
+            
+            _completion = completion
+            downstreamSubscriptions.forEach { (subscription) in
+                subscription.receive(completion: completion)
+            }
+            
+            downstreamSubscriptions = []
         }
-        
-        downstreamSubscriptions = []
     }
 }
 
@@ -91,25 +105,25 @@ extension CurrentValueSubject {
     private final class Inner: Subscriptions.InternalSubject<Output, Failure> {
         
         var subject: CurrentValueSubject?
+        var lock: RecursiveLock?
         
         private var hasDeliveredOnRequest = false
         
         override func request(_ demand: Subscribers.Demand) {
-            getLock().do {
-                guard !isTerminated, !hasDeliveredOnRequest, _demand >= .none else { getLock().unlock(); return }
-                _demand += demand
-                
-                if let value = subject?.value {
-                    receive(value)
-                }
-                
-                hasDeliveredOnRequest = true
+            guard !isTerminated, !hasDeliveredOnRequest, _demand >= .none else { return }
+            _demand += demand
+            
+            if let value = subject?.value {
+                receive(value)
             }
+            
+            hasDeliveredOnRequest = true
         }
         
         @inlinable override func finish() {
             super.finish()
             subject = nil
+            lock = nil
         }
         
         override var description: String {

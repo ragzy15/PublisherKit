@@ -73,27 +73,32 @@ extension Publishers.Zip4 {
         private var dOutputs: [D.Output] = []
         
         private func receive(a input: A.Output, downstream: Inner?) {
+            getLock().lock()
             aOutputs.append(input)
             checkAndSend()
         }
         
         private func receive(b input: B.Output, downstream: Inner?) {
+            getLock().lock()
             bOutputs.append(input)
             checkAndSend()
         }
         
         private func receive(c input: C.Output, downstream: Inner?) {
+            getLock().lock()
             cOutputs.append(input)
             checkAndSend()
         }
         
         private func receive(d input: D.Output, downstream: Inner?) {
+            getLock().lock()
             dOutputs.append(input)
             checkAndSend()
         }
         
         override func checkAndSend() {
             guard !aOutputs.isEmpty, !bOutputs.isEmpty, !cOutputs.isEmpty, !dOutputs.isEmpty else {
+                getLock().unlock()
                 return
             }
             
@@ -101,6 +106,8 @@ extension Publishers.Zip4 {
             let bOutput = bOutputs.removeFirst()
             let cOutput = cOutputs.removeFirst()
             let dOutput = dOutputs.removeFirst()
+            
+            getLock().unlock()
             
             _ = receive((aOutput, bOutput, cOutput, dOutput))
         }

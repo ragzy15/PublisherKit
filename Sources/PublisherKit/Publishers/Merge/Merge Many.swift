@@ -58,23 +58,27 @@ extension Publishers.MergeMany {
         }
         
         override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
-            guard status.isSubscribed else { return }
+            getLock().lock()
+            guard status.isSubscribed else { getLock().unlock(); return }
             
-            guard let error = completion.getError() else {
+            switch completion {
+            case .finished:
                 completedCount += 1
-                if completedCount == publisherCount {
-                    end {
-                        downstream?.receive(completion: .finished)
-                    }
+                guard completedCount == publisherCount else {
+                    getLock().unlock()
+                    return
                 }
-                return
-            }
-            
-            end {
-                downstream?.receive(completion: .failure(error))
+                
+                end {
+                    downstream?.receive(completion: .finished)
+                }
+                
+            case .failure(let error):
+                end {
+                    downstream?.receive(completion: .failure(error))
+                }
             }
         }
-        
         
         override var description: String {
             "Merge Many"

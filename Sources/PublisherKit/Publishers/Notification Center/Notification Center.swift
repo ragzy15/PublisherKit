@@ -36,11 +36,6 @@ extension NotificationCenter {
         /// The object posting the named notfication.
         public let object: AnyObject?
         
-        /// The operation queue to which the elemets should be published.
-        ///
-        /// If you pass `nil`, the block is run synchronously on the posting thread. Default value is `nil`.
-        public let queue: OperationQueue?
-        
         /// Creates a publisher that emits events when broadcasting notifications.
         ///
         /// - Parameters:
@@ -49,16 +44,15 @@ extension NotificationCenter {
         ///   - object: The object posting the named notfication. If `nil`, the publisher emits elements for any object producing a notification with the given name.
         ///   - queue: The operation queue to which block should be added.
         ///   If you pass nil, the block is run synchronously on the posting thread. Default value is nil.
-        public init(center: NotificationCenter, name: Notification.Name, object: AnyObject? = nil, queue: OperationQueue? = nil) {
+        public init(center: NotificationCenter, name: Notification.Name, object: AnyObject? = nil) {
             self.center = center
             self.name = name
             self.object = object
-            self.queue = queue
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let notificationSubscriber = Inner(downstream: subscriber, center: center, name: name, object: object, queue: queue)
+            let notificationSubscriber = Inner(downstream: subscriber, center: center, name: name, object: object)
             
             subscriber.receive(subscription: notificationSubscriber)
             notificationSubscriber.request(.unlimited)
@@ -76,20 +70,18 @@ extension NotificationCenter.PKPublisher {
         private var center: NotificationCenter?
         private let name: Notification.Name
         private var object: AnyObject?
-        private var queue: OperationQueue?
         
         private var observer: NSObjectProtocol?
         
-        init(downstream: Downstream, center: NotificationCenter, name: Notification.Name, object: AnyObject?, queue: OperationQueue?) {
+        init(downstream: Downstream, center: NotificationCenter, name: Notification.Name, object: AnyObject?) {
             self.center = center
             self.name = name
             self.object = object
-            self.queue = queue
             super.init(downstream: downstream)
         }
         
         func observe() {
-            observer = center?.addObserver(forName: name, object: object, queue: queue) { [weak self] (notification) in
+            observer = center?.addObserver(forName: name, object: object, queue: nil) { [weak self] (notification) in
                 self?.receive(input: notification)
             }
         }
@@ -104,7 +96,6 @@ extension NotificationCenter.PKPublisher {
             observer = nil
             object = nil
             center = nil
-            queue = nil
         }
         
         override var description: String {

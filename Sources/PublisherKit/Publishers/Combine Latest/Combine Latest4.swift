@@ -73,46 +73,43 @@ extension Publishers.CombineLatest4 {
         private var dOutput: D.Output?
         
         private func receive(a input: A.Output, downstream: Inner?) {
+            getLock().lock()
             aOutput = input
             checkAndSend()
         }
         
         private func receive(b input: B.Output, downstream: Inner?) {
+            getLock().lock()
             bOutput = input
             checkAndSend()
         }
         
         private func receive(c input: C.Output, downstream: Inner?) {
+            getLock().lock()
             cOutput = input
             checkAndSend()
         }
         
         private func receive(d input: D.Output, downstream: Inner?) {
+            getLock().lock()
             dOutput = input
             checkAndSend()
         }
         
         override func checkAndSend() {
             guard let aOutput = aOutput, let bOutput = bOutput, let cOutput = cOutput, let dOutput = dOutput else {
+                getLock().unlock()
                 return
             }
+            
+            getLock().unlock()
             
             _ = receive((aOutput, bOutput, cOutput, dOutput))
         }
         
-        override func onCompletion(_ completion: Subscribers.Completion<Failure>) {
-            
-            if let error = completion.getError() {
-                end {
-                    downstream?.receive(completion: .failure(error))
-                }
-            }
-            
-            if aSubscriber.status.isTerminated && bSubscriber.status.isTerminated && cSubscriber.status.isTerminated && dSubscriber.status.isTerminated {
-                end {
-                    downstream?.receive(completion: .finished)
-                }
-            }
+        override var allSubscriptionsHaveTerminated: Bool {
+            aSubscriber.status.isTerminated && bSubscriber.status.isTerminated &&
+            cSubscriber.status.isTerminated && dSubscriber.status.isTerminated
         }
         
         override var description: String {

@@ -103,6 +103,15 @@ extension Subscriptions {
             completion()
             downstream = nil
         }
+        
+        override var customMirror: Mirror {
+            let children: [Mirror.Child] = [
+                ("downstream", downstream ?? "nil"),
+                ("isTerminated", isTerminated)
+            ]
+            
+            return Mirror(self, children: children)
+        }
     }
     
     class InternalSubject<Input, Failure: Error>: Subscription, CustomStringConvertible, CustomReflectable {
@@ -113,34 +122,23 @@ extension Subscriptions {
         
         final var _demand: Subscribers.Demand = .none
         
-        private let lock = Lock()
-        
-        func getLock() -> Lock {
-            lock
-        }
-        
         init(downstream: AnySubscriber<Input, Failure>) {
             self.downstream = downstream
         }
         
         func request(_ demand: Subscribers.Demand) {
-            lock.do {
-                guard !isTerminated, _demand >= .none else { lock.unlock(); return }
-                _demand += demand
-            }
+            guard !isTerminated, _demand >= .none else { return }
+            _demand += demand
         }
         
         final func receive(_ input: Input) {
-            lock.lock()
-            guard !isTerminated, _demand > .none else { lock.unlock(); return }
+            guard !isTerminated, _demand > .none else { return }
             let newDemand = downstream?.receive(input)
             _demand = newDemand ?? .none
         }
         
         final func receive(completion: Subscribers.Completion<Failure>) {
-            lock.lock()
-            guard !isTerminated else { lock.unlock(); return }
-            lock.unlock()
+            guard !isTerminated else { return }
             downstream?.receive(completion: completion)
             finish()
         }
@@ -150,9 +148,7 @@ extension Subscriptions {
         }
         
         @inlinable func finish() {
-            lock.lock()
             isTerminated = true
-            lock.unlock()
             downstream = nil
         }
         

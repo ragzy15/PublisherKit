@@ -81,32 +81,38 @@ extension Publishers.Zip5 {
         private var eOutputs: [E.Output] = []
         
         private func receive(a input: A.Output, downstream: Inner?) {
+            getLock().lock()
             aOutputs.append(input)
             checkAndSend()
         }
         
         private func receive(b input: B.Output, downstream: Inner?) {
+            getLock().lock()
             bOutputs.append(input)
             checkAndSend()
         }
         
         private func receive(c input: C.Output, downstream: Inner?) {
+            getLock().lock()
             cOutputs.append(input)
             checkAndSend()
         }
         
         private func receive(d input: D.Output, downstream: Inner?) {
+            getLock().lock()
             dOutputs.append(input)
             checkAndSend()
         }
         
         private func receive(e input: E.Output, downstream: Inner?) {
+            getLock().lock()
             eOutputs.append(input)
             checkAndSend()
         }
         
         override func checkAndSend() {
             guard !aOutputs.isEmpty, !bOutputs.isEmpty, !cOutputs.isEmpty, !dOutputs.isEmpty, !eOutputs.isEmpty else {
+                getLock().unlock()
                 return
             }
             
@@ -115,6 +121,8 @@ extension Publishers.Zip5 {
             let cOutput = cOutputs.removeFirst()
             let dOutput = dOutputs.removeFirst()
             let eOutput = eOutputs.removeFirst()
+            
+            getLock().unlock()
             
             _ = receive((aOutput, bOutput, cOutput, dOutput, eOutput))
         }

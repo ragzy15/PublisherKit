@@ -181,7 +181,13 @@ extension Subscribers {
         
         final private(set) var isTerminated = false
         
+        var allSubscriptionsHaveTerminated: Bool { false } /* abstract property to be used by Merge and Combine Latest publishers */
+        
         private let lock = Lock()
+        
+        final func getLock() -> Lock {
+            lock
+        }
         
         final var awaitingSubscription: Bool {
             subscriptions.isEmpty
@@ -217,6 +223,26 @@ extension Subscribers {
             onCompletion(completion)
         }
         
+        /* Used by Merge and Combine Latest Publishers, as they only pass completion after all upstream publishers have terminated, unlike Zip publisher */
+        override func onCompletion(_ completion: Subscribers.Completion<Failure>) {
+            switch completion {
+            case .finished:
+                guard allSubscriptionsHaveTerminated else {
+                    lock.unlock()
+                    return
+                }
+                
+                end {
+                    downstream?.receive(completion: .finished)
+                }
+                
+            case .failure(let error):
+                end {
+                    downstream?.receive(completion: .failure(error))
+                }
+            }
+        }
+        
         final func receive(completion: Subscribers.Completion<Downstream.Failure>, downstream: InternalCombine?) {
             receive(completion: completion)
         }
@@ -226,7 +252,10 @@ extension Subscribers {
         }
         
         final override func end(completion: () -> Void) {
-            super.end(completion: completion)
+            isTerminated = true
+            lock.unlock()
+            
+            completion()
             subscriptions = []
         }
         

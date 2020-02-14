@@ -65,28 +65,34 @@ extension Publishers.Zip3 {
         private var cOutputs: [C.Output] = []
         
         private func receive(a input: A.Output, downstream: Inner?) {
+            getLock().lock()
             aOutputs.append(input)
             checkAndSend()
         }
         
         private func receive(b input: B.Output, downstream: Inner?) {
+            getLock().lock()
             bOutputs.append(input)
             checkAndSend()
         }
         
         private func receive(c input: C.Output, downstream: Inner?) {
+            getLock().lock()
             cOutputs.append(input)
             checkAndSend()
         }
         
         override func checkAndSend() {
             guard !aOutputs.isEmpty, !bOutputs.isEmpty, !cOutputs.isEmpty else {
+                getLock().unlock()
                 return
             }
             
             let aOutput = aOutputs.removeFirst()
             let bOutput = bOutputs.removeFirst()
             let cOutput = cOutputs.removeFirst()
+            
+            getLock().unlock()
             
             _ = receive((aOutput, bOutput, cOutput))
         }

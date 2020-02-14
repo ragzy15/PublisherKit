@@ -66,6 +66,16 @@ extension Publishers.ReplaceEmpty {
             downstream?.receive(completion: .finished)
         }
         
+        override func cancel() {
+            super.cancel()
+            onFinish = nil
+        }
+        
+        override func end(completion: () -> Void) {
+            super.end(completion: completion)
+            onFinish = nil
+        }
+        
         override var description: String {
             "ReplaceEmpty"
         }
