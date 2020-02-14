@@ -57,22 +57,27 @@ extension Publishers.Zip {
         private var bOutputs: [B.Output] = []
         
         private func receive(a input: A.Output, downstream: Inner?) {
+            getLock().lock()
             aOutputs.append(input)
             checkAndSend()
         }
         
         private func receive(b input: B.Output, downstream: Inner?) {
+            getLock().lock()
             bOutputs.append(input)
             checkAndSend()
         }
         
         override func checkAndSend() {
             guard !aOutputs.isEmpty, !bOutputs.isEmpty else {
+                getLock().unlock()
                 return
             }
             
             let aOutput = aOutputs.removeFirst()
             let bOutput = bOutputs.removeFirst()
+            
+            getLock().unlock()
             
             _ = receive((aOutput, bOutput))
         }

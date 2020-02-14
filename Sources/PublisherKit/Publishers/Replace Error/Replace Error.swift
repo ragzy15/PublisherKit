@@ -60,6 +60,16 @@ extension Publishers.ReplaceError {
             downstream?.receive(completion: .finished)
         }
         
+        override func cancel() {
+            super.cancel()
+            onError = nil
+        }
+        
+        override func end(completion: () -> Void) {
+            super.end(completion: completion)
+            onError = nil
+        }
+        
         override var description: String {
             "ReplaceError"
         }

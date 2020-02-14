@@ -64,8 +64,6 @@ extension URLSession {
         
         public var name: String
         
-        private static let queue = DispatchQueue(label: "com.PublisherKit.upload-task-thread", qos: .utility, attributes: .concurrent)
-        
         public init(name: String = "", request: URLRequest, from data: Data?, session: URLSession) {
             self.name = name
             self.request = request
@@ -118,28 +116,26 @@ extension URLSession.UploadTaskPKPublisher {
         
         private var task: URLSessionUploadTask?
         
-        override func receive(input: Output) {
-            guard !isTerminated else { return }
-            _ = downstream?.receive(input)
-        }
-        
-        override func onCompletion(_ completion: Subscribers.Completion<Failure>) {
-            downstream?.receive(completion: completion)
-        }
-        
         func resume(with request: URLRequest, from data: Data?, in session: URLSession) {
-            task = session.uploadTask(with: request, from: data, completionHandler: getCompletion())
+            getLock().lock()
+            guard task == nil else { getLock().unlock(); return }
+            
+            task = session.uploadTask(with: request, from: data, completionHandler: handleCompletion(subscriber: self))
+            
+            getLock().unlock()
+            
             task?.resume()
         }
         
         func resume(with request: URLRequest, fromFile fileUrl: URL, in session: URLSession) {
-            task = session.uploadTask(with: request, fromFile: fileUrl, completionHandler: getCompletion())
+            getLock().lock()
+            guard task == nil else { getLock().unlock(); return }
+            
+            task = session.uploadTask(with: request, fromFile: fileUrl, completionHandler: handleCompletion(subscriber: self))
+            
+            getLock().unlock()
+            
             task?.resume()
-        }
-        
-        @inline(__always)
-        private func getCompletion() -> (Data?, URLResponse?, Error?) -> Void {
-            handleCompletion(queue: URLSession.UploadTaskPKPublisher.queue, subscriber: self)
         }
         
         override func end(completion: () -> Void) {

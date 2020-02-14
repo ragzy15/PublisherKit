@@ -161,7 +161,7 @@ extension Publishers.Just {
     public func tryRemoveDuplicates(by predicate: (Output, Output) throws -> Bool) -> Result<Output, Error>.PKPublisher {
         Result<Output, Error>.PKPublisher(
             Result {
-                try _ = predicate(output, output);
+                try _ = predicate(output, output)
                 return output
             }
         )

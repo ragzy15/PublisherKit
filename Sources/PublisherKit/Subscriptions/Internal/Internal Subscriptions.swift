@@ -7,13 +7,11 @@
 
 extension Subscriptions {
     
-    class Internal<Downstream: Subscriber, Input, Failure: Error>: Subscription, CustomStringConvertible, CustomReflectable {
-        
-        private(set) var isTerminated = false
+    class InternalBase<Downstream: Subscriber, Input, Failure: Error>: Subscription, CustomStringConvertible, CustomReflectable {
         
         var demand: Subscribers.Demand = .none
         
-        private(set) var downstream: Downstream?
+        var downstream: Downstream?
         
         init(downstream: Downstream) {
             self.downstream = downstream
@@ -28,11 +26,6 @@ extension Subscriptions {
         }
         
         func receive(completion: Subscribers.Completion<Failure>) {
-            guard !isTerminated else { return }
-            
-            end {
-                onCompletion(completion)
-            }
         }
         
         func onCompletion(_ completion: Subscribers.Completion<Failure>) {
@@ -40,14 +33,11 @@ extension Subscriptions {
         }
         
         func cancel() {
-            isTerminated = true
             downstream = nil
         }
         
         func end(completion: () -> Void) {
-            isTerminated = true
-            completion()
-            downstream = nil
+            
         }
         
         var description: String {
@@ -55,6 +45,66 @@ extension Subscriptions {
         }
         
         var customMirror: Mirror {
+            let children: [Mirror.Child] = [
+                ("downstream", downstream ?? "nil")
+            ]
+            
+            return Mirror(self, children: children)
+        }
+    }
+    
+    
+    class Internal<Downstream: Subscriber, Input, Failure>: InternalBase<Downstream, Input, Failure> where Input == Downstream.Input, Failure == Downstream.Failure {
+        
+        private(set) var isTerminated = false
+        
+        private let lock = Lock()
+        
+        final func getLock() -> Lock {
+            lock
+        }
+        
+        override func request(_ demand: Subscribers.Demand) {
+            lock.lock()
+            self.demand = demand
+            lock.unlock()
+        }
+        
+        override func receive(input: Input) {
+            lock.lock()
+            guard !isTerminated else { lock.unlock(); return }
+            lock.unlock()
+            _ = downstream?.receive(input)
+        }
+        
+        override func receive(completion: Subscribers.Completion<Failure>) {
+            lock.lock()
+            guard !isTerminated else { lock.unlock(); return }
+            
+            end {
+                onCompletion(completion)
+            }
+        }
+        
+        override func onCompletion(_ completion: Subscribers.Completion<Failure>) {
+            downstream?.receive(completion: completion)
+        }
+        
+        override func cancel() {
+            lock.lock()
+            isTerminated = true
+            lock.unlock()
+            super.cancel()
+        }
+        
+        override func end(completion: () -> Void) {
+            isTerminated = true
+            lock.unlock()
+            completion()
+            downstream = nil
+        }
+        
+        override var customMirror: Mirror {
             let children: [Mirror.Child] = [
                 ("downstream", downstream ?? "nil"),
                 ("isTerminated", isTerminated)
@@ -70,14 +120,14 @@ extension Subscriptions {
         
         private(set) var isTerminated = false
         
-        private(set) var _demand: Subscribers.Demand = .none
+        final var _demand: Subscribers.Demand = .none
         
         init(downstream: AnySubscriber<Input, Failure>) {
             self.downstream = downstream
         }
         
         func request(_ demand: Subscribers.Demand) {
-             guard !isTerminated, _demand >= .none else { return }
+            guard !isTerminated, _demand >= .none else { return }
             _demand += demand
         }
         

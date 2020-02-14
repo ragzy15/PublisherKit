@@ -62,8 +62,6 @@ extension URLSession {
         
         public var name: String
         
-        private static let queue = DispatchQueue(label: "com.PublisherKit.data-task-thread", qos: .utility, attributes: .concurrent)
-        
         public init(name: String = "", request: URLRequest, session: URLSession) {
             self.name = name
             self.request = request
@@ -100,21 +98,18 @@ extension URLSession.DataTaskPKPublisher {
     // MARK: DATA TASK SINK
     private final class Inner<Downstream: Subscriber>: Subscriptions.Internal<Downstream, Output, Failure>, URLSessionTaskPublisherDelegate where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        private var task: URLSessionTask?
+        private var task: URLSessionDataTask?
         
         func resume(with request: URLRequest, in session: URLSession) {
-            let completion = handleCompletion(queue: URLSession.DataTaskPKPublisher.queue, subscriber: self)
+            getLock().lock()
+            guard task == nil else { getLock().unlock(); return }
+            
+            let completion = handleCompletion(subscriber: self)
             task = session.dataTask(with: request, completionHandler: completion)
+            
+            getLock().unlock()
+            
             task?.resume()
-        }
-        
-        override func receive(input: Output) {
-            guard !isTerminated else { return }
-            _ = downstream?.receive(input)
-        }
-        
-        override func onCompletion(_ completion: Subscribers.Completion<Failure>) {
-            downstream?.receive(completion: completion)
         }
         
         override func end(completion: () -> Void) {

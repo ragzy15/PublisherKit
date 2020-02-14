@@ -42,29 +42,58 @@ extension Publishers.ReceiveOn {
         
         private let scheduler: Scheduler
         
+        private let downstreamLock = RecursiveLock()
+        
         init(downstream: Downstream, scheduler: Scheduler) {
             self.scheduler = scheduler
             super.init(downstream: downstream)
         }
         
+        override func onSubscription(_ subscription: Subscription) {
+            status = .subscribed(to: subscription)
+            getLock().unlock()
+            
+            downstreamLock.lock()
+            downstream?.receive(subscription: self)
+            downstreamLock.unlock()
+            
+            subscription.request(.unlimited)
+        }
+        
         override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
-            guard status.isSubscribed else { return .none }
+            getLock().lock()
+            guard status.isSubscribed else { getLock().unlock(); return .none }
+            
+            getLock().unlock()
             
             scheduler.schedule { [weak self] in
+                self?.downstreamLock.lock()
                 _ = self?.downstream?.receive(input)
+                self?.downstreamLock.unlock()
             }
             
             return demand
         }
         
         override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
-            guard status.isSubscribed else { return }
+            getLock().lock()
+            guard status.isSubscribed else { getLock().unlock(); return }
+            
             status = .terminated
+            getLock().unlock()
+            
             scheduler.schedule { [weak self] in
                 self?.end {
                     self?.downstream?.receive(completion: completion)
                 }
             }
+        }
+        
+        override func end(completion: () -> Void) {
+            downstreamLock.lock()
+            completion()
+            downstreamLock.unlock()
+            downstream = nil
         }
         
         override var description: String {

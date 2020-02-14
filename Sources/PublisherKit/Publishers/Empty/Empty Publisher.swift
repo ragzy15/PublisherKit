@@ -47,8 +47,8 @@ extension Empty {
     // MARK: EMPTY SINK
     private final class Inner<Downstream: Subscriber>: Subscriptions.Internal<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        override func onCompletion(_ completion: Subscribers.Completion<Failure>) {
-            downstream?.receive(completion: completion)
+        override func receive(input: Output) {
+            // overriding so that downstream does not receive any inputs.
         }
         
         override var description: String {

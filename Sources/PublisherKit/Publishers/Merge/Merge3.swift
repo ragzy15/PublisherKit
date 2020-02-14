@@ -73,23 +73,9 @@ extension Publishers.Merge3 {
         
         private(set) lazy var cSubscriber = Subscribers.InternalClosure<Inner, C.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
-        override func onCompletion(_ completion: Subscribers.Completion<Failure>) {
-            
-            switch completion {
-            case .finished:
-                if aSubscriber.status.isTerminated && bSubscriber.status.isTerminated &&
-                    cSubscriber.status.isTerminated {
-                    
-                    end {
-                        downstream?.receive(completion: .finished)
-                    }
-                }
-                
-            case .failure(let error):
-                end {
-                    downstream?.receive(completion: .failure(error))
-                }
-            }
+        override var allSubscriptionsHaveTerminated: Bool {
+            aSubscriber.status.isTerminated && bSubscriber.status.isTerminated &&
+            cSubscriber.status.isTerminated
         }
         
         override var description: String {

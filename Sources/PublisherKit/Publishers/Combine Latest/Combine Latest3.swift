@@ -65,41 +65,37 @@ extension Publishers.CombineLatest3 {
         private var cOutput: C.Output?
         
         private func receive(a input: A.Output, downstream: Inner?) {
+            getLock().lock()
             aOutput = input
             checkAndSend()
         }
         
         private func receive(b input: B.Output, downstream: Inner?) {
+            getLock().lock()
             bOutput = input
             checkAndSend()
         }
         
         private func receive(c input: C.Output, downstream: Inner?) {
+            getLock().lock()
             cOutput = input
             checkAndSend()
         }
         
         override func checkAndSend() {
             guard let aOutput = aOutput, let bOutput = bOutput, let cOutput = cOutput else {
+                getLock().unlock()
                 return
             }
+            
+            getLock().unlock()
             
             _ = receive((aOutput, bOutput, cOutput))
         }
         
-        override func onCompletion(_ completion: Subscribers.Completion<Failure>) {
-            
-            if let error = completion.getError() {
-                end {
-                    downstream?.receive(completion: .failure(error))
-                }
-            }
-            
-            if aSubscriber.status.isTerminated && bSubscriber.status.isTerminated && cSubscriber.status.isTerminated {
-                end {
-                    downstream?.receive(completion: .finished)
-                }
-            }
+        override var allSubscriptionsHaveTerminated: Bool {
+            aSubscriber.status.isTerminated && bSubscriber.status.isTerminated &&
+            cSubscriber.status.isTerminated
         }
         
         override var description: String {
