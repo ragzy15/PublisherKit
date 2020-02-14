@@ -63,7 +63,7 @@ final class RecursiveLock: Lock {
 }
 
 @available(macOS 10.12, iOS 10.0, tvOS 10.0, watchOS 3.0, *)
-final class OSUnfaireLock: Locking {
+fileprivate final class OSUnfaireLock: Locking {
     private var unfairLock = os_unfair_lock_s()
     
     func lock() {
@@ -79,7 +79,7 @@ final class OSUnfaireLock: Locking {
     }
 }
 
-class MutexLock: Locking {
+fileprivate class MutexLock: Locking {
     
     fileprivate var mutex: pthread_mutex_t
     
@@ -130,7 +130,7 @@ class MutexLock: Locking {
     }
 }
 
-final class RecursiveMutexLock: MutexLock {
+fileprivate final class RecursiveMutexLock: MutexLock {
     
     convenience init() {
         let attributes = MutexAttributes()
