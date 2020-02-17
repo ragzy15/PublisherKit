@@ -5,8 +5,6 @@
 //  Created by Raghav Ahuja on 19/12/19.
 //
 
-import Foundation
-
 typealias OperatorSubscriber<Downstream: Subscriber, Upstream: Publisher, Operator> = Subscribers.InternalOperators<Downstream, Upstream.Output, Upstream.Failure, Operator>
 
 typealias InternalSubscriber<Downstream: Subscriber, Upstream: Publisher> = Subscribers.InternalBase<Downstream, Upstream.Output, Upstream.Failure>

@@ -5,8 +5,6 @@
 //  Created by Raghav Ahuja on 08/02/20.
 //
 
-import Foundation
-
 public struct Empty<Output, Failure: Error>: Publisher, Equatable {
     
     /// A Boolean value that indicates whether the publisher immediately sends a completion.

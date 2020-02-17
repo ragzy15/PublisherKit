@@ -5,8 +5,6 @@
 //  Created by Raghav Ahuja on 18/11/19.
 //
 
-import Foundation
-
 @available(*, deprecated, renamed: "TopLevelDecoder")
 public typealias NKDecoder = TopLevelDecoder
 

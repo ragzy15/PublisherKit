@@ -5,8 +5,6 @@
 //  Created by Raghav Ahuja on 02/02/20.
 //
 
-import Foundation
-
 /// A subject that broadcasts elements to downstream subscribers.
 ///
 /// As a concrete implementation of Subject, the PassthroughSubject provides a convenient way to adapt existing imperative code to the Combine model.
