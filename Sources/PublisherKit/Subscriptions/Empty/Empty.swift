@@ -5,8 +5,6 @@
 //  Created by Raghav Ahuja on 02/02/20.
 //
 
-import Foundation
-
 extension Subscriptions {
     
     /// Returns the 'empty' subscription.

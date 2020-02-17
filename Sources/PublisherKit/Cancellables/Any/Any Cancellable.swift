@@ -5,8 +5,6 @@
 //  Created by Raghav Ahuja on 25/11/19.
 //
 
-import Foundation
-
 /// A set of `AnyCancellable`s.
 public typealias CancellableBag = Set<AnyCancellable>
 

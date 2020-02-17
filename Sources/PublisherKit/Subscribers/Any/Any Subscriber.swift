@@ -5,8 +5,6 @@
 //  Created by Raghav Ahuja on 25/12/19.
 //
 
-import Foundation
-
 @available(*, deprecated, renamed: "AnySubscriber")
 public typealias NKAnySubscriber = AnySubscriber
 

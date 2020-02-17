@@ -5,8 +5,6 @@
 //  Created by Raghav Ahuja on 19/12/19.
 //
 
-import Foundation
-
 extension Subscribers {
     
     final public class Assign<Root, Input>: Subscriber, Cancellable {

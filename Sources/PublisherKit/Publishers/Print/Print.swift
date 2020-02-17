@@ -5,8 +5,6 @@
 //  Created by Raghav Ahuja on 08/02/20.
 //
 
-import Foundation
-
 extension Publishers {
     
     /// A publisher that prints log messages for all publishing events, optionally prefixed with a given string.

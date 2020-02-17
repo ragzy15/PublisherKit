@@ -5,8 +5,6 @@
 //  Created by Raghav Ahuja on 02/02/20.
 //
 
-import Foundation
-
 /// A publisher that exposes a method for outside callers to publish elements.
 ///
 /// A subject is a publisher that you can use to ”inject” values into a stream, by calling its [send()](apple-reference-documentation://hsyr-564TS) method. This can be useful for adapting existing imperative code to the Combine model.

@@ -5,8 +5,6 @@
 //  Created by Raghav Ahuja on 25/01/20.
 //
 
-import Foundation
-
 @available(*, deprecated, renamed: "TopLevelEncoder")
 public typealias PKEncoder = TopLevelEncoder
 
