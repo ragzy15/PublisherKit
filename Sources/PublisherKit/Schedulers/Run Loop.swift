@@ -141,13 +141,13 @@ extension RunLoop: Scheduler {
     public struct PKSchedulerOptions {
     }
     
-    public func schedule(options: PKSchedulerOptions? = nil, _ action: @escaping () -> Void) {
+    public func schedule(options: PKSchedulerOptions?, _ action: @escaping () -> Void) {
         let timer = Timer(fireAt: now.date, interval: 0, target: self, selector: #selector(scheduledAction(_:)), userInfo: action, repeats: false)
         
         add(timer, forMode: .default)
     }
     
-    public func schedule(after date: PKStrideType, tolerance: PKStrideType.Stride, options: PKSchedulerOptions? = nil, _ action: @escaping () -> Void) {
+    public func schedule(after date: PKStrideType, tolerance: PKStrideType.Stride, options: PKSchedulerOptions?, _ action: @escaping () -> Void) {
         let timer = Timer(fireAt: date.date, interval: 0, target: self, selector: #selector(scheduledAction(_:)), userInfo: action, repeats: false)
         
         timer.tolerance = tolerance.timeInterval
@@ -155,7 +155,7 @@ extension RunLoop: Scheduler {
         add(timer, forMode: .default)
     }
     
-    public func schedule(after date: PKStrideType, interval: PKStrideType.Stride, tolerance: PKStrideType.Stride, options: PKSchedulerOptions? = nil, _ action: @escaping () -> Void) -> Cancellable {
+    public func schedule(after date: PKStrideType, interval: PKStrideType.Stride, tolerance: PKStrideType.Stride, options: PKSchedulerOptions?, _ action: @escaping () -> Void) -> Cancellable {
         let timer = Timer(fireAt: date.date, interval: interval.timeInterval, target: self, selector: #selector(scheduledAction(_:)), userInfo: action, repeats: true)
         
         timer.tolerance = tolerance.timeInterval

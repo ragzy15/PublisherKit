@@ -156,16 +156,16 @@ extension OperationQueue: Scheduler {
     public struct PKSchedulerOptions {
     }
     
-    public func schedule(options: PKSchedulerOptions? = nil, _ action: @escaping () -> Void) {
+    public func schedule(options: PKSchedulerOptions?, _ action: @escaping () -> Void) {
         addOperation(BlockOperation(block: action))
     }
     
-    public func schedule(after date: PKStrideType, tolerance: PKStrideType.Stride, options: PKSchedulerOptions? = nil, _ action: @escaping () -> Void) {
+    public func schedule(after date: PKStrideType, tolerance: PKStrideType.Stride, options: PKSchedulerOptions?, _ action: @escaping () -> Void) {
         let op = AsynchronousBlockOperation(after: date, interval: 0, tolerance: tolerance, repeats: false, action)
         addOperation(op)
     }
     
-    public func schedule(after date: PKStrideType, interval: PKStrideType.Stride, tolerance: PKStrideType.Stride, options: PKSchedulerOptions? = nil, _ action: @escaping () -> Void) -> Cancellable {
+    public func schedule(after date: PKStrideType, interval: PKStrideType.Stride, tolerance: PKStrideType.Stride, options: PKSchedulerOptions?, _ action: @escaping () -> Void) -> Cancellable {
         let op = AsynchronousBlockOperation(after: date, interval: interval, tolerance: tolerance, repeats: true, action)
         addOperation(op)
         return AnyCancellable(cancel: op.cancel)
