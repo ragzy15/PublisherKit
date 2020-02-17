@@ -27,7 +27,10 @@ extension RunLoop: Scheduler {
         /// - Parameter other: Another dispatch queue time.
         /// - Returns: The time interval between this time and the provided time.
         public func distance(to other: PKStrideType) -> PKStrideType.Stride {
-            let timeIntervalSince1970 = date > other.date ? date.timeIntervalSince1970 - other.date.timeIntervalSince1970 : other.date.timeIntervalSince1970 - date.timeIntervalSince1970
+            let timeIntervalSince1970 =
+                date > other.date
+                    ? date.timeIntervalSince1970 - other.date.timeIntervalSince1970
+                    : other.date.timeIntervalSince1970 - date.timeIntervalSince1970
             
             return PKStrideType.Stride(timeIntervalSince1970)
         }
@@ -56,18 +59,31 @@ extension RunLoop: Scheduler {
             /// The value of this time interval in seconds.
             public var timeInterval: TimeInterval { magnitude }
             
+            /// Creates a run loop time interval from an integer seconds value.
+            ///
+            /// - Parameter value: The number of seconds, as an `Int`.
             public init(integerLiteral value: TimeInterval) {
                 magnitude = value
             }
             
+            /// Creates a run loop time interval from a floating-point seconds value.
+            ///
+            /// - Parameter value: The number of seconds, as a `TimeInterval`.
             public init(floatLiteral value: TimeInterval) {
                 magnitude = value
             }
             
+            /// Creates a run loop time interval from the given time interval.
+            ///
+            /// - Parameter timeInterval: The number of seconds, as a `TimeInterval`.
             public init(_ timeInterval: TimeInterval) {
                 magnitude = timeInterval
             }
             
+            /// Creates a run loop time interval from a binary integer type.
+            ///
+            /// If `exactly` cannot convert to an `Int`, the resulting time interval is `nil`.
+            /// - Parameter exactly: A binary integer representing a time interval.
             public init?<T>(exactly source: T) where T : BinaryInteger {
                 guard let value = TimeInterval(exactly: source) else { return nil }
                 magnitude = value
@@ -141,6 +157,10 @@ extension RunLoop: Scheduler {
     public struct PKSchedulerOptions {
     }
     
+    public var now: PKStrideType { PKStrideType(Date()) }
+    
+    public var minimumTolerance: PKStrideType.Stride { .seconds(0) }
+    
     public func schedule(options: PKSchedulerOptions?, _ action: @escaping () -> Void) {
         let timer = Timer(fireAt: now.date, interval: 0, target: self, selector: #selector(scheduledAction(_:)), userInfo: action, repeats: false)
         
@@ -164,10 +184,6 @@ extension RunLoop: Scheduler {
         
         return AnyCancellable(cancel: timer.invalidate)
     }
-    
-    public var now: PKStrideType { PKStrideType(Date()) }
-    
-    public var minimumTolerance: PKStrideType.Stride { .seconds(0) }
     
     @objc private func scheduledAction(_ timer: Timer) {
         if timer.isValid {

@@ -101,11 +101,25 @@ extension URLSession {
 extension URLSession.UploadTaskPKPublisher {
     
     /// Validates that the response has a status code acceptable in the specified range, and that the response has a content type in the specified sequence.
+    /// 
     /// - Parameters:
     ///   - acceptableStatusCodes: The range of acceptable status codes. Default range of 200...299.
-    ///   - acceptableContentTypes: The acceptable content types, which may specify wildcard types and/or subtypes. If provided `nil`, content type is not validated. Providing an empty Array uses default behaviour. By default the content type matches any specified in the **Accept** HTTP header field.
-    public func validate(acceptableStatusCodes codes: [Int] = Array(200 ..< 300), acceptableContentTypes: [String]? = []) -> Publishers.Validate<Self> {
+    ///   - acceptableContentTypes: The acceptable content types, which may specify wildcard types and/or subtypes. If provided `nil`, content type is not validated. By default the content type matches any specified in the **Accept** HTTP header field.
+    public func validate(acceptableStatusCodes codes: [Int] = Array(200 ..< 300), acceptableContentTypes: AcceptableContentTypes? = .acceptOrWildcard) -> Publishers.Validate<Self> {
         Publishers.Validate(upstream: self, acceptableStatusCodes: codes, acceptableContentTypes: acceptableContentTypes)
+    }
+    
+    @available(*, unavailable, message: "Please use validate with param acceptableContentTypes as `AcceptableContentTypes` enum")
+    public func validate(acceptableStatusCodes: [Int] = Array(200 ..< 300), acceptableContentTypes ct: [String]? = []) -> Publishers.Validate<Self> {
+        let acceptableContentTypes: AcceptableContentTypes?
+        
+        if let contentTypes = ct {
+            acceptableContentTypes = .custom(contentTypes: contentTypes)
+        } else {
+            acceptableContentTypes = nil
+        }
+        
+        return Publishers.Validate(upstream: self, acceptableStatusCodes: acceptableStatusCodes, acceptableContentTypes: acceptableContentTypes)
     }
 }
 
