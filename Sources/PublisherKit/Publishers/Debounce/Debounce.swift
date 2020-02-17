@@ -19,21 +19,25 @@ public extension Publishers {
         /// The publisher from which this publisher receives elements.
         public let upstream: Upstream
         
-        /// Time the publisher should wait before publishing an element.
-        public let dueTime: SchedulerTime
+        /// The amount of time the publisher should wait before publishing an element.
+        public let dueTime: Context.PKSchedulerTimeType.Stride
         
-        /// The scheduler on which elements are published.
+        /// The scheduler on which this publisher delivers elements.
         public let scheduler: Context
         
-        public init(upstream: Upstream, dueTime: SchedulerTime, on scheduler: Context) {
+        /// Scheduler options that customize this publisher’s delivery of elements.
+        public let options: Context.PKSchedulerOptions?
+        
+        public init(upstream: Upstream, dueTime: Context.PKSchedulerTimeType.Stride, scheduler: Context, options: Context.PKSchedulerOptions?) {
             self.upstream = upstream
             self.dueTime = dueTime
             self.scheduler = scheduler
+            self.options = options
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let debounceSubscriber = Inner(downstream: subscriber, scheduler: scheduler, dueTime: dueTime)
+            let debounceSubscriber = Inner(downstream: subscriber, dueTime: dueTime, scheduler: scheduler, options: options)
             upstream.subscribe(debounceSubscriber)
         }
     }
@@ -48,15 +52,18 @@ extension Publishers.Debounce {
         
         private var newOutput: Output?
         
-        private let dueTime: SchedulerTime
+        private let dueTime: Context.PKSchedulerTimeType.Stride
         
         private let scheduler: Context
         
+        private let options: Context.PKSchedulerOptions?
+        
         private let downstreamLock = RecursiveLock()
         
-        init(downstream: Downstream, scheduler: Context, dueTime: SchedulerTime) {
+        init(downstream: Downstream, dueTime: Context.PKSchedulerTimeType.Stride, scheduler: Context, options: Context.PKSchedulerOptions?) {
             self.scheduler = scheduler
             self.dueTime = dueTime
+            self.options = options
             super.init(downstream: downstream)
         }
         
@@ -71,7 +78,6 @@ extension Publishers.Debounce {
             subscription.request(.unlimited)
         }
         
-        
         override func receive(_ input: Output) -> Subscribers.Demand {
             getLock().lock()
             guard status.isSubscribed else { getLock().unlock(); return .none }
@@ -80,8 +86,7 @@ extension Publishers.Debounce {
             
             outputCounter += 1
             getLock().unlock()
-            
-            scheduler.schedule(after: dueTime) { [weak self] in
+            scheduler.schedule(after: scheduler.now.advanced(by: dueTime), tolerance: scheduler.minimumTolerance, options: options) { [weak self] in
                 self?.sendInput()
             }
             
@@ -91,10 +96,9 @@ extension Publishers.Debounce {
         private func sendInput() {
             getLock().lock()
             guard status.isSubscribed else { getLock().unlock(); return }
-            outputCounter -= 1
-            getLock().unlock()
             
-            getLock().lock()
+            outputCounter -= 1
+            
             guard outputCounter <= 0, let output = newOutput else {
                 getLock().unlock()
                 return
@@ -114,7 +118,7 @@ extension Publishers.Debounce {
             status = .terminated
             getLock().unlock()
             
-            scheduler.schedule { [weak self] in
+            scheduler.schedule(options: options) { [weak self] in
                 self?.end {
                     self?.downstream?.receive(completion: completion)
                 }

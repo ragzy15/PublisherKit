@@ -65,6 +65,7 @@ extension Subscribers {
                 _ = downstream?.receive(output)
                 
             case .failure(let error):
+                lock.lock()
                 end {
                     downstream?.receive(completion: .failure(error))
                 }
