@@ -18,11 +18,11 @@ public enum AcceptableContentTypes {
 
 extension Publishers {
     
-    public struct Validate<Upstream: Publisher>: Publisher where Upstream.Output == (data: Data, response: HTTPURLResponse), Upstream.Failure == Error {
+    public struct Validate<Upstream: Publisher>: Publisher where Upstream.Output == (data: Data, response: HTTPURLResponse) {
         
         public typealias Output = Upstream.Output
         
-        public typealias Failure = Upstream.Failure
+        public typealias Failure = Error
         
         public let upstream: Upstream
         
@@ -88,7 +88,7 @@ extension Publishers.Validate {
         }
         
         override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
-            downstream?.receive(completion: completion)
+            downstream?.receive(completion: completion.mapError { $0 as Failure })
         }
     }
 }
@@ -101,12 +101,8 @@ private extension Publishers.Validate.Inner {
         
         guard acceptableStatusCodes.contains(response.statusCode) else {
             
-            // else throw http or url error
-            if let httpError = HTTPStatusCode(rawValue: response.statusCode) {
-                return .failure(httpError)
-            } else {
-                return .failure(URLError.badServerResponse())
-            }
+            let error = HTTPStatusCode(rawValue: response.statusCode) ?? URLError.badServerResponse()
+            return .failure(error)
         }
         
         guard !data.isEmpty else {
