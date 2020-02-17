@@ -5,8 +5,6 @@
 //  Created by Raghav Ahuja on 19/12/19.
 //
 
-import Foundation
-
 @available(*, deprecated, renamed: "Subscriber")
 public typealias NKSubscriber = Subscriber
 

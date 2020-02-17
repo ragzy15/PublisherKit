@@ -5,8 +5,6 @@
 //  Created by Raghav Ahuja on 15/10/19.
 //
 
-import Foundation
-
 protocol OptionalDelegate {
     
     associatedtype Wrapped

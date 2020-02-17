@@ -5,8 +5,6 @@
 //  Created by Raghav Ahuja on 19/12/19.
 //
 
-import Foundation
-
 public extension Subscribers {
 
     /// A simple subscriber that requests an unlimited number of values upon subscription.

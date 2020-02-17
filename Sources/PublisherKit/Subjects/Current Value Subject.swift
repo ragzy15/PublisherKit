@@ -5,8 +5,6 @@
 //  Created by Raghav Ahuja on 02/02/20.
 //
 
-import Foundation
-
 /// A subject that wraps a single value and publishes a new element whenever the value changes.
 ///
 /// Unlike PassthroughSubject, CurrentValueSubject maintains a buffer of the most recently published element.
