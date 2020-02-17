@@ -241,7 +241,7 @@ extension Publisher {
 
 // MARK: CONTAINS
 extension Publisher where Output : Equatable {
-
+    
     /// Publishes a Boolean value upon receiving an element equal to the argument.
     ///
     /// The contains publisher consumes all received elements until the upstream publisher produces a matching element. At that point, it emits `true` and finishes normally. If the upstream finishes normally without producing a matching element, this publisher emits `false`, then finishes.
@@ -293,9 +293,11 @@ extension Publisher {
     /// Use this operator when you want to wait for a pause in the delivery of events from the upstream publisher. For example, call `debounce` on the publisher from a text field to only receive elements when the user pauses or stops typing. When they start typing again, the `debounce` holds event delivery until the next pause.
     /// - Parameters:
     ///   - dueTime: The time the publisher should wait before publishing an element.
+    ///   - scheduler: The scheduler on which this publisher delivers elements
+    ///   - options: Scheduler options that customize this publisher’s delivery of elements.
     /// - Returns: A publisher that publishes events only after a specified time elapses.
-    public func debounce<S: Scheduler>(for dueTime: SchedulerTime, on scheduler: S) -> Publishers.Debounce<Self, S> {
-        Publishers.Debounce(upstream: self, dueTime: dueTime, on: scheduler)
+    public func debounce<S: Scheduler>(for dueTime: S.PKSchedulerTimeType.Stride, scheduler: S, options: S.PKSchedulerOptions? = nil) -> Publishers.Debounce<Self, S> {
+        Publishers.Debounce(upstream: self, dueTime: dueTime, scheduler: scheduler, options: options)
     }
 }
 
@@ -421,11 +423,11 @@ extension Publisher {
                              receiveRequest: ((Subscribers.Demand) -> Void)? = nil) -> Publishers.HandleEvents<Self> {
         
         Publishers.HandleEvents(upstream: self,
-                                  receiveSubscription: receiveSubscription,
-                                  receiveOutput: receiveOutput,
-                                  receiveCompletion: receiveCompletion,
-                                  receiveCancel: receiveCancel,
-                                  receiveRequest: receiveRequest)
+                                receiveSubscription: receiveSubscription,
+                                receiveOutput: receiveOutput,
+                                receiveCompletion: receiveCompletion,
+                                receiveCancel: receiveCancel,
+                                receiveRequest: receiveRequest)
     }
 }
 
@@ -649,7 +651,7 @@ extension Publisher {
 
 // MARK: PRINT
 extension Publisher {
-
+    
     /// Prints log messages for all publishing events.
     ///
     /// - Parameter prefix: A string with which to prefix all log messages. Defaults to an empty string.
@@ -662,20 +664,31 @@ extension Publisher {
 // MARK: RECEIVE ON
 extension Publisher {
     
-    /// Shifts operation from current queue to provided queue.
+    /// Specifies the scheduler on which to receive elements from the publisher.
     ///
-    /// Use this operator when you want to shift the operations from current queue to provided queue.
+    /// You use the `receive(on:options:)` operator to receive results on a specific scheduler, such as performing UI work on the main run loop.
+    /// In contrast with `subscribe(on:options:)`, which affects upstream messages, `receive(on:options:)` changes the execution context of downstream messages. In the following example, requests to `jsonPublisher` are performed on `backgroundQueue`, but elements received from it are performed on `RunLoop.main`.
+    ///
+    ///     let jsonPublisher = MyJSONLoaderPublisher() // Some publisher.
+    ///     let labelUpdater = MyLabelUpdateSubscriber() // Some subscriber that updates the UI.
+    ///
+    ///     jsonPublisher
+    ///         .subscribe(on: backgroundQueue)
+    ///         .receiveOn(on: RunLoop.main)
+    ///         .subscribe(labelUpdater)
+    ///
     /// - Parameters:
-    ///   - queue: The queue on which rest of the operations will be performed unless again changed.
+    ///   - scheduler: The scheduler the publisher is to use for element delivery.
+    ///   - options: Scheduler options that customize the element delivery.
     /// - Returns: A publisher that delivers elements using the specified scheduler.
-    public func receive(on scheduler: Scheduler) -> Publishers.ReceiveOn<Self> {
-        Publishers.ReceiveOn(upstream: self, on: scheduler)
+    public func receive<S: Scheduler>(on scheduler: S, options: S.PKSchedulerOptions? = nil) -> Publishers.ReceiveOn<Self, S> {
+        Publishers.ReceiveOn(upstream: self, scheduler: scheduler, options: options)
     }
 }
 
 // MARK: REDUCE
 extension Publisher {
-
+    
     /// Applies a closure that accumulates each element of a stream and publishes a final result upon completion.
     ///
     /// - Parameters:
@@ -685,7 +698,7 @@ extension Publisher {
     public func reduce<T>(_ initialResult: T, _ nextPartialResult: @escaping (T, Self.Output) -> T) -> Publishers.Reduce<Self, T> {
         Publishers.Reduce(upstream: self, initial: initialResult, nextPartialResult: nextPartialResult)
     }
-
+    
     /// Applies an error-throwing closure that accumulates each element of a stream and publishes a final result upon completion.
     ///
     /// If the closure throws an error, the publisher fails, passing the error to its subscriber.
@@ -789,7 +802,7 @@ extension Publisher {
 
 // MARK: SET FAILURE TYPE
 extension Publisher where Failure == Never {
-
+    
     /// Changes the failure type declared by the upstream publisher.
     ///
     /// The publisher returned by this method cannot actually fail with the specified type and instead just finishes normally. Instead, you use this method when you need to match the error types of two mismatched publishers.

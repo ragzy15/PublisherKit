@@ -10,7 +10,7 @@ import Foundation
 extension Publishers {
     
     /// A publisher that publishes elements to its downstream subscriber on a specific scheduler.
-    public struct ReceiveOn<Upstream: Publisher>: Publisher {
+    public struct ReceiveOn<Upstream: Publisher, Context: Scheduler>: Publisher {
         
         public typealias Output = Upstream.Output
         
@@ -19,17 +19,21 @@ extension Publishers {
         /// The publisher from which this publisher receives elements.
         public let upstream: Upstream
         
-        /// The scheduler on which elements are published.
-        public let scheduler: Scheduler
+        /// The scheduler the publisher is to use for element delivery.
+        public let scheduler: Context
         
-        public init(upstream: Upstream, on scheduler: Scheduler) {
+        /// Scheduler options that customize the delivery of elements.
+        public let options: Context.PKSchedulerOptions?
+        
+        public init(upstream: Upstream, scheduler: Context, options: Context.PKSchedulerOptions?) {
             self.upstream = upstream
             self.scheduler = scheduler
+            self.options = options
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let receiveOnSubscriber = Inner(downstream: subscriber, scheduler: scheduler)
+            let receiveOnSubscriber = Inner(downstream: subscriber, scheduler: scheduler, options: options)
             upstream.subscribe(receiveOnSubscriber)
         }
     }
@@ -38,14 +42,17 @@ extension Publishers {
 extension Publishers.ReceiveOn {
     
     // MARK: RECEIVEON SINK
-    private final class Inner<Downstream: Subscriber>: InternalSubscriber<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber, Context: Scheduler>: InternalSubscriber<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        private let scheduler: Scheduler
+        private let scheduler: Context
+        
+        private let options: Context.PKSchedulerOptions?
         
         private let downstreamLock = RecursiveLock()
         
-        init(downstream: Downstream, scheduler: Scheduler) {
+        init(downstream: Downstream, scheduler: Context, options: Context.PKSchedulerOptions?) {
             self.scheduler = scheduler
+            self.options = options
             super.init(downstream: downstream)
         }
         
@@ -66,7 +73,7 @@ extension Publishers.ReceiveOn {
             
             getLock().unlock()
             
-            scheduler.schedule { [weak self] in
+            scheduler.schedule(options: options) { [weak self] in
                 self?.downstreamLock.lock()
                 _ = self?.downstream?.receive(input)
                 self?.downstreamLock.unlock()
@@ -82,7 +89,7 @@ extension Publishers.ReceiveOn {
             status = .terminated
             getLock().unlock()
             
-            scheduler.schedule { [weak self] in
+            scheduler.schedule(options: options) { [weak self] in
                 self?.end {
                     self?.downstream?.receive(completion: completion)
                 }

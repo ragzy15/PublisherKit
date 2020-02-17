@@ -1,30 +1,30 @@
 //
-//  Operation Queue.swift
+//  Run Loop.swift
 //  PublisherKit
 //
-//  Created by Raghav Ahuja on 25/12/19.
+//  Created by Raghav Ahuja on 14/02/20.
 //
 
 import Foundation
 
-extension OperationQueue: Scheduler {
+extension RunLoop: Scheduler {
     
-    /// The scheduler time type used by the operation queue.
+    /// The scheduler time type used by the run loop.
     public struct PKStrideType: Strideable, Codable, Hashable {
         
         /// The date represented by this type.
         public var date: Date
         
-        /// Initializes a operation queue scheduler time with the given date.
+        /// Initializes a run loop scheduler time with the given date.
         ///
         /// - Parameter date: The date to represent.
         public init(_ date: Date) {
             self.date = date
         }
         
-        /// Returns the distance to another operation queue scheduler time.
+        /// Returns the distance to another run loop scheduler time.
         ///
-        /// - Parameter other: Another operation queue time.
+        /// - Parameter other: Another dispatch queue time.
         /// - Returns: The time interval between this time and the provided time.
         public func distance(to other: PKStrideType) -> PKStrideType.Stride {
             let timeIntervalSince1970 = date > other.date ? date.timeIntervalSince1970 - other.date.timeIntervalSince1970 : other.date.timeIntervalSince1970 - date.timeIntervalSince1970
@@ -32,16 +32,16 @@ extension OperationQueue: Scheduler {
             return PKStrideType.Stride(timeIntervalSince1970)
         }
         
-        /// Returns a operation queue scheduler time calculated by advancing this instance’s time by the given interval.
+        /// Returns a run loop scheduler time calculated by advancing this instance’s time by the given interval.
         ///
         /// - Parameter n: A time interval to advance.
-        /// - Returns: A operation queue time advanced by the given interval from this instance’s time.
+        /// - Returns: A dispatch queue time advanced by the given interval from this instance’s time.
         public func advanced(by n: PKStrideType.Stride) -> PKStrideType {
             let timeIntervalSince1970 = date.timeIntervalSince1970 + n.magnitude
             return PKStrideType(Date(timeIntervalSince1970: timeIntervalSince1970))
         }
         
-        /// The interval by which operation queue times advance.
+        /// The interval by which run loop times advance.
         public struct Stride: ExpressibleByFloatLiteral, Comparable, SignedNumeric, Codable, PKSchedulerTimeIntervalConvertible {
             
             public typealias FloatLiteralType = TimeInterval
@@ -69,8 +69,28 @@ extension OperationQueue: Scheduler {
             }
             
             public init?<T>(exactly source: T) where T : BinaryInteger {
-                guard let value = Int(exactly: source) else { return nil }
-                magnitude = TimeInterval(value)
+                guard let value = TimeInterval(exactly: source) else { return nil }
+                magnitude = value
+            }
+            
+            public static func seconds(_ s: Int) -> Stride {
+                Stride(TimeInterval(s))
+            }
+            
+            public static func seconds(_ s: Double) -> Stride {
+                Stride(s)
+            }
+            
+            public static func milliseconds(_ ms: Int) -> Stride {
+                Stride(TimeInterval(ms / 1_000))
+            }
+            
+            public static func microseconds(_ us: Int) -> Stride {
+                Stride(TimeInterval(us / 1_000_000))
+            }
+            
+            public static func nanoseconds(_ ns: Int) -> Stride {
+                Stride(TimeInterval(ns / 1_000_000_000))
             }
             
             public static func < (lhs: Stride, rhs: Stride) -> Bool {
@@ -105,26 +125,6 @@ extension OperationQueue: Scheduler {
                 a.magnitude == b.magnitude
             }
             
-            public static func seconds(_ s: Int) -> Stride {
-                Stride(TimeInterval(s))
-            }
-            
-            public static func seconds(_ s: Double) -> Stride {
-                Stride(s)
-            }
-            
-            public static func milliseconds(_ ms: Int) -> Stride {
-                Stride(TimeInterval(ms / 1_000))
-            }
-            
-            public static func microseconds(_ us: Int) -> Stride {
-                Stride(TimeInterval(us / 1_000_000))
-            }
-            
-            public static func nanoseconds(_ ns: Int) -> Stride {
-                Stride(TimeInterval(ns / 1_000_000_000))
-            }
-            
             public init(from decoder: Decoder) throws {
                 let container = try decoder.singleValueContainer()
                 magnitude = try container.decode(TimeInterval.self)
@@ -135,45 +135,44 @@ extension OperationQueue: Scheduler {
                 try container.encode(magnitude)
             }
         }
-        
-        public init(from decoder: Decoder) throws {
-            let container = try decoder.singleValueContainer()
-            let timeIntervalSince1970 = try container.decode(TimeInterval.self)
-            date = Date(timeIntervalSince1970: timeIntervalSince1970)
-        }
-        
-        public func encode(to encoder: Encoder) throws {
-            var container = encoder.singleValueContainer()
-            try container.encode(date.timeIntervalSince1970)
-        }
-        
-        public func hash(into hasher: inout Hasher) {
-            hasher.combine(date)
-        }
     }
     
-    /// Options that affect the operation of the operation queue scheduler.
+    /// Options that affect the operation of the run loop scheduler.
     public struct PKSchedulerOptions {
     }
     
     public func schedule(options: PKSchedulerOptions? = nil, _ action: @escaping () -> Void) {
-        addOperation(BlockOperation(block: action))
+        let timer = Timer(fireAt: now.date, interval: 0, target: self, selector: #selector(scheduledAction(_:)), userInfo: action, repeats: false)
+        
+        add(timer, forMode: .default)
     }
     
     public func schedule(after date: PKStrideType, tolerance: PKStrideType.Stride, options: PKSchedulerOptions? = nil, _ action: @escaping () -> Void) {
-        let op = AsynchronousBlockOperation(after: date, interval: 0, tolerance: tolerance, repeats: false, action)
-        addOperation(op)
+        let timer = Timer(fireAt: date.date, interval: 0, target: self, selector: #selector(scheduledAction(_:)), userInfo: action, repeats: false)
+        
+        timer.tolerance = tolerance.timeInterval
+        
+        add(timer, forMode: .default)
     }
     
     public func schedule(after date: PKStrideType, interval: PKStrideType.Stride, tolerance: PKStrideType.Stride, options: PKSchedulerOptions? = nil, _ action: @escaping () -> Void) -> Cancellable {
-        let op = AsynchronousBlockOperation(after: date, interval: interval, tolerance: tolerance, repeats: true, action)
-        addOperation(op)
-        return AnyCancellable(cancel: op.cancel)
+        let timer = Timer(fireAt: date.date, interval: interval.timeInterval, target: self, selector: #selector(scheduledAction(_:)), userInfo: action, repeats: true)
+        
+        timer.tolerance = tolerance.timeInterval
+        
+        add(timer, forMode: .default)
+        
+        return AnyCancellable(cancel: timer.invalidate)
     }
     
-    /// Returns this scheduler's definition of the current moment in time.
-    public var now: PKStrideType { PKStrideType(Date(timeIntervalSinceNow: 0)) }
+    public var now: PKStrideType { PKStrideType(Date()) }
     
-    /// Returns the minimum tolerance allowed by the scheduler.
     public var minimumTolerance: PKStrideType.Stride { .seconds(0) }
+    
+    @objc private func scheduledAction(_ timer: Timer) {
+        if timer.isValid {
+            let action = timer.userInfo as? () -> Void
+            action?()
+        }
+    }
 }

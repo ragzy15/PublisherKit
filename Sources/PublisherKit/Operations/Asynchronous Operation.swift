@@ -53,57 +53,77 @@ public class AsynchronousOperation: Operation {
     }
 }
 
-
-class AsynchronousBlockOperation: AsynchronousOperation {
+/* Used By Operation Queue when conforms to Scheduler protocol */
+final class AsynchronousBlockOperation: AsynchronousOperation {
     
-    let block: () -> Void
-    let time: SchedulerTime
+    private var block: (() -> Void)?
+    private let date: OperationQueue.PKStrideType
+    private let interval: OperationQueue.PKStrideType.Stride
+    private let tolerance: OperationQueue.PKStrideType.Stride
+    private let repeats: Bool
     
-    private(set) var executedOnCurrentThread = false
+    private var timer: Timer?
     
-    init(time: SchedulerTime, _ block: @escaping () -> Void) {
-        self.time = time
+    private var stopRunLoop = false
+    
+    init(after date: OperationQueue.PKStrideType, interval: OperationQueue.PKStrideType.Stride, tolerance: OperationQueue.PKStrideType.Stride, repeats: Bool, _ block: @escaping () -> Void) {
+        self.date = date
+        self.interval = interval
+        self.tolerance = tolerance
+        self.repeats = repeats
         self.block = block
         super.init()
     }
     
-    override func main() {
-        let deadline = DispatchTime.now() + time.timeInterval
+    override func start() {
+        super.start()
         
-        if let queue = OperationQueue.current?.underlyingQueue {
-            executedOnCurrentThread = true
-            queue.asyncAfter(deadline: deadline) {
-                if self.isCancelled { return }
-                self.block()
-                self.finish()
-            }
-        } else {
-            executedOnCurrentThread = false
-            let qos = OperationQueue.current?.qualityOfService.dispatchQos ?? .unspecified
-            DispatchQueue.global(qos: qos).asyncAfter(deadline: deadline) {
-                self.finish()
-            }
+        let updateInterval: TimeInterval = 0.1
+        var loopUntil = Date(timeIntervalSinceNow: updateInterval)
+        while !stopRunLoop && RunLoop.current.run(mode: .default, before: loopUntil) {  // keeping the run loop awake.
+            loopUntil = Date(timeIntervalSinceNow: updateInterval)
         }
     }
-}
-
-extension QualityOfService {
     
-    var dispatchQos: DispatchQoS.QoSClass {
-        switch self {
-        case .userInteractive:
-            return .userInteractive
-        case .userInitiated:
-            return .userInitiated
-        case .utility:
-            return .utility
-        case .background:
-            return .background
-        case .default:
-            return .default
-            
-        @unknown default:
-            return .unspecified
+    override func main() {
+        guard !isCancelled else { return }
+        
+        let timer = Timer(fireAt: date.date, interval: interval.timeInterval, target: self, selector: #selector(performAction), userInfo: nil, repeats: repeats)
+        
+        timer.tolerance = tolerance.timeInterval
+        RunLoop.current.add(timer, forMode: .common)
+        self.timer = timer
+    }
+    
+    @objc func performAction() {
+        guard !isCancelled else {
+            return
         }
+        
+        guard let timer = timer, timer.isValid else {
+            return
+        }
+        
+        block?()
+        
+        if !repeats {
+            finish()
+        }
+    }
+    
+    override func finish() {
+        stopRunLoop = true
+        timer?.invalidate()
+        super.finish()
+        timer = nil
+        block = nil
+    }
+    
+    override func cancel() {
+        stopRunLoop = true
+        timer?.invalidate()
+        super.cancel()
+        timer = nil
+        block = nil
     }
 }
