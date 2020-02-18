@@ -45,7 +45,7 @@ extension Publishers.Zip: Equatable where A: Equatable, B: Equatable{
 extension Publishers.Zip {
     
     // MARK: ZIP SINK
-    final class Inner<Downstream: Subscriber>: Subscribers.InternalCombine<Downstream> where Downstream.Input == Output {
+    private final class Inner<Downstream: Subscriber>: Subscribers.InternalCombine<Downstream> where Downstream.Input == Output {
         
         private(set) lazy var aSubscriber = Subscribers.InternalClosure<Inner, A.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
