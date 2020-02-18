@@ -65,13 +65,13 @@ You can install by using swift package manager built into Xcode or clone the rep
 ## Usage
 
 ```swift
-searchTextField.textChangePublisher
-    .debounce(for: .milliseconds(300), on: DispatchQueue.global(qos: .userInitiated))
+searchTextField.textDidChangePublisher
+    .debounce(for: .milliseconds(300), scheduler: DispatchQueue.main)
     .compactMap { (text) -> String? in
         text.isEmpty ? nil : text
     }
     .removeDuplicates()
-    .flatMap { (text) in
+    .flatMap { (text) -> AnyPublisher<[SearchResults], Never> in
         self.search(with: text)
     }
     .receive(on: DispatchQueue.main)
