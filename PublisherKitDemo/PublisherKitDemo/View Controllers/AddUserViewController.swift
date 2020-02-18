@@ -58,7 +58,7 @@ final class AddUserViewController: UIViewController {
     }
     
     private func getPublisher(for textField: UITextField, saveIn method: @escaping (String) -> Void) -> AnyPublisher<String, Never> {
-        textField.textChangePublisher
+        textField.textDidChangePublisher
             .receive(on: DispatchQueue.global(qos: .userInitiated))
             .handleEvents(receiveOutput: method)  // update value for field in view model
             .eraseToAnyPublisher()

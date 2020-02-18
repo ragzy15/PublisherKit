@@ -3,10 +3,11 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 50;
+	objectVersion = 52;
 	objects = {
 
 /* Begin PBXBuildFile section */
+		AD5506D123FC793300B87284 /* PublisherKit in Frameworks */ = {isa = PBXBuildFile; productRef = AD5506D023FC793300B87284 /* PublisherKit */; };
 		AD9ADA6723DC338D00B2965A /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD9ADA6623DC338D00B2965A /* AppDelegate.swift */; };
 		AD9ADA6923DC338D00B2965A /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD9ADA6823DC338D00B2965A /* SceneDelegate.swift */; };
 		AD9ADA7023DC338F00B2965A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AD9ADA6F23DC338F00B2965A /* Assets.xcassets */; };
@@ -18,8 +19,6 @@
 		AD9ADA9423DC33BC00B2965A /* AddUserViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD9ADA8F23DC33BC00B2965A /* AddUserViewController.swift */; };
 		AD9ADA9823DC33D400B2965A /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AD9ADA9623DC33D300B2965A /* LaunchScreen.storyboard */; };
 		AD9ADA9923DC33D400B2965A /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AD9ADA9723DC33D300B2965A /* Main.storyboard */; };
-		AD9ADA9C23DC33F000B2965A /* PublisherKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AD9ADA9B23DC33F000B2965A /* PublisherKit.framework */; };
-		AD9ADA9D23DC33F000B2965A /* PublisherKit.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = AD9ADA9B23DC33F000B2965A /* PublisherKit.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -32,21 +31,8 @@
 		};
 /* End PBXContainerItemProxy section */
 
-/* Begin PBXCopyFilesBuildPhase section */
-		AD9ADA9E23DC33F000B2965A /* Embed Frameworks */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 10;
-			files = (
-				AD9ADA9D23DC33F000B2965A /* PublisherKit.framework in Embed Frameworks */,
-			);
-			name = "Embed Frameworks";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXCopyFilesBuildPhase section */
-
 /* Begin PBXFileReference section */
+		AD5506CF23FC792900B87284 /* PublisherKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = PublisherKit; path = ..; sourceTree = "<group>"; };
 		AD9ADA6323DC338D00B2965A /* PublisherKitDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PublisherKitDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AD9ADA6623DC338D00B2965A /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		AD9ADA6823DC338D00B2965A /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
@@ -70,7 +56,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				AD9ADA9C23DC33F000B2965A /* PublisherKit.framework in Frameworks */,
+				AD5506D123FC793300B87284 /* PublisherKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -87,6 +73,7 @@
 		AD9ADA5A23DC338D00B2965A = {
 			isa = PBXGroup;
 			children = (
+				AD5506CF23FC792900B87284 /* PublisherKit */,
 				AD9ADA6523DC338D00B2965A /* PublisherKitDemo */,
 				AD9ADA7C23DC338F00B2965A /* PublisherKitDemoTests */,
 				AD9ADA6423DC338D00B2965A /* Products */,
@@ -172,13 +159,15 @@
 				AD9ADA5F23DC338D00B2965A /* Sources */,
 				AD9ADA6023DC338D00B2965A /* Frameworks */,
 				AD9ADA6123DC338D00B2965A /* Resources */,
-				AD9ADA9E23DC33F000B2965A /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
 			name = PublisherKitDemo;
+			packageProductDependencies = (
+				AD5506D023FC793300B87284 /* PublisherKit */,
+			);
 			productName = PublisherKitDemo;
 			productReference = AD9ADA6323DC338D00B2965A /* PublisherKitDemo.app */;
 			productType = "com.apple.product-type.application";
@@ -514,6 +503,13 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		AD5506D023FC793300B87284 /* PublisherKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = PublisherKit;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = AD9ADA5B23DC338D00B2965A /* Project object */;
 }
