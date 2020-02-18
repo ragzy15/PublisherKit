@@ -5,15 +5,14 @@
 //  Created by Raghav Ahuja on 18/11/19.
 //
 
-import Foundation
-
-public extension PKPublishers {
+public extension Publishers {
     
-    struct TryMap<Upstream: PKPublisher, Output>: PKPublisher {
+    /// A publisher that transforms all elements received from an upstream publisher with a specified error-throwing closure.
+    struct TryMap<Upstream: Publisher, Output>: Publisher {
         
         public typealias Failure = Error
         
-        /// The publisher that this publisher receives elements from.
+        /// The publisher from which this publisher receives elements.
         public let upstream: Upstream
         
         /// The closure that transforms elements from the upstream publisher.
@@ -24,73 +23,53 @@ public extension PKPublishers {
             self.transform = transform
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let tryMapSubscriber = InternalSink(downstream: subscriber, transform: transform)
-            
-            subscriber.receive(subscription: tryMapSubscriber)
-            tryMapSubscriber.request(.unlimited)
+            let tryMapSubscriber = Inner(downstream: subscriber, operation: transform)
             upstream.receive(subscriber: tryMapSubscriber)
         }
     }
 }
 
-extension PKPublishers.TryMap {
+extension Publishers.TryMap {
     
-    public func map<T>(_ transform: @escaping (Output) -> T) -> PKPublishers.TryMap<Upstream, T> {
+    public func map<T>(_ transform: @escaping (Output) -> T) -> Publishers.TryMap<Upstream, T> {
         
         let newTransform: (Upstream.Output) throws -> T = { output in
             let newOutput = try self.transform(output)
             return transform(newOutput)
         }
         
-        return PKPublishers.TryMap<Upstream, T>(upstream: upstream, transform: newTransform)
+        return Publishers.TryMap<Upstream, T>(upstream: upstream, transform: newTransform)
     }
     
-    public func tryMap<T>(_ transform: @escaping (Output) throws -> T) -> PKPublishers.TryMap<Upstream, T> {
+    public func tryMap<T>(_ transform: @escaping (Output) throws -> T) -> Publishers.TryMap<Upstream, T> {
         
         let newTransform: (Upstream.Output) throws -> T = { output in
             let newOutput = try self.transform(output)
             return try transform(newOutput)
         }
         
-        return PKPublishers.TryMap<Upstream, T>(upstream: upstream, transform: newTransform)
+        return Publishers.TryMap<Upstream, T>(upstream: upstream, transform: newTransform)
     }
 }
 
-extension PKPublishers.TryMap {
+extension Publishers.TryMap {
     
     // MARK: TRY MAP SINK
-    private final class InternalSink<Downstream: PKSubscriber>: UpstreamSinkable<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: OperatorSubscriber<Downstream, Upstream, (Upstream.Output) throws -> Output> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        private let transform: (Upstream.Output) throws -> Output
-        
-        init(downstream: Downstream, transform: @escaping (Upstream.Output) throws -> Output) {
-            self.transform = transform
-            super.init(downstream: downstream)
+        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+            Result { try operation(input) }
         }
         
-        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
-            guard !isCancelled else { return .none }
-            
-            do {
-                let output = try transform(input)
-                downstream?.receive(input: output)
-                
-            } catch {
-                end()
-                downstream?.receive(completion: .failure(error))
-            }
-            
-            return demand
-        }
-        
-        override func receive(completion: PKSubscribers.Completion<Upstream.Failure>) {
-            guard !isCancelled else { return }
-            end()
-            
+        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
             let completion = completion.mapError { $0 as Downstream.Failure }
             downstream?.receive(completion: completion)
+        }
+        
+        override var description: String {
+            "TryMap"
         }
     }
 }

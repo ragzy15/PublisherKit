@@ -11,6 +11,8 @@ fileprivate struct BindableObserver: Hashable {
     
     private let uuid: String
     
+    static let notificationCenter = NotificationCenter()
+    
     let observer: NSObjectProtocol
     
     init(_ observer: NSObjectProtocol) {
@@ -56,7 +58,7 @@ public final class BindableValue<Value> {
     }
     
     private func sendNotification() {
-        BindableCenter.notificationCenter.post(name: notificationName, object: self, userInfo: ["value": wrappedValue])
+        BindableObserver.notificationCenter.post(name: notificationName, object: self, userInfo: ["value": wrappedValue])
     }
     
     public func removeAllObservers() {
@@ -68,14 +70,14 @@ public final class BindableValue<Value> {
     }
     
     private func removeObserver(_ observer: BindableObserver) {
-        BindableCenter.notificationCenter.removeObserver(observer.observer, name: notificationName, object: self)
+        BindableObserver.notificationCenter.removeObserver(observer.observer, name: notificationName, object: self)
     }
 }
 
 extension BindableValue {
     
     public func bind(on queue: OperationQueue? = nil, to listner: @escaping Listener) {
-        let notificationObserver = BindableCenter.notificationCenter.addObserver(forName: notificationName, object: self, queue: queue) { (notification) in
+        let notificationObserver = BindableObserver.notificationCenter.addObserver(forName: notificationName, object: self, queue: queue) { (notification) in
             guard let value = notification.userInfo?["value"] as? Value else {
                 return
             }
@@ -89,7 +91,7 @@ extension BindableValue {
     }
     
     public func bind<Root>(to keypath: ReferenceWritableKeyPath<Root, Value>, on object: Root, queue: OperationQueue? = nil) {
-        let notificationObserver = BindableCenter.notificationCenter.addObserver(forName: notificationName, object: self, queue: queue) { (notification) in
+        let notificationObserver = BindableObserver.notificationCenter.addObserver(forName: notificationName, object: self, queue: queue) { (notification) in
             guard let value = notification.userInfo?["value"] as? Value else {
                 return
             }
@@ -117,19 +119,8 @@ extension BindableValue {
 
 extension BindableValue {
     
-    public func send(_ newValue: Value, on scheduler: PKScheduler) {
-        scheduler.schedule {
-            self.wrappedValue = newValue
-        }
-    }
-    
     public func send(_ newValue: Value) {
         wrappedValue = newValue
-    }
-    
-    @available(*, deprecated, renamed: "send")
-    public func set(_ newValue: Value, on scheduler: PKScheduler) {
-        send(newValue, on: scheduler)
     }
     
     @available(*, deprecated, renamed: "send")
@@ -139,12 +130,6 @@ extension BindableValue {
 }
 
 extension BindableValue where Value == Void {
-    
-    public func send(on scheduler: PKScheduler) {
-        scheduler.schedule {
-            self.wrappedValue = ()
-        }
-    }
     
     public func send() {
         wrappedValue = ()
@@ -191,9 +176,9 @@ extension BindableValue: Decodable where Value: Decodable {
 
 extension BindableValue {
     
-    /// The property that can be accessed with the `_` syntax and allows access to the `PKPublisher`.
-    public var publisher: AnyPKPublisher<Value, Never> {
-        BindableCenter.notificationCenter.pkPublisher(for: notificationName, object: self)
+    /// The property that can be accessed with the `_` syntax and allows access to the `Publisher`.
+    public var publisher: AnyPublisher<Value, Never> {
+        BindableObserver.notificationCenter.pkPublisher(for: notificationName, object: self)
             .map(\.userInfo)
             .compactMap { $0?["value"] as? Value }
             .eraseToAnyPublisher()

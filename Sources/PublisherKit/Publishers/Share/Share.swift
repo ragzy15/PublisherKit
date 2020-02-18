@@ -5,32 +5,27 @@
 //  Created by Raghav Ahuja on 25/12/19.
 //
 
-import Foundation
-
-extension PKPublishers {
+extension Publishers {
     
     /// A publisher implemented as a class, which otherwise behaves like its upstream publisher.
-    final public class Share<Upstream: PKPublisher>: PKPublisher, Equatable {
+    final public class Share<Upstream: Publisher>: Publisher, Equatable {
         
         public typealias Output = Upstream.Output
         
         public typealias Failure = Upstream.Failure
         
-        private let uuidString: String
-        
         final public let upstream: Upstream
         
         public init(upstream: Upstream) {
             self.upstream = upstream
-            uuidString = "SharePublisher-\(UUID().uuidString)-\(Date())"
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             upstream.subscribe(subscriber)
         }
         
-        public static func == (lhs: PKPublishers.Share<Upstream>, rhs: PKPublishers.Share<Upstream>) -> Bool {
-            lhs.uuidString == rhs.uuidString
+        public static func == (lhs: Publishers.Share<Upstream>, rhs: Publishers.Share<Upstream>) -> Bool {
+            lhs === rhs
         }
     }
 }

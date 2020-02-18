@@ -5,17 +5,16 @@
 //  Created by Raghav Ahuja on 26/01/20.
 //
 
-import Foundation
-
-extension PKPublishers {
+extension Publishers {
     
     /// A publisher that publishes only elements that don’t match the previous element, as evaluated by a provided error-throwing closure.
-    public struct TryRemoveDuplicates<Upstream: PKPublisher>: PKPublisher {
+    public struct TryRemoveDuplicates<Upstream: Publisher>: Publisher {
         
         public typealias Output = Upstream.Output
         
         public typealias Failure = Error
         
+        /// The publisher from which this publisher receives elements.
         public let upstream: Upstream
         
         /// An error-throwing closure to evaluate whether two elements are equivalent, for purposes of filtering.
@@ -29,55 +28,42 @@ extension PKPublishers {
             self.predicate = predicate
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let tryDuplicatesSubscriber = InternalSink(downstream: subscriber, predicate: predicate)
-            
-            subscriber.receive(subscription: tryDuplicatesSubscriber)
-            tryDuplicatesSubscriber.request(.unlimited)
+            let tryDuplicatesSubscriber = Inner(downstream: subscriber, operation: predicate)
             upstream.subscribe(tryDuplicatesSubscriber)
         }
     }
 }
 
-extension PKPublishers.TryRemoveDuplicates {
+extension Publishers.TryRemoveDuplicates {
     
     // MARK: TRY REMOVE DUPLICATES SINK
-    private final class InternalSink<Downstream: PKSubscriber>: UpstreamSinkable<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: OperatorSubscriber<Downstream, Upstream, (Output, Output) throws -> Bool> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private var previousValue: Output? = nil
-        private let predicate: (Output, Output) throws -> Bool
         
-        init(downstream: Downstream, predicate: @escaping (Output, Output) throws -> Bool) {
-            self.predicate = predicate
-            super.init(downstream: downstream)
-        }
-        
-        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
-            guard !isCancelled else { return .none }
-            
+        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
             do {
-                if let previousValue = previousValue, try predicate(previousValue, input) {
-                    return demand
+                if let previousValue = previousValue, try operation(previousValue, input) {
+                    return nil
                 }
                 
                 previousValue = input
-                downstream?.receive(input: input)
+                return .success(input)
                 
             } catch {
-                end()
-                downstream?.receive(completion: .failure(error))
+                return .failure(error)
             }
-            
-            return demand
         }
         
-        override func receive(completion: PKSubscribers.Completion<Upstream.Failure>) {
-            guard !isCancelled else { return }
-            end()
-            
+        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
             let completion = completion.mapError { $0 as Downstream.Failure }
             downstream?.receive(completion: completion)
+        }
+        
+        override var description: String {
+            "TryRemoveDuplicates"
         }
     }
 }

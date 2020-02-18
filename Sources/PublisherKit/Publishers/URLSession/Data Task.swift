@@ -7,6 +7,10 @@
 
 import Foundation
 
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+
 extension URLSession {
     
     /// Returns a publisher that wraps a URL session data task for a given URL.
@@ -46,7 +50,7 @@ extension URLSession {
     @available(*, deprecated, renamed: "DataTaskPKPublisher")
     public typealias NKDataTaskPublisher = DataTaskPKPublisher
     
-    public struct DataTaskPKPublisher: PKPublisher, URLSessionTaskPublisherDelegate {
+    public struct DataTaskPKPublisher: PublisherKit.Publisher {
         
         public typealias Output = (data: Data, response: HTTPURLResponse)
         
@@ -58,19 +62,18 @@ extension URLSession {
         
         public var name: String
         
-        private static let queue = DispatchQueue(label: "com.PublisherKit.data-task-thread", qos: .utility, attributes: .concurrent)
-        
         public init(name: String = "", request: URLRequest, session: URLSession) {
             self.name = name
             self.request = request
             self.session = session
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let dataTaskSubscriber = InternalSink(downstream: subscriber)
+            let dataTaskSubscriber = Inner(downstream: subscriber)
             
             subscriber.receive(subscription: dataTaskSubscriber)
+            dataTaskSubscriber.request(.max(1))
             
             dataTaskSubscriber.resume(with: request, in: session)
             
@@ -81,36 +84,36 @@ extension URLSession {
 
 extension URLSession.DataTaskPKPublisher {
     
-    /// Validates that the response has a status code acceptable in the specified range, and that the response has a content type in the specified sequence.
-    /// - Parameters:
-    ///   - acceptableStatusCodes: The range of acceptable status codes. Default range of 200...299.
-    ///   - acceptableContentTypes: The acceptable content types, which may specify wildcard types and/or subtypes. If provided `nil`, content type is not validated. Providing an empty Array uses default behaviour. By default the content type matches any specified in the **Accept** HTTP header field.
-    public func validate(acceptableStatusCodes: [Int] = Array(200 ..< 300), acceptableContentTypes: [String]? = []) -> PKPublishers.Validate<Self> {
-        PKPublishers.Validate(upstream: self, acceptableStatusCodes: acceptableStatusCodes, acceptableContentTypes: acceptableContentTypes)
-    }
-}
-
-extension URLSession.DataTaskPKPublisher {
-    
     // MARK: DATA TASK SINK
-    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.InternalSink<Downstream, Output, Failure>, URLSessionTaskPublisherDelegate where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscriptions.Internal<Downstream, Output, Failure>, URLSessionTaskPublisherDelegate where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        private var task: URLSessionTask?
+        private var task: URLSessionDataTask?
         
         func resume(with request: URLRequest, in session: URLSession) {
-            let completion = handleCompletion(queue: URLSession.DataTaskPKPublisher.queue, subscriber: self)
+            getLock().lock()
+            guard task == nil else { getLock().unlock(); return }
+            
+            let completion = handleCompletion(subscriber: self)
             task = session.dataTask(with: request, completionHandler: completion)
+            
+            getLock().unlock()
+            
             task?.resume()
         }
         
-        override func end() {
+        override func end(completion: () -> Void) {
+            super.end(completion: completion)
             task = nil
-            super.end()
         }
         
         override func cancel() {
-            task?.cancel()
             super.cancel()
+            task?.cancel()
+            task = nil
+        }
+        
+        override var description: String {
+            "Data Task Publisher"
         }
     }
 }

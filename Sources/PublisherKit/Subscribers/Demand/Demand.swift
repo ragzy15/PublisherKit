@@ -5,18 +5,22 @@
 //  Created by Raghav Ahuja on 19/12/19.
 //
 
-import Foundation
-
-extension PKSubscribers {
+extension Subscribers {
     
     /// A requested number of items, sent to a publisher from a subscriber via the subscription.
     ///
-    /// - unlimited: A request for an unlimited number of items.
-    /// - max: A request for a maximum number of items.
+    /// - `unlimited`: A request for an unlimited number of items.
+    /// - `max`: A request for a maximum number of items.
     public struct Demand: Equatable, Comparable, Hashable, Codable, CustomStringConvertible {
         
-        /// Requests as many values as the `PKPublisher` can produce.
-        public static let unlimited: Demand = .init(Int.max, isUnlimited: true)
+        @usableFromInline let rawValue: UInt
+        
+        @usableFromInline init(rawValue: UInt) {
+            self.rawValue = min(UInt(Int.max) + 1, rawValue)
+        }
+        
+        /// Requests as many values as the `Publisher` can produce.
+        public static let unlimited = Demand(rawValue: .max)
         
         /// A demand for no items.
         ///
@@ -24,306 +28,245 @@ extension PKSubscribers {
         public static let none: Demand = .max(0)
         
         /// Limits the maximum number of values.
-        /// The `PKPublisher` may send fewer than the requested number.
+        /// The `Publisher` may send fewer than the requested number.
         /// Negative values will result in a `fatalError`.
         @inlinable public static func max(_ value: Int) -> Demand {
-            if value < 0 { fatalError("Maximum demand value cannot be less than 0") }
-            return .init(value)
+            precondition(value >= 0, "Maximum demand value cannot be less than 0")
+            return Demand(rawValue: UInt(value))
         }
         
-        /// Returns the number of requested values, or nil if unlimited.
-        @inlinable public var max: Int? { value == Demand.unlimited ? nil : value }
-        
-        @usableFromInline var value: Int
-        
-        private let isUnlimited: Bool
-        
-        @usableFromInline init(_ value: Int, isUnlimited: Bool = false) {
-            self.value = value
-            self.isUnlimited = isUnlimited
+        public var description: String {
+            self == .unlimited ? "unlimited" : "max(\(rawValue))"
         }
         
-        /// When adding any value to .unlimited, the result is .unlimited.
+        /// When adding any value to `.unlimited`, the result is `.unlimited`.
         @inlinable public static func + (lhs: Demand, rhs: Demand) -> Demand {
-            if lhs == .unlimited || rhs == .unlimited {
+            switch (lhs, rhs) {
+            case (.unlimited, _):
                 return .unlimited
+                
+            case (_, .unlimited):
+                return .unlimited
+                
+            default:
+                let (sum, isOverflow) = Int(lhs.rawValue)
+                    .addingReportingOverflow(Int(rhs.rawValue))
+                return isOverflow ? .unlimited : .max(sum)
             }
-            
-            return .max(lhs.value + rhs.value)
         }
         
-        /// When adding any value to .unlimited, the result is .unlimited.
+        /// When adding any value to `.unlimited`, the result is `.unlimited`.
         @inlinable public static func += (lhs: inout Demand, rhs: Demand) {
-            if lhs == .unlimited || rhs == .unlimited {
-                lhs = .unlimited
-                return
-            }
-            
-            return lhs.value += rhs.value
+            if lhs == .unlimited { return }
+            lhs = lhs + rhs
         }
         
-        /// When adding any value to .unlimited, the result is .unlimited.
+        /// When adding any value to` .unlimited`, the result is `.unlimited`.
         @inlinable public static func + (lhs: Demand, rhs: Int) -> Demand {
-            if lhs == .unlimited || rhs == Demand.unlimited.value {
-                return .unlimited
-            }
+            if lhs == .unlimited { return .unlimited }
             
-            return .max(lhs.value + rhs)
+            let (sum, isOverflow) = Int(lhs.rawValue).addingReportingOverflow(rhs)
+            return isOverflow ? .unlimited : .max(sum)
         }
         
-        /// When adding any value to .unlimited, the result is .unlimited.
+        /// When adding any value to `.unlimited`, the result is `.unlimited`.
         @inlinable public static func += (lhs: inout Demand, rhs: Int) {
-            if lhs == .unlimited || rhs == Demand.unlimited.value {
-                return
-            }
-            
-            lhs.value += rhs
+            lhs = lhs + rhs
         }
         
-        /// When multiplying any value to .unlimited, the result is .unlimited.
+        /// When multiplying any value to `.unlimited`, the result is `.unlimited`.
         public static func * (lhs: Demand, rhs: Int) -> Demand {
-            if lhs == .unlimited || rhs == Demand.unlimited.value {
-                return .unlimited
-            }
+            if lhs == .unlimited { return .unlimited }
             
-            return .max(lhs.value * rhs)
+            let (product, isOverflow) = Int(lhs.rawValue)
+                .multipliedReportingOverflow(by: rhs)
+            return isOverflow ? .unlimited : .max(product)
         }
         
-        /// When multiplying any value to .unlimited, the result is .unlimited.
+        /// When multiplying any value to `.unlimited`, the result is `.unlimited`.
         @inlinable public static func *= (lhs: inout Demand, rhs: Int) {
-            if lhs == .unlimited {
-                return
-            } else if rhs == Demand.unlimited.value {
-                lhs = .unlimited
-            }
-            
-            return lhs.value *= rhs
+            lhs = lhs * rhs
         }
         
-        /// When subtracting any value (including .unlimited) from .unlimited, the result is still .unlimited. Subtracting unlimited from any value (except unlimited) results in .max(0). A negative demand is not possible; any operation that would result in a negative value is clamped to .max(0).
+        /// When subtracting any value (including `.unlimited`) from `.unlimited`, the result is still `.unlimited`. Subtracting `.unlimited` from any value (except `.unlimited`) results in `.max(0)`.
+        /// A negative demand is not possible; any operation that would result in a negative value is clamped to `.max(0)`.
         @inlinable public static func - (lhs: Demand, rhs: Demand) -> Demand {
-            if lhs == .unlimited {
+            switch (lhs, rhs) {
+            case (.unlimited, _):
                 return .unlimited
-            } else if lhs == .unlimited && rhs == .unlimited {
-                return .unlimited
-            } else if (lhs != .unlimited && rhs == .unlimited) || (lhs.value - rhs.value <= 0) {
-                return .max(0)
-            } else {
-                return .max(lhs.value - rhs.value)
+                
+            case (_, .unlimited):
+                return .none
+                
+            default:
+                let (difference, isOverflow) = Int(lhs.rawValue)
+                    .subtractingReportingOverflow(Int(rhs.rawValue))
+                return isOverflow || difference < 0 ? .none : .max(difference)
             }
         }
         
-        /// When subtracting any value (including .unlimited) from .unlimited, the result is still .unlimited. Subtracting unlimited from any value (except unlimited) results in .max(0). A negative demand is not possible; any operation that would result in a negative value is clamped to .max(0).
+        /// When subtracting any value (including `.unlimited`) from `.unlimited`, the result is still `.unlimited`. Subtracting unlimited from any value (except `.unlimited`) results in `.max(0)`.
+        /// A negative demand is not possible; any operation that would result in a negative value is clamped to `.max(0)`.
         @inlinable public static func -= (lhs: inout Demand, rhs: Demand) {
-            if lhs == .unlimited {
-                return
-            } else if lhs == .unlimited && rhs == .unlimited {
-                lhs = .unlimited
-            } else if (lhs != .unlimited && rhs == .unlimited) || (lhs.value - rhs.value <= 0) {
-                lhs = .max(0)
-            } else {
-                lhs.value -= rhs.value
-            }
+            lhs = lhs - rhs
         }
         
-        /// When subtracting any value from .unlimited, the result is still .unlimited. A negative demand is not possible; any operation that would result in a negative value is clamped to .max(0).
+        /// When subtracting any value from `.unlimited`, the result is still `.unlimited`.
+        /// A negative demand is not possible; any operation that would result in a negative value is clamped to `.max(0)`
         @inlinable public static func - (lhs: Demand, rhs: Int) -> Demand {
-            if lhs == .unlimited {
-                return .unlimited
-            } else if lhs == .unlimited && rhs == Demand.unlimited.value {
-                return .unlimited
-            } else if (lhs != .unlimited && rhs == Demand.unlimited.value) || (lhs.value - rhs <= 0) {
-                return .max(0)
-            } else {
-                return .max(lhs.value - rhs)
-            }
+            if lhs == .unlimited { return .unlimited }
+            
+            let (difference, isOverflow) = Int(lhs.rawValue)
+                .subtractingReportingOverflow(rhs)
+            return isOverflow || difference < 0 ? .none : .max(difference)
         }
         
-        /// When subtracting any value from .unlimited, the result is still .unlimited. A negative demand is not possible; any operation that would result in a negative value is clamped to .max(0).
+        /// When subtracting any value from `.unlimited,` the result is still `.unlimited`.
+        /// A negative demand is not possible; any operation that would result in a negative value is clamped to `.max(0)`
         @inlinable public static func -= (lhs: inout Demand, rhs: Int) {
-            if lhs == .unlimited {
-                return
-            } else if lhs == .unlimited && rhs == Demand.unlimited.value {
-                return
-            } else if (lhs != .unlimited && rhs == Demand.unlimited.value) || (lhs.value - rhs <= 0) {
-                lhs = .max(0)
-            } else {
-                lhs.value -= rhs
-            }
+            if lhs == .unlimited { return }
+            lhs = lhs - rhs
         }
         
-        /// If lhs is .unlimited, then the result is always true. Otherwise, the two max values are compared.
+        /// If lhs is `.unlimited`, then the result is always `true`. Otherwise, the two max values are compared.
         @inlinable public static func > (lhs: Demand, rhs: Int) -> Bool {
-            if lhs == .unlimited || rhs == Demand.unlimited.value {
-                return true
-            }
-            
-            return lhs.value > rhs
+            lhs == .unlimited ? true : Int(lhs.rawValue) > rhs
         }
         
-        /// If lhs is .unlimited, then the result is always true. Otherwise, the two max values are compared.
+        /// If lhs is `.unlimited`, then the result is always `true`. Otherwise, the two max values are compared.
         @inlinable public static func >= (lhs: Demand, rhs: Int) -> Bool {
-            if lhs == .unlimited || rhs == Demand.unlimited.value {
-                return true
-            }
-            
-            return lhs.value >= rhs
+            lhs == .unlimited ? true : Int(lhs.rawValue) >= rhs
         }
         
-        /// If rhs is .unlimited, then the result is always false. Otherwise, the two max values are compared.
+        /// If rhs is `.unlimited`, then the result is always `false`. Otherwise, the two max values are compared.
         @inlinable public static func > (lhs: Int, rhs: Demand) -> Bool {
-            if rhs == .unlimited || rhs == Demand.unlimited.value {
-                return false
-            }
-            
-            return lhs > rhs.value
+            rhs == .unlimited ? false : lhs >  Int(rhs.rawValue)
         }
         
-        /// If rhs is .unlimited, then the result is always false. Otherwise, the two max values are compared.
+        /// If rhs is `.unlimited`, then the result is always `false`. Otherwise, the two max values are compared.
         @inlinable public static func >= (lhs: Int, rhs: Demand) -> Bool {
-            if rhs == .unlimited || rhs == Demand.unlimited.value {
-                return false
-            }
-            
-            return lhs >= rhs.value
+            rhs == .unlimited ? false : lhs >= Int(rhs.rawValue)
         }
         
-        /// If lhs is .unlimited, then the result is always false. Otherwise, the two max values are compared.
+        /// If lhs is `.unlimited`, then the result is always `false`. Otherwise, the two max values are compared.
         @inlinable public static func < (lhs: Demand, rhs: Int) -> Bool {
-            if lhs == .unlimited || rhs == Demand.unlimited.value {
-                return false
-            }
-            
-            return lhs.value < rhs
+            lhs == .unlimited ? false : Int(lhs.rawValue) < rhs
         }
         
-        /// If rhs is .unlimited then the result is always false. Otherwise, the two max values are compared.
+        /// If rhs is `.unlimited` then the result is always `false`. Otherwise, the two max values are compared.
         @inlinable public static func < (lhs: Int, rhs: Demand) -> Bool {
-            if rhs == .unlimited || rhs == Demand.unlimited.value {
-                return true
-            }
-            
-            return lhs < rhs.value
+            rhs == .unlimited ? true : lhs < Int(rhs.rawValue)
         }
         
-        /// If lhs is .unlimited, then the result is always false. Otherwise, the two max values are compared.
+        /// If lhs is `.unlimited`, then the result is always `false`. Otherwise, the two max values are compared.
         @inlinable public static func <= (lhs: Demand, rhs: Int) -> Bool {
-            if lhs == .unlimited || rhs == Demand.unlimited.value {
-                return false
-            }
-            
-            return lhs.value <= rhs
+            lhs == .unlimited ? false : Int(lhs.rawValue) <= rhs
         }
         
-        /// If rhs is .unlimited then the result is always false. Otherwise, the two max values are compared.
+        /// If rhs is `.unlimited` then the result is always `false`. Otherwise, the two max values are compared.
         @inlinable public static func <= (lhs: Int, rhs: Demand) -> Bool {
-            if rhs == .unlimited || rhs == Demand.unlimited.value {
-                return true
-            }
-            
-            return lhs <= rhs.value
+            rhs == .unlimited ? true : lhs <= Int(rhs.rawValue)
         }
         
-        /// If lhs is .unlimited, then the result is always false. If rhs is .unlimited then the result is always false. Otherwise, the two max values are compared.
+        /// If lhs is `.unlimited`, then the result is always `false`. If rhs is `.unlimited` then the result is always `false`. Otherwise, the two max values are compared.
         @inlinable public static func < (lhs: Demand, rhs: Demand) -> Bool {
-            if lhs == .unlimited || rhs == .unlimited {
+            switch (lhs, rhs) {
+            case (.unlimited, _):
                 return false
+                
+            case (_, .unlimited):
+                return true
+                
+            default:
+                return lhs.rawValue < rhs.rawValue
             }
-            
-            return lhs.value < rhs.value
         }
         
-        /// If lhs is .unlimited and rhs is .unlimited then the result is true. Otherwise, the rules for `<=` are followed.
+        /// If lhs is `.unlimited` and rhs is `.unlimited` then the result is `true`. Otherwise, the rules for `<=` are followed.
         @inlinable public static func <= (lhs: Demand, rhs: Demand) -> Bool {
-            if lhs == .unlimited && rhs == .unlimited {
+            switch (lhs, rhs) {
+            case (.unlimited, .unlimited):
                 return true
-            } else if lhs != .unlimited && rhs == .unlimited {
-                return true
-            } else if lhs == .unlimited && rhs != .unlimited {
+                
+            case (.unlimited, _):
                 return false
+                
+            case (_, .unlimited):
+                return true
+                
+            default:
+                return lhs.rawValue <= rhs.rawValue
             }
-            
-            return lhs.value <= rhs.value
         }
         
-        /// If lhs is .unlimited and rhs is .unlimited then the result is true. Otherwise, the rules for `>=` are followed.
+        /// If lhs is `.unlimited` and rhs is `.unlimited` then the result is `true`. Otherwise, the rules for `>=` are followed.
         @inlinable public static func >= (lhs: Demand, rhs: Demand) -> Bool {
-            if lhs == .unlimited && rhs == .unlimited {
+            switch (lhs, rhs) {
+            case (.unlimited, .unlimited):
                 return true
-            } else if lhs == .unlimited && rhs != .unlimited {
+                
+            case (.unlimited, _):
                 return true
-            } else if lhs != .unlimited && rhs == .unlimited {
+                
+            case (_, .unlimited):
                 return false
+                
+            default:
+                return lhs.rawValue >= rhs.rawValue
             }
-            
-            return lhs.value >= rhs.value
         }
         
-        /// If rhs is .unlimited, then the result is always false. If lhs is .unlimited then the result is always false. Otherwise, the two max values are compared.
+        /// If rhs is `.unlimited`, then the result is always `false`. If lhs is `.unlimited` then the result is always `false`. Otherwise, the two max values are compared.
         @inlinable public static func > (lhs: Demand, rhs: Demand) -> Bool {
-            if lhs == .unlimited || rhs == .unlimited {
+            switch (lhs, rhs) {
+            case (.unlimited, .unlimited):
                 return false
+                
+            case (.unlimited, _):
+                return true
+                
+            case (_, .unlimited):
+                return false
+                
+            default:
+                return lhs.rawValue > rhs.rawValue
             }
-            
-            return lhs.value > rhs.value
         }
         
         /// Returns `true` if `lhs` and `rhs` are equal. `.unlimited` is not equal to any integer.
         @inlinable public static func == (lhs: Demand, rhs: Int) -> Bool {
-            if lhs == .unlimited || rhs == Demand.unlimited.value {
-                return false
-            }
-            
-            return lhs.value == rhs
+            lhs == .unlimited ? false : Int(lhs.rawValue) == lhs
         }
         
         /// Returns `true` if `lhs` and `rhs` are not equal. `.unlimited` is not equal to any integer.
         @inlinable public static func != (lhs: Demand, rhs: Int) -> Bool {
-            if lhs == .unlimited || rhs == Demand.unlimited.value {
-                return true
-            }
-            
-            return lhs.value != rhs
+            lhs == .unlimited ? true : Int(lhs.rawValue) != lhs
         }
         
         /// Returns `true` if `lhs` and `rhs` are equal. `.unlimited` is not equal to any integer.
         @inlinable public static func == (lhs: Int, rhs: Demand) -> Bool {
-            if rhs == .unlimited || lhs == Demand.unlimited.value {
-                return false
-            }
-            
-            return lhs == rhs.value
+            rhs == .unlimited ? false : Int(rhs.rawValue) == lhs
         }
         
         /// Returns `true` if `lhs` and `rhs` are not equal. `.unlimited` is not equal to any integer.
         @inlinable public static func != (lhs: Int, rhs: Demand) -> Bool {
-            if rhs == .unlimited || lhs == Demand.unlimited.value {
-                return true
-            }
-            
-            return lhs != rhs.value
+            rhs == .unlimited ? true : Int(rhs.rawValue) != lhs
         }
         
-        public static func == (lhs: Demand, rhs: Demand) -> Bool {
-            if lhs.isUnlimited && rhs.isUnlimited {
-                return true
-            } else if lhs.isUnlimited || rhs.isUnlimited {
-                return false
-            }
-            
-            return lhs.value == rhs.value
+        @inlinable public static func == (lhs: Demand, rhs: Demand) -> Bool {
+            lhs.rawValue == rhs.rawValue
         }
         
-        public func hash(into hasher: inout Hasher) {
-            hasher.combine(value)
+        /// Returns the number of requested values, or `nil` if `.unlimited`.
+        @inlinable public var max: Int? { self == .unlimited ? nil : Int(self.rawValue) }
+        
+        public init(from decoder: Decoder) throws {
+            try self.init(rawValue: decoder.singleValueContainer().decode(UInt.self))
         }
         
-        public var description: String {
-            if self == .unlimited {
-                return "unlimited"
-            } else {
-                return "max(\(value))"
-            }
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.singleValueContainer()
+            try container.encode(rawValue)
         }
     }
 }

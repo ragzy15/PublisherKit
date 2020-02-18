@@ -5,55 +5,55 @@
 //  Created by Raghav Ahuja on 25/11/19.
 //
 
-import Foundation
+/// A set of `AnyCancellable`s.
+public typealias CancellableBag = Set<AnyCancellable>
 
-public typealias PKCancellables = Set<PKAnyCancellable>
+@available(*, deprecated, renamed: "AnyCancellable")
+public typealias NKAnyCancellable = AnyCancellable
 
-@available(*, deprecated, renamed: "PKAnyCancellable")
-public typealias NKAnyCancellable = PKAnyCancellable
+@available(*, deprecated, renamed: "AnyCancellable")
+public typealias PKAnyCancellable = AnyCancellable
 
-final public class PKAnyCancellable: PKCancellable, Hashable {
+final public class AnyCancellable: Cancellable, Hashable {
     
-    private final let block: () -> Void
-    private final let uuid: UUID
+    private final var _cancel: (() -> Void)?
     
     var isCancelled = false
-    
-    //    private var storagePointer: UnsafeMutablePointer<Set<PKAnyCancellable>>?
     
     /// Initializes the cancellable object with the given cancel-time closure.
     ///
     /// - Parameter cancel: A closure that the `cancel()` method executes.
     public init(cancel: @escaping () -> Void) {
-        block = cancel
-        uuid = UUID()
+        _cancel = cancel
     }
     
-    public init<C: PKCancellable>(_ canceller: C) {
-        block = canceller.cancel
-        uuid = UUID()
+    public init<C: Cancellable>(_ canceller: C) {
+        _cancel = canceller.cancel
     }
     
     deinit {
-        if !isCancelled {
-            cancel()
-        }
+        cancel()
     }
     
     public final func cancel() {
         isCancelled = true
-        block()
+        _cancel?()
+        _cancel = nil
     }
     
     public final func hash(into hasher: inout Hasher) {
-        hasher.combine(uuid)
+        hasher.combine(ObjectIdentifier(self))
     }
     
-    public static func == (lhs: PKAnyCancellable, rhs: PKAnyCancellable) -> Bool {
-        lhs.hashValue == rhs.hashValue
+    public static func == (lhs: AnyCancellable, rhs: AnyCancellable) -> Bool {
+        ObjectIdentifier(lhs) == ObjectIdentifier(rhs)
     }
     
-    public final func store(in set: inout Set<PKAnyCancellable>) {
+    public func store<C: RangeReplaceableCollection>(in collection: inout C) where C.Element == AnyCancellable {
+        collection.append(self)
+    }
+    
+    public final func store(in set: inout CancellableBag) {
         set.insert(self)
     }
 }

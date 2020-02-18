@@ -7,15 +7,16 @@
 
 import Foundation
 
-extension PKPublishers {
+extension Publishers {
     
     /// A publisher that publishes an array containing all the matches of the given regular pattern from the output.
-    public struct Matches<Upstream: PKPublisher>: PKPublisher where Upstream.Output == String {
+    public struct Matches<Upstream: Publisher>: Publisher where Upstream.Output == String {
         
         public typealias Output = [NSTextCheckingResult]
         
         public typealias Failure = Error
         
+        /// The publisher from which this publisher receives elements.
         public let upstream: Upstream
         
         /// The regular expression pattern to compile.
@@ -51,21 +52,18 @@ extension PKPublishers {
             result = .success(regularExpression)
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let matchesSubscriber = InternalSink(downstream: subscriber, result: result, matchOptions: matchOptions)
-            
-            subscriber.receive(subscription: matchesSubscriber)
-            matchesSubscriber.request(.unlimited)
+            let matchesSubscriber = Inner(downstream: subscriber, result: result, matchOptions: matchOptions)
             upstream.subscribe(matchesSubscriber)
         }
     }
 }
 
-extension PKPublishers.Matches {
+extension Publishers.Matches {
     
     // MARK: MATCHES SINK
-    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.Sinkable<Downstream, Upstream.Output, Upstream.Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: InternalSubscriber<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private let result: Result<NSRegularExpression, Error>
         private let matchOptions: NSRegularExpression.MatchingOptions
@@ -76,28 +74,20 @@ extension PKPublishers.Matches {
             super.init(downstream: downstream)
         }
         
-        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
-            guard !isCancelled else { return .none }
-            
-            switch result {
-            case .success(let expression):
+        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+            result.map { (expression) -> Downstream.Input in
                 let matches = expression.matches(in: input, options: matchOptions, range: NSRange(location: 0, length: input.utf8.count))
-                downstream?.receive(input: matches)
-                
-            case .failure(let error):
-                end()
-                downstream?.receive(completion: .failure(error))
+                return matches
             }
-            
-            return demand
         }
         
-        override func receive(completion: PKSubscribers.Completion<Upstream.Failure>) {
-            guard !isCancelled else { return }
-            end()
-            
+        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
             let completion = completion.mapError { $0 as Downstream.Failure }
             downstream?.receive(completion: completion)
+        }
+        
+        override var description: String {
+            "Matches"
         }
     }
 }

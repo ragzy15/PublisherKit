@@ -5,15 +5,14 @@
 //  Created by Raghav Ahuja on 18/11/19.
 //
 
-import Foundation
-
-public extension PKPublishers {
+public extension Publishers {
     
     /// A publisher that publishes the value of a key path.
-    struct MapKeyPath<Upstream: PKPublisher, Output>: PKPublisher {
+    struct MapKeyPath<Upstream: Publisher, Output>: Publisher {
         
         public typealias Failure = Upstream.Failure
         
+        /// The publisher from which this publisher receives elements.
         public let upstream: Upstream
         
         /// The key path of a property to publish.
@@ -24,21 +23,18 @@ public extension PKPublishers {
             self.keyPath = keyPath
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let mapKeypathSubscriber = InternalSink(downstream: subscriber, keyPath: keyPath)
-            
-            subscriber.receive(subscription: mapKeypathSubscriber)
-            mapKeypathSubscriber.request(.unlimited)
+            let mapKeypathSubscriber = Inner(downstream: subscriber, keyPath: keyPath)
             upstream.subscribe(mapKeypathSubscriber)
         }
     }
 }
 
-extension PKPublishers.MapKeyPath {
+extension Publishers.MapKeyPath {
     
     // MARK: MAPKEYPATH SINK
-    private final class InternalSink<Downstream: PKSubscriber>: UpstreamSinkable<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: InternalSubscriber<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private let keyPath: KeyPath<Upstream.Output, Output>
         
@@ -47,20 +43,22 @@ extension PKPublishers.MapKeyPath {
             super.init(downstream: downstream)
         }
         
-        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
-            guard !isCancelled else { return .none }
-            
-            let output = input[keyPath: keyPath]
-            
-            downstream?.receive(input: output)
-            
-            return demand
+        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+            .success(input[keyPath: keyPath])
         }
         
-        override func receive(completion: PKSubscribers.Completion<Failure>) {
-            guard !isCancelled else { return }
-            end()
+        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
             downstream?.receive(completion: completion)
+        }
+        
+        override var description: String {
+            switch status {
+            case .subscribed(let subscription):
+                return "\(subscription)"
+                
+            default:
+                return "MapKeyPath"
+            }
         }
     }
 }

@@ -17,7 +17,7 @@ final class AddUserViewController: UIViewController {
     
     var viewModel: AddUserViewModel!
     
-    private var cancellable: PKAnyCancellable?
+    private var cancellable: AnyCancellable?
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -57,7 +57,7 @@ final class AddUserViewController: UIViewController {
             .assign(to: \.submitButton.isEnabled, on: self)
     }
     
-    private func getPublisher(for textField: UITextField, saveIn method: @escaping (String) -> Void) -> AnyPKPublisher<String, Never> {
+    private func getPublisher(for textField: UITextField, saveIn method: @escaping (String) -> Void) -> AnyPublisher<String, Never> {
         textField.textChangePublisher
             .receive(on: DispatchQueue.global(qos: .userInitiated))
             .handleEvents(receiveOutput: method)  // update value for field in view model

@@ -21,13 +21,13 @@ extension NotificationCenter {
 
 extension NotificationCenter {
     
-    public struct PKPublisher: PublisherKit.PKPublisher {
+    public struct PKPublisher: PublisherKit.Publisher {
         
         public typealias Output = Notification
         
         public typealias Failure = Never
         
-        /// The notification center this publisher uses as a source.
+        /// The notification center used by this publisher.
         public let center: NotificationCenter
         
         /// The name of notifications published by this publisher.
@@ -42,20 +42,22 @@ extension NotificationCenter {
         ///   - center: The notification center to publish notifications for.
         ///   - name: The name of the notification to publish.
         ///   - object: The object posting the named notfication. If `nil`, the publisher emits elements for any object producing a notification with the given name.
+        ///   - queue: The operation queue to which block should be added.
+        ///   If you pass nil, the block is run synchronously on the posting thread. Default value is nil.
         public init(center: NotificationCenter, name: Notification.Name, object: AnyObject? = nil) {
             self.center = center
             self.name = name
             self.object = object
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let notificationSubscriber = InternalSink(downstream: subscriber, center: center, name: name, object: object)
+            let notificationSubscriber = Inner(downstream: subscriber, center: center, name: name, object: object)
+            
+            subscriber.receive(subscription: notificationSubscriber)
+            notificationSubscriber.request(.unlimited)
             
             notificationSubscriber.observe()
-            
-            notificationSubscriber.request(.unlimited)
-            subscriber.receive(subscription: notificationSubscriber)
         }
     }
 }
@@ -63,11 +65,11 @@ extension NotificationCenter {
 extension NotificationCenter.PKPublisher {
     
     // MARK: NOTIFICATION CENTER SINK
-    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.Sinkable<Downstream, Output, Failure> where Downstream.Failure == Failure, Downstream.Input == Output {
+    private final class Inner<Downstream: Subscriber>: Subscriptions.Internal<Downstream, Output, Failure> where Downstream.Failure == Failure, Downstream.Input == Output {
         
-        private let center: NotificationCenter
+        private var center: NotificationCenter?
         private let name: Notification.Name
-        private let object: AnyObject?
+        private var object: AnyObject?
         
         private var observer: NSObjectProtocol?
         
@@ -79,37 +81,29 @@ extension NotificationCenter.PKPublisher {
         }
         
         func observe() {
-            observer = center.addObserver(forName: name, object: object, queue: nil) { [weak self] (notification) in
+            observer = center?.addObserver(forName: name, object: object, queue: nil) { [weak self] (notification) in
                 self?.receive(input: notification)
             }
         }
         
-        override func receive(_ input: Output) -> PKSubscribers.Demand {
-            guard !isCancelled else { return .none }
-            downstream?.receive(input: input)
-            return demand
-        }
-        
-        override func receive(completion: PKSubscribers.Completion<Failure>) {
-            guard !isCancelled else { return }
-            end()
-            downstream?.receive(completion: completion)
-        }
-        
-        override func end() {
-            if let observer = observer {
-                center.removeObserver(observer, name: name, object: object)
-            }
-            observer = nil
-            super.end()
-        }
-        
         override func cancel() {
-            if let observer = observer {
-                center.removeObserver(observer, name: name, object: object)
-            }
-            observer = nil
             super.cancel()
+            
+            if let observer = observer {
+                center?.removeObserver(observer, name: name, object: object)
+            }
+            
+            observer = nil
+            object = nil
+            center = nil
+        }
+        
+        override var description: String {
+            "NotificationCenter Observer"
+        }
+        
+        override var customMirror: Mirror {
+            Mirror(self, children: [])
         }
     }
 }

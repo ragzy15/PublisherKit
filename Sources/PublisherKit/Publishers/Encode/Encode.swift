@@ -5,19 +5,19 @@
 //  Created by Raghav Ahuja on 25/01/20.
 //
 
-import Foundation
-
-public extension PKPublishers {
+public extension Publishers {
     
-    struct Encode<Upstream: PKPublisher, Encoder: PKEncoder>: PKPublisher where Upstream.Output: Encodable {
+    /// A publisher that encodes elements received from an upstream publisher using the specified encoder.
+    struct Encode<Upstream: Publisher, Encoder: TopLevelEncoder>: Publisher where Upstream.Output: Encodable {
         
         public typealias Output = Encoder.Output
         
         public typealias Failure = Error
         
-        /// The publisher that this publisher receives elements from.
+        /// The publisher from which this publisher receives elements.
         public let upstream: Upstream
         
+        /// The encoder that encodes values received from the upstream publisher.
         private let encoder: Encoder
         
         public init(upstream: Upstream, encoder: Encoder) {
@@ -25,21 +25,18 @@ public extension PKPublishers {
             self.encoder = encoder
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let encodeSubscriber = InternalSink(downstream: subscriber, encoder: encoder)
-            
-            subscriber.receive(subscription: encodeSubscriber)
-            encodeSubscriber.request(.unlimited)
+            let encodeSubscriber = Inner(downstream: subscriber, encoder: encoder)
             upstream.subscribe(encodeSubscriber)
         }
     }
 }
 
-extension PKPublishers.Encode {
+extension Publishers.Encode {
     
     // MARK: ENCODE SINK
-    private final class InternalSink<Downstream: PKSubscriber, Encoder: PKEncoder>: UpstreamSinkable<Downstream, Upstream> where Encoder.Output == Downstream.Input, Failure == Downstream.Failure, Upstream.Output: Encodable {
+    private final class Inner<Downstream: Subscriber, Encoder: TopLevelEncoder>: InternalSubscriber<Downstream, Upstream> where Encoder.Output == Downstream.Input, Failure == Downstream.Failure, Upstream.Output: Encodable {
         
         private let encoder: Encoder
         
@@ -48,26 +45,17 @@ extension PKPublishers.Encode {
             super.init(downstream: downstream)
         }
         
-        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
-            guard !isCancelled else { return .none }
-            
-            do {
-                let output = try encoder.encode(input)
-                downstream?.receive(input: output)
-                
-            } catch {
-                downstream?.receive(completion: .failure(error))
-            }
-            
-            return demand
+        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+            return Result { try encoder.encode(input) }
         }
         
-        override func receive(completion: PKSubscribers.Completion<Upstream.Failure>) {
-            guard !isCancelled else { return }
-            end()
-            
+        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
             let completion = completion.mapError { $0 as Downstream.Failure }
             downstream?.receive(completion: completion)
+        }
+        
+        override var description: String {
+            "Encode"
         }
     }
 }

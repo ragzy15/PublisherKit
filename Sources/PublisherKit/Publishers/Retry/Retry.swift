@@ -5,17 +5,16 @@
 //  Created by Raghav Ahuja on 25/12/19.
 //
 
-import Foundation
-
-extension PKPublishers {
+extension Publishers {
     
     /// A publisher that attempts to recreate its subscription to a failed upstream publisher.
-    public struct Retry<Upstream: PKPublisher>: PKPublisher {
+    public struct Retry<Upstream: Publisher>: Publisher {
         
         public typealias Output = Upstream.Output
         
         public typealias Failure = Upstream.Failure
         
+        /// The publisher from which this publisher receives elements.
         public let upstream: Upstream
         
         /// The maximum number of retry attempts to perform.
@@ -23,7 +22,7 @@ extension PKPublishers {
         /// If `nil`, this publisher attempts to reconnect with the upstream publisher an unlimited number of times.
         public let retries: Int?
         
-        private let demand: PKSubscribers.Demand
+        private let demand: Subscribers.Demand
         
         /// Creates a publisher that attempts to recreate its subscription to a failed upstream publisher.
         ///
@@ -41,46 +40,78 @@ extension PKPublishers {
             }
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let retrySubscriber = InternalSink(downstream: subscriber)
+            let retrySubscriber = Inner(downstream: subscriber, demand: demand)
             
             retrySubscriber.retrySubscription = {
                 self.upstream.subscribe(retrySubscriber)
             }
             
-            subscriber.receive(subscription: retrySubscriber)
-            retrySubscriber.request(demand)
             upstream.subscribe(retrySubscriber)
         }
     }
 }
 
-extension PKPublishers.Retry {
+extension Publishers.Retry {
     
     // MARK: RETRY
-    private final class InternalSink<Downstream: PKSubscriber>: UpstreamInternalSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: InternalSubscriber<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         var retrySubscription: (() -> Void)?
         
-        override func receive(completion: PKSubscribers.Completion<Failure>) {
-            guard !isCancelled else { return }
+        let _demand: Subscribers.Demand
+        
+        init(downstream: Downstream, demand: Subscribers.Demand) {
+            _demand = demand
+            super.init(downstream: downstream)
+        }
+        
+        override func request(_ demand: Subscribers.Demand) {
+            super.request(_demand)
+        }
+        
+        override func operate(on input: Input) -> Result<Downstream.Input, Downstream.Failure>? {
+            .success(input)
+        }
+        
+        override func receive(completion: Subscribers.Completion<Failure>) {
+            getLock().lock()
+            guard status.isSubscribed else { getLock().unlock(); return }
             
             guard let error = completion.getError() else {
-                downstream?.receive(completion: .finished)
+                end {
+                    downstream?.receive(completion: completion)
+                }
                 return
             }
             
             Logger.default.log(error: error)
             
             guard demand != .none else {
-                end()
-                downstream?.receive(completion: .failure(error))
+                end {
+                    downstream?.receive(completion: .failure(error))
+                }
                 return
             }
             
-            updateDemand()
+            demand -= 1
+            status = .awaiting
             retrySubscription?()
+        }
+        
+        override func end(completion: () -> Void) {
+            super.end(completion: completion)
+            retrySubscription = nil
+        }
+        
+        override func cancel() {
+            super.cancel()
+            retrySubscription = nil
+        }
+        
+        override var description: String {
+            "Retry"
         }
     }
 }

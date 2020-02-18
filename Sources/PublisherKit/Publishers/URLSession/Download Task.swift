@@ -7,6 +7,10 @@
 
 import Foundation
 
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+
 extension URLSession {
     
     /// Returns a publisher that wraps a URL session download task for a given URL.
@@ -43,7 +47,7 @@ extension URLSession {
 
 extension URLSession {
     
-    public struct DownloadTaskPKPublisher: PKPublisher {
+    public struct DownloadTaskPKPublisher: PublisherKit.Publisher {
         
         public typealias Output = (url: URL, response: HTTPURLResponse)
         
@@ -56,8 +60,6 @@ extension URLSession {
         public let session: URLSession
         
         public var name: String
-        
-        private static let queue = DispatchQueue(label: "com.PublisherKit.download-task-thread", qos: .utility, attributes: .concurrent)
         
         public init(name: String = "", request: URLRequest, session: URLSession) {
             self.name = name
@@ -73,11 +75,12 @@ extension URLSession {
             self.session = session
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let downloadTaskSubscriber = InternalSink(downstream: subscriber)
+            let downloadTaskSubscriber = Inner(downstream: subscriber)
             
             subscriber.receive(subscription: downloadTaskSubscriber)
+            downloadTaskSubscriber.request(.max(1))
             
             if let request = request {
                 downloadTaskSubscriber.resume(with: request, in: session)
@@ -92,55 +95,62 @@ extension URLSession {
 extension URLSession.DownloadTaskPKPublisher {
     
     // MARK: DOWNLOAD TASK SINK
-    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.InternalSink<Downstream, Output, Failure>, URLSessionTaskPublisherDelegate where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscriptions.Internal<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private var task: URLSessionDownloadTask?
         
-        override init(downstream: Downstream) {
-            super.init(downstream: downstream)
-        }
-        
         func resume(with request: URLRequest, in session: URLSession) {
-            task = session.downloadTask(with: request, completionHandler: getCompletion())
+            getLock().lock()
+            guard task == nil else { getLock().unlock(); return }
+            
+            task = session.downloadTask(with: request, completionHandler: getCompletion)
+            
+            getLock().unlock()
+            
             task?.resume()
         }
         
         func resume(withResumeData data: Data, in session: URLSession) {
-            task = session.downloadTask(withResumeData: data, completionHandler: getCompletion())
+            getLock().lock()
+            guard task == nil else { getLock().unlock(); return }
+            
+            task = session.downloadTask(withResumeData: data, completionHandler: getCompletion)
+            
+            getLock().unlock()
+            
             task?.resume()
         }
         
-        @inline(__always)
-        private func getCompletion() -> (URL?, URLResponse?, Error?) -> Void {
+        private func getCompletion(url: URL?, response: URLResponse?, error: Error?) {
+            getLock().lock()
+            guard !isTerminated else { getLock().unlock(); return }
             
-            let completion: (URL?, URLResponse?, Error?) -> Void = { [weak self] (url, response, error) in
+            getLock().unlock()
+            
+            if let error = error as NSError? {
+                receive(completion: .failure(error))
                 
-                guard let `self` = self, !self.isCancelled else { return }
-                
-                if let error = error as NSError? {
-                    URLSession.DownloadTaskPKPublisher.queue.async {
-                        self.receive(completion: .failure(error))
-                    }
-                    
-                } else if let response = response as? HTTPURLResponse, let url = url {
-                    URLSession.DownloadTaskPKPublisher.queue.async {
-                        self.receive(input: (url, response))
-                        self.receive(completion: .finished)
-                    }
-                }
+            } else if let response = response as? HTTPURLResponse, let url = url {
+                receive(input: (url, response))
+                receive(completion: .finished)
+            } else {
+                receive(completion: .failure(URLError(.unknown)))
             }
-            
-            return completion
         }
         
-        override func end() {
+        override func end(completion: () -> Void) {
+            super.end(completion: completion)
             task = nil
-            super.end()
         }
         
         override func cancel() {
-            task?.cancel()
             super.cancel()
+            task?.cancel()
+            task = nil
+        }
+        
+        override var description: String {
+            "Download Task Publisher"
         }
     }
 }

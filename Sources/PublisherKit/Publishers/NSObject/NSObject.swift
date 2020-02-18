@@ -7,22 +7,25 @@
 
 import Foundation
 
-extension NSObject: NSObjectPKPublisher {
+extension NSObject: PublisherCompatible {
 }
 
 extension NSObject {
     
     /// A publisher that emits events when the value of a KVO-compliant property changes.
-    public struct KeyValueObservingPKPublisher<Subject: NSObject, Value>: Equatable, PKPublisher {
+    public struct KeyValueObservingPKPublisher<Subject: NSObject, Value>: Equatable, Publisher {
         
         public typealias Output = Value
         
         public typealias Failure = Never
         
+        /// The object that contains the property to observe.
         public let object: Subject
         
+        /// The key path of a property to observe.
         public let keyPath: KeyPath<Subject, Value>
         
+        /// The observing options for the property.
         public let options: NSKeyValueObservingOptions
         
         public init(object: Subject, keyPath: KeyPath<Subject, Value>, options: NSKeyValueObservingOptions) {
@@ -31,13 +34,14 @@ extension NSObject {
             self.options = options
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let nsObjectSubscriber = InternalSink(downstream: subscriber, object: object, keyPath: keyPath, options: options)
-            
-            nsObjectSubscriber.observe()
+            let nsObjectSubscriber = Inner(downstream: subscriber, object: object, keyPath: keyPath, options: options)
             
             subscriber.receive(subscription: nsObjectSubscriber)
+            nsObjectSubscriber.request(.unlimited)
+            
+            nsObjectSubscriber.observe()
         }
         
         public static func == (lhs: NSObject.KeyValueObservingPKPublisher<Subject, Value>, rhs: NSObject.KeyValueObservingPKPublisher<Subject, Value>) -> Bool {
@@ -49,7 +53,7 @@ extension NSObject {
 extension NSObject.KeyValueObservingPKPublisher {
     
     // MARK: NSOBJECT SINK
-    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.Sinkable<Downstream, Output, Failure> where Downstream.Failure == Failure, Downstream.Input == Output {
+    private final class Inner<Downstream: Subscriber>: Subscriptions.Internal<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private var observer: NSKeyValueObservation?
         
@@ -79,28 +83,15 @@ extension NSObject.KeyValueObservingPKPublisher {
             }
         }
         
-        override func receive(_ input: Value) -> PKSubscribers.Demand {
-            guard !isCancelled else { return .none }
-            downstream?.receive(input: input)
-            return demand
-        }
-        
-        override func receive(completion: PKSubscribers.Completion<Failure>) {
-            guard !isCancelled else { return }
-            end()
-            downstream?.receive(completion: completion)
-        }
-        
-        override func end() {
-            observer?.invalidate()
-            observer = nil
-            super.end()
-        }
-        
         override func cancel() {
+            super.cancel()
             observer?.invalidate()
             observer = nil
-            super.cancel()
+            object = nil
+        }
+        
+        override var description: String {
+            "NSObject KeyValueObserving"
         }
     }
 }

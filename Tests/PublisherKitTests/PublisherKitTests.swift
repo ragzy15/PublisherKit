@@ -7,8 +7,8 @@ final class PublisherKitTests: XCTestCase {
         ("testMerge", testMerge, "testBindable", testBindable, "testURLSession", testURLSession),
     ]
     
-    var anyCancellable: PKAnyCancellable?
-    var anyCancellables = Set<PKAnyCancellable>()
+    var anyCancellable: AnyCancellable?
+    var anyCancellables = CancellableBag()
     
     let value = BindableValue<Int>(wrappedValue: 0)
     
@@ -83,9 +83,10 @@ final class PublisherKitTests: XCTestCase {
     func testURLSession() {
         let expectation = XCTestExpectation()
         
-        let pub2 = URLSession.shared.dataTaskPKPublisher(for: URL(string: "https://5da1e9ae76c28f0014bbe25f.mockapkki.io/users")!)
-            .retry(2)
+        let pub2 = URLSession.shared.dataTaskPKPublisher(for: URL(string: "https://5da1e9ae76c28f0014bbe25f.mockapi.io/users")!)
+            .retry(1)
             .map(\.data)
+            .decode(type: Users.self)
             .receive(on: DispatchQueue.main)
         
         anyCancellable = pub2.sink(receiveCompletion: { (completion) in
@@ -104,3 +105,11 @@ final class PublisherKitTests: XCTestCase {
         ]
     }
 }
+
+struct User: Codable, Hashable {
+    let id, createdAt: String?
+    var name, avatar: String?
+    var email: String?
+}
+
+typealias Users = [User]

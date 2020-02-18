@@ -5,19 +5,19 @@
 //  Created by Raghav Ahuja on 19/12/19.
 //
 
-import Foundation
-
-extension PKPublishers {
+extension Publishers {
     
     /// A publisher created by applying the zip function to two upstream publishers.
-    public struct Zip<A: PKPublisher, B: PKPublisher>: PKPublisher where A.Failure == B.Failure {
+    public struct Zip<A: Publisher, B: Publisher>: Publisher where A.Failure == B.Failure {
         
         public typealias Output = (A.Output, B.Output)
         
         public typealias Failure = A.Failure
         
+        /// A publisher.
         public let a: A
         
+        /// A second publisher.
         public let b: B
         
         public init(_ a: A, _ b: B) {
@@ -25,15 +25,9 @@ extension PKPublishers {
             self.b = b
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let zipSubscriber = InternalSink(downstream: subscriber)
-            
-            zipSubscriber.receiveSubscription()
-            
-            subscriber.receive(subscription: zipSubscriber)
-            
-            zipSubscriber.sendRequest()
+            let zipSubscriber = Inner(downstream: subscriber)
             
             b.subscribe(zipSubscriber.bSubscriber)
             a.subscribe(zipSubscriber.aSubscriber)
@@ -41,55 +35,59 @@ extension PKPublishers {
     }
 }
 
-extension PKPublishers.Zip: Equatable where A: Equatable, B: Equatable{
+extension Publishers.Zip: Equatable where A: Equatable, B: Equatable{
     
-    public static func == (lhs: PKPublishers.Zip<A, B>, rhs: PKPublishers.Zip<A, B>) -> Bool {
+    public static func == (lhs: Publishers.Zip<A, B>, rhs: Publishers.Zip<A, B>) -> Bool {
         lhs.a == rhs.a && lhs.b == rhs.b
     }
 }
 
-extension PKPublishers.Zip {
+extension Publishers.Zip {
     
     // MARK: ZIP SINK
-    final class InternalSink<Downstream: PKSubscriber>: CombineSink<Downstream> where Downstream.Input == Output {
+    private final class Inner<Downstream: Subscriber>: Subscribers.InternalCombine<Downstream> where Downstream.Input == Output {
         
-        private(set) lazy var aSubscriber = PKSubscribers.FinalOperatorSink<CombineSink<Downstream>, A.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var aSubscriber = Subscribers.InternalClosure<Inner, A.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
-        private(set) lazy var bSubscriber = PKSubscribers.FinalOperatorSink<CombineSink<Downstream>, B.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var bSubscriber = Subscribers.InternalClosure<Inner, B.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
         private var aOutputs: [A.Output] = []
         private var bOutputs: [B.Output] = []
         
-        override func receiveSubscription() {
-            receive(subscription: aSubscriber)
-            receive(subscription: bSubscriber)
-        }
-        
-        override func sendRequest() {
-            request(.unlimited)
-            aSubscriber.request(.unlimited)
-            bSubscriber.request(.unlimited)
-        }
-        
-        private func receive(a input: A.Output, downstream: CombineSink<Downstream>?) {
+        private func receive(a input: A.Output, downstream: Inner?) {
+            getLock().lock()
             aOutputs.append(input)
             checkAndSend()
         }
         
-        private func receive(b input: B.Output, downstream: CombineSink<Downstream>?) {
+        private func receive(b input: B.Output, downstream: Inner?) {
+            getLock().lock()
             bOutputs.append(input)
             checkAndSend()
         }
         
         override func checkAndSend() {
             guard !aOutputs.isEmpty, !bOutputs.isEmpty else {
+                getLock().unlock()
                 return
             }
             
             let aOutput = aOutputs.removeFirst()
             let bOutput = bOutputs.removeFirst()
             
-            receive(input: (aOutput, bOutput))
+            getLock().unlock()
+            
+            _ = receive((aOutput, bOutput))
+        }
+        
+        override func onCompletion(_ completion: Subscribers.Completion<Failure>) {
+            end {
+                downstream?.receive(completion: completion)
+            }
+        }
+        
+        override var description: String {
+            "Zip"
         }
     }
 }

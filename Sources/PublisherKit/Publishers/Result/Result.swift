@@ -5,12 +5,10 @@
 //  Created by Raghav Ahuja on 25/12/19.
 //
 
-import Foundation
-
 extension Result {
     
-    public var pkPublisher: Result<Success, Failure>.PKPublisher {
-        .init(self)
+    public var pkPublisher: PKPublisher {
+        PKPublisher(self)
     }
 }
 
@@ -22,7 +20,7 @@ extension Result {
     ///
     /// In contrast with `Just`, a `Once` publisher can terminate with an error instead of sending a value.
     /// In contrast with `Optional`, a `Once` publisher always sends one value (unless it terminates with an error).
-    public struct PKPublisher: PublisherKit.PKPublisher {
+    public struct PKPublisher: PublisherKit.Publisher {
         
         public typealias Output = Success
         
@@ -51,11 +49,12 @@ extension Result {
             result = .failure(failure)
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let resultSubscriber = InternalSink(downstream: subscriber)
+            let resultSubscriber = Inner(downstream: subscriber)
             
             subscriber.receive(subscription: resultSubscriber)
+            resultSubscriber.request(.max(1))
             
             switch result {
             case .success(let output):
@@ -72,18 +71,10 @@ extension Result {
 extension Result.PKPublisher {
     
     // MARK: RESULT SINK
-    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.Sinkable<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscriptions.Internal<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        override func receive(_ input: Output) -> PKSubscribers.Demand {
-            guard !isCancelled else { return .none }
-            downstream?.receive(input: input)
-            return demand
-        }
-        
-        override func receive(completion: PKSubscribers.Completion<Failure>) {
-            guard !isCancelled else { return }
-            end()
-            downstream?.receive(completion: completion)
+        override var description: String {
+            "Result"
         }
     }
 }

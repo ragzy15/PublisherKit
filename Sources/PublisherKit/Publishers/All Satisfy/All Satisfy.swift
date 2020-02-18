@@ -5,17 +5,16 @@
 //  Created by Raghav Ahuja on 25/12/19.
 //
 
-import Foundation
-
-extension PKPublishers {
+extension Publishers {
     
     /// A publisher that publishes a single Boolean value that indicates whether all received elements pass a given predicate.
-    public struct AllSatisfy<Upstream: PKPublisher>: PKPublisher {
+    public struct AllSatisfy<Upstream: Publisher>: Publisher {
         
         public typealias Output = Bool
         
         public typealias Failure = Upstream.Failure
         
+        /// The publisher from which this publisher receives elements.
         public let upstream: Upstream
         
         /// A closure that evaluates each received element.
@@ -28,40 +27,29 @@ extension PKPublishers {
             self.predicate = predicate
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let allSatisfySubscriber = InternalSink(downstream: subscriber, predicate: predicate)
-            
-            subscriber.receive(subscription: allSatisfySubscriber)
-            allSatisfySubscriber.request(.unlimited)
+            let allSatisfySubscriber = Inner(downstream: subscriber, operation: predicate)
             upstream.subscribe(allSatisfySubscriber)
         }
     }
 }
 
-extension PKPublishers.AllSatisfy {
+extension Publishers.AllSatisfy {
     
-    // MARK: ALLSATIFY SINK
-    private final class InternalSink<Downstream: PKSubscriber>: UpstreamSinkable<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    // MARK: ALL SATISFY SINK
+    private final class Inner<Downstream: Subscriber>: OperatorSubscriber<Downstream, Upstream, (Upstream.Output) -> Bool> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        private let predicate: (Upstream.Output) -> Bool
-        
-        init(downstream: Downstream, predicate: @escaping (Upstream.Output) -> Bool) {
-            self.predicate = predicate
-            super.init(downstream: downstream)
+        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+            .success(operation(input))
         }
         
-        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
-            guard !isCancelled else { return .none }
-            let output = self.predicate(input)
-            downstream?.receive(input: output)
-            return demand
-        }
-        
-        override func receive(completion: PKSubscribers.Completion<Upstream.Failure>) {
-            guard !isCancelled else { return }
-            end()
+        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
             downstream?.receive(completion: completion)
+        }
+        
+        override var description: String {
+            "AllSatisfy"
         }
     }
 }

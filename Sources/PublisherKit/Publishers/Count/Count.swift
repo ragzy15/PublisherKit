@@ -5,59 +5,56 @@
 //  Created by Raghav Ahuja on 25/12/19.
 //
 
-import Foundation
-
-extension PKPublishers {
+extension Publishers {
     
     /// A publisher that publishes the number of elements received from the upstream publisher.
-    public struct Count<Upstream: PKPublisher>: PKPublisher {
+    /// It publishes the value when upstream publisher has finished.
+    public struct Count<Upstream: Publisher>: Publisher {
         
         public typealias Output = Int
         
         public typealias Failure = Upstream.Failure
         
+        /// The publisher from which this publisher receives elements.
         public let upstream: Upstream
         
         public init(upstream: Upstream) {
             self.upstream = upstream
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let countSubscriber = InternalSink(downstream: subscriber)
-            
-            subscriber.receive(subscription: countSubscriber)
-            countSubscriber.request(.unlimited)
+            let countSubscriber = Inner(downstream: subscriber)
             upstream.subscribe(countSubscriber)
         }
     }
 }
 
-extension PKPublishers.Count {
+extension Publishers.Count {
     
     // MARK: COUNT SINK
-    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.Sinkable<Downstream, Upstream.Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: InternalSubscriber<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private var counter = 0
         
-        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
-            guard !isCancelled else { return .none }
+        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
             counter += 1
-            return demand
+            return nil
         }
         
-        override func receive(completion: PKSubscribers.Completion<Upstream.Failure>) {
-            guard !isCancelled else { return }
-            end()
-            
+        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
             switch completion {
             case .finished:
-                downstream?.receive(input: counter)
+                _ = downstream?.receive(counter)
                 downstream?.receive(completion: .finished)
                 
             case .failure(let error):
                 downstream?.receive(completion: .failure(error))
             }
+        }
+        
+        override var description: String {
+            "Count"
         }
     }
 }

@@ -5,14 +5,14 @@
 //  Created by Raghav Ahuja on 18/11/19.
 //
 
-import Foundation
-
-public extension PKPublishers {
+public extension Publishers {
     
-    struct MapError<Upstream: PKPublisher, Failure: Error>: PKPublisher {
+    /// A publisher that converts the failure from the upstream publisher into a new failure.
+    struct MapError<Upstream: Publisher, Failure: Error>: Publisher {
         
         public typealias Output = Upstream.Output
         
+        /// The publisher from which this publisher receives elements.
         public let upstream: Upstream
         
         /// The closure that transforms elements from the upstream publisher.
@@ -23,41 +23,30 @@ public extension PKPublishers {
             self.transform = transform
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let mapErrorSubscriber = InternalSink(downstream: subscriber, transform: transform)
-            
-            subscriber.receive(subscription: mapErrorSubscriber)
-            mapErrorSubscriber.request(.unlimited)
+            let mapErrorSubscriber = Inner(downstream: subscriber, operation: transform)
             upstream.subscribe(mapErrorSubscriber)
         }
     }
 }
 
-extension PKPublishers.MapError {
+extension Publishers.MapError {
     
     // MARK: MAPERROR SINK
-    private final class InternalSink<Downstream: PKSubscriber, Failure>: UpstreamSinkable<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber, Failure>: OperatorSubscriber<Downstream, Upstream, (Upstream.Failure) -> Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        private let transform: (Upstream.Failure) -> Failure
-        
-        init(downstream: Downstream, transform: @escaping (Upstream.Failure) -> Failure) {
-            self.transform = transform
-            super.init(downstream: downstream)
+        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+            .success(input)
         }
         
-        override func receive(_ input: Output) -> PKSubscribers.Demand {
-            guard !isCancelled else { return .none }
-            downstream?.receive(input: input)
-            return demand
-        }
-        
-        override func receive(completion: PKSubscribers.Completion<Upstream.Failure>) {
-            guard !isCancelled else { return }
-            end()
-            
-            let completion = completion.mapError { self.transform($0) }
+        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
+            let completion = completion.mapError { operation($0) }
             downstream?.receive(completion: completion)
+        }
+        
+        override var description: String {
+            "MapError"
         }
     }
 }

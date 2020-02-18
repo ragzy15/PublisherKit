@@ -12,22 +12,30 @@ protocol URLSessionTaskPublisherDelegate {
 
 extension URLSessionTaskPublisherDelegate {
     
-    func handleCompletion<Downstream: PKSubscriber>(queue: DispatchQueue, subscriber: PKSubscribers.InternalSink<Downstream, URLSession.DataTaskPKPublisher.Output, URLSession.DataTaskPKPublisher.Failure>) -> (Data?, URLResponse?, Error?) -> Void {
+    func handleCompletion<Downstream: Subscriber>(subscriber: Subscriptions.Internal<Downstream, URLSession.DataTaskPKPublisher.Output, URLSession.DataTaskPKPublisher.Failure>) -> (Data?, URLResponse?, Error?) -> Void {
         
-        let completion: (Data?, URLResponse?, Error?) -> Void = { (data, response, error) in
+        let completion: (Data?, URLResponse?, Error?) -> Void = { [weak subscriber] (data, response, error) in
             
-            guard !subscriber.isCancelled else { return }
+            guard let subscriber = subscriber else {
+                return
+            }
+            
+            subscriber.getLock().lock()
+            guard !subscriber.isTerminated else {
+                subscriber.getLock().unlock()
+                return
+            }
+
+            subscriber.getLock().unlock()
             
             if let error = error {
-                queue.async {
-                    subscriber.receive(completion: .failure(error))
-                }
+                subscriber.receive(completion: .failure(error))
                 
             } else if let response = response as? HTTPURLResponse, let data = data {
-                queue.async {
-                    subscriber.receive(input: (data, response))
-                    subscriber.receive(completion: .finished)
-                }
+                subscriber.receive(input: (data, response))
+                subscriber.receive(completion: .finished)
+            } else {
+                subscriber.receive(completion: .failure(URLError(.unknown)))
             }
         }
         

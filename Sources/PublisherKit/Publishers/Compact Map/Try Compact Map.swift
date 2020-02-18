@@ -5,16 +5,14 @@
 //  Created by Raghav Ahuja on 26/11/19.
 //
 
-import Foundation
-
-public extension PKPublishers {
+public extension Publishers {
     
     /// A publisher that republishes all non-`nil` results of calling an error-throwing closure with each received element.
-    struct TryCompactMap<Upstream: PKPublisher, Output>: PKPublisher {
+    struct TryCompactMap<Upstream: Publisher, Output>: Publisher {
         
         public typealias Failure = Error
         
-        /// The publisher that this publisher receives elements from.
+        /// The publisher from which this publisher receives elements.
         public let upstream: Upstream
         
         /// The closure that transforms elements from the upstream publisher.
@@ -25,20 +23,17 @@ public extension PKPublishers {
             self.transform = transform
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let tryCompactMapSubscriber = InternalSink(downstream: subscriber, transform: transform)
-            
-            subscriber.receive(subscription: tryCompactMapSubscriber)
-            tryCompactMapSubscriber.request(.unlimited)
+            let tryCompactMapSubscriber = Inner(downstream: subscriber, operation: transform)
             upstream.receive(subscriber: tryCompactMapSubscriber)
         }
     }
 }
 
-extension PKPublishers.TryCompactMap {
+extension Publishers.TryCompactMap {
     
-    public func compactMap<T>(_ transform: @escaping (Output) throws -> T?) -> PKPublishers.TryCompactMap<Upstream, T> {
+    public func compactMap<T>(_ transform: @escaping (Output) throws -> T?) -> Publishers.TryCompactMap<Upstream, T> {
         
         let newTransform: (Upstream.Output) throws -> T? = { output in
             if let newOutput = try self.transform(output) {
@@ -48,45 +43,34 @@ extension PKPublishers.TryCompactMap {
             }
         }
         
-        return PKPublishers.TryCompactMap<Upstream, T>(upstream: upstream, transform: newTransform)
+        return Publishers.TryCompactMap<Upstream, T>(upstream: upstream, transform: newTransform)
     }
 }
 
-extension PKPublishers.TryCompactMap {
+extension Publishers.TryCompactMap {
     
     // MARK: TRY COMPACTMAP SINK
-    private final class InternalSink<Downstream: PKSubscriber>: UpstreamSinkable<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: OperatorSubscriber<Downstream, Upstream, (Upstream.Output) throws -> Output?> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        private let transform: (Upstream.Output) throws -> Output?
-        
-        init(downstream: Downstream, transform: @escaping (Upstream.Output) throws -> Output?) {
-            self.transform = transform
-            super.init(downstream: downstream)
-        }
-        
-        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
-            guard !isCancelled else { return .none }
-            
+        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
             do {
-                guard let output = try transform(input) else {
-                    return demand
+                if let output = try operation(input) {
+                    return .success(output)
+                } else {
+                    return nil
                 }
-                downstream?.receive(input: output)
-                
             } catch {
-                end()
-                downstream?.receive(completion: .failure(error))
+                return .failure(error)
             }
-            
-            return demand
         }
         
-        override func receive(completion: PKSubscribers.Completion<Upstream.Failure>) {
-            guard !isCancelled else { return }
-            end()
-            
+        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
             let completion = completion.mapError { $0 as Downstream.Failure }
             downstream?.receive(completion: completion)
+        }
+        
+        override var description: String {
+            "TryCompactMap"
         }
     }
 }

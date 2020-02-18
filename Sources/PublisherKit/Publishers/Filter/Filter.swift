@@ -5,17 +5,16 @@
 //  Created by Raghav Ahuja on 25/12/19.
 //
 
-import Foundation
-
-extension PKPublishers {
+extension Publishers {
     
     /// A publisher that republishes all elements that match a provided closure.
-    public struct Filter<Upstream: PKPublisher>: PKPublisher {
+    public struct Filter<Upstream: Publisher>: Publisher {
         
         public typealias Output = Upstream.Output
         
         public typealias Failure = Upstream.Failure
         
+        /// The publisher from which this publisher receives elements.
         public let upstream: Upstream
         
         /// A closure that indicates whether to republish an element.
@@ -26,20 +25,17 @@ extension PKPublishers {
             self.isIncluded = isIncluded
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let filterSubscriber = InternalSink(downstream: subscriber, isIncluded: isIncluded)
-            
-            subscriber.receive(subscription: filterSubscriber)
-            filterSubscriber.request(.unlimited)
+            let filterSubscriber = Inner(downstream: subscriber, operation: isIncluded)
             upstream.subscribe(filterSubscriber)
         }
     }
 }
 
-extension PKPublishers.Filter {
+extension Publishers.Filter {
     
-    public func filter(_ isIncluded: @escaping (Output) -> Bool) -> PKPublishers.Filter<Upstream> {
+    public func filter(_ isIncluded: @escaping (Output) -> Bool) -> Publishers.Filter<Upstream> {
         
         let newIsIncluded: (Upstream.Output) -> Bool = { output in
             if self.isIncluded(output) {
@@ -49,10 +45,10 @@ extension PKPublishers.Filter {
             }
         }
         
-        return PKPublishers.Filter(upstream: upstream, isIncluded: newIsIncluded)
+        return Publishers.Filter(upstream: upstream, isIncluded: newIsIncluded)
     }
     
-    public func tryFilter(_ isIncluded: @escaping (Output) throws -> Bool) -> PKPublishers.TryFilter<Upstream> {
+    public func tryFilter(_ isIncluded: @escaping (Output) throws -> Bool) -> Publishers.TryFilter<Upstream> {
         
         let newIsIncluded: (Upstream.Output) throws -> Bool = { output in
             if self.isIncluded(output) {
@@ -62,30 +58,25 @@ extension PKPublishers.Filter {
             }
         }
         
-        return PKPublishers.TryFilter(upstream: upstream, isIncluded: newIsIncluded)
+        return Publishers.TryFilter(upstream: upstream, isIncluded: newIsIncluded)
     }
 }
 
-extension PKPublishers.Filter {
+extension Publishers.Filter {
 
     // MARK: FILTER SINK
-    private final class InternalSink<Downstream: PKSubscriber>: UpstreamInternalSink<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: OperatorSubscriber<Downstream, Upstream, (Upstream.Output) -> Bool> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        private let isIncluded: (Upstream.Output) -> Bool
-        
-        init(downstream: Downstream, isIncluded: @escaping (Upstream.Output) -> Bool) {
-            self.isIncluded = isIncluded
-            super.init(downstream: downstream)
+        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+            operation(input) ? .success(input) : nil
         }
         
-        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
-            guard !isCancelled else { return .none }
-            
-            if isIncluded(input) {
-                downstream?.receive(input: input)
-            }
-            
-            return demand
+        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
+            downstream?.receive(completion: completion)
+        }
+        
+        override var description: String {
+            "Filter"
         }
     }
 }

@@ -6,11 +6,11 @@ import PackageDescription
 let package = Package(
     name: "PublisherKit",
     platforms: [
-           .iOS(.v8),
-           .macOS(.v10_10),
-           .tvOS(.v10),
-           .watchOS(.v4)
-       ],
+        .iOS(.v8),
+        .macOS(.v10_10),
+        .tvOS(.v10),
+        .watchOS(.v4)
+    ],
     products: [
         // Products define the executables and libraries produced by a package, and make them visible to other packages.
         .library(
@@ -25,10 +25,14 @@ let package = Package(
         // Targets are the basic building blocks of a package. A target can define a module or a test suite.
         // Targets can depend on other targets in this package, and on products in packages which this package depends on.
         .target(
-            name: "PublisherKit",
+            name: "PublisherKitHelpers",
             dependencies: []),
+        .target(
+            name: "PublisherKit",
+            dependencies: ["PublisherKitHelpers"]),
         .testTarget(
             name: "PublisherKitTests",
             dependencies: ["PublisherKit"]),
-    ]
+    ],
+    cxxLanguageStandard: .cxx1z
 )

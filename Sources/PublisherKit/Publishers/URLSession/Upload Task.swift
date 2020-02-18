@@ -7,6 +7,10 @@
 
 import Foundation
 
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+
 extension URLSession {
     
     /// Returns a publisher that wraps a URL session upload task for a given URL request.
@@ -16,8 +20,13 @@ extension URLSession {
     /// - Parameter data: The body data for the request.
     /// - Parameter name: Name for the task. Used for logging purpose only.
     /// - Returns: A publisher that wraps a upload task for the URL request.
-    public func uploadTaskPublisher(for request: URLRequest, from data: Data?, name: String = "") -> UploadTaskPKPublisher {
+    public func uploadTaskPKPublisher(for request: URLRequest, from data: Data?, name: String = "") -> UploadTaskPKPublisher {
         UploadTaskPKPublisher(name: name, request: request, from: data, session: self)
+    }
+    
+    @available(*, deprecated, renamed: "uploadTaskPKPublisher")
+    public func uploadTaskPublisher(for request: URLRequest, from data: Data?, name: String = "") -> UploadTaskPKPublisher {
+        uploadTaskPKPublisher(for: request, from: data, name: name)
     }
     
     /// Returns a publisher that wraps a URL session upload task for a given URL request.
@@ -27,14 +36,19 @@ extension URLSession {
     /// - Parameter file: The URL of the file to upload.
     /// - Parameter name: Name for the task. Used for logging purpose only.
     /// - Returns: A publisher that wraps a upload task for the URL request.
-    public func uploadTaskPublisher(for request: URLRequest, from file: URL, name: String = "") -> UploadTaskPKPublisher {
+    public func uploadTaskPKPublisher(for request: URLRequest, from file: URL, name: String = "") -> UploadTaskPKPublisher {
         UploadTaskPKPublisher(name: name, request: request, from: file, session: self)
+    }
+    
+    @available(*, deprecated, renamed: "uploadTaskPKPublisher")
+    public func uploadTaskPublisher(for request: URLRequest, from file: URL, name: String = "") -> UploadTaskPKPublisher {
+        uploadTaskPKPublisher(for: request, from: file, name: name)
     }
 }
 
 extension URLSession {
     
-    public struct UploadTaskPKPublisher: PKPublisher, URLSessionTaskPublisherDelegate {
+    public struct UploadTaskPKPublisher: PublisherKit.Publisher {
         
         public typealias Output = (data: Data, response: HTTPURLResponse)
         
@@ -49,8 +63,6 @@ extension URLSession {
         private let fileUrl: URL?
         
         public var name: String
-        
-        private static let queue = DispatchQueue(label: "com.PublisherKit.upload-task-thread", qos: .utility, attributes: .concurrent)
         
         public init(name: String = "", request: URLRequest, from data: Data?, session: URLSession) {
             self.name = name
@@ -68,11 +80,12 @@ extension URLSession {
             fileUrl = file
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let uploadTaskSubscriber = InternalSink(downstream: subscriber)
+            let uploadTaskSubscriber = Inner(downstream: subscriber)
             
             subscriber.receive(subscription: uploadTaskSubscriber)
+            uploadTaskSubscriber.request(.max(1))
             
             if let url = fileUrl {
                 uploadTaskSubscriber.resume(with: request, fromFile: url, in: session)
@@ -87,45 +100,46 @@ extension URLSession {
 
 extension URLSession.UploadTaskPKPublisher {
     
-    /// Validates that the response has a status code acceptable in the specified range, and that the response has a content type in the specified sequence.
-    /// - Parameters:
-    ///   - acceptableStatusCodes: The range of acceptable status codes. Default range of 200...299.
-    ///   - acceptableContentTypes: The acceptable content types, which may specify wildcard types and/or subtypes. If provided `nil`, content type is not validated. Providing an empty Array uses default behaviour. By default the content type matches any specified in the **Accept** HTTP header field.
-    public func validate(acceptableStatusCodes codes: [Int] = Array(200 ..< 300), acceptableContentTypes: [String]? = []) -> PKPublishers.Validate<Self> {
-        PKPublishers.Validate(upstream: self, acceptableStatusCodes: codes, acceptableContentTypes: acceptableContentTypes)
-    }
-}
-
-extension URLSession.UploadTaskPKPublisher {
-    
     // MARK: UPLOAD TASK SINK
-    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.InternalSink<Downstream, Output, Failure>, URLSessionTaskPublisherDelegate where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscriptions.Internal<Downstream, Output, Failure>, URLSessionTaskPublisherDelegate where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private var task: URLSessionUploadTask?
         
         func resume(with request: URLRequest, from data: Data?, in session: URLSession) {
-            task = session.uploadTask(with: request, from: data, completionHandler: getCompletion())
+            getLock().lock()
+            guard task == nil else { getLock().unlock(); return }
+            
+            task = session.uploadTask(with: request, from: data, completionHandler: handleCompletion(subscriber: self))
+            
+            getLock().unlock()
+            
             task?.resume()
         }
         
         func resume(with request: URLRequest, fromFile fileUrl: URL, in session: URLSession) {
-            task = session.uploadTask(with: request, fromFile: fileUrl, completionHandler: getCompletion())
+            getLock().lock()
+            guard task == nil else { getLock().unlock(); return }
+            
+            task = session.uploadTask(with: request, fromFile: fileUrl, completionHandler: handleCompletion(subscriber: self))
+            
+            getLock().unlock()
+            
             task?.resume()
         }
         
-        @inline(__always)
-        private func getCompletion() -> (Data?, URLResponse?, Error?) -> Void {
-            handleCompletion(queue: URLSession.UploadTaskPKPublisher.queue, subscriber: self)
-        }
-        
-        override func end() {
+        override func end(completion: () -> Void) {
+            super.end(completion: completion)
             task = nil
-            super.end()
         }
         
         override func cancel() {
-            task?.cancel()
             super.cancel()
+            task?.cancel()
+            task = nil
+        }
+        
+        override var description: String {
+            "Upload Task Publisher"
         }
     }
 }

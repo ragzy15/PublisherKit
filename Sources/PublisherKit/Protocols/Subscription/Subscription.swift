@@ -5,18 +5,14 @@
 //  Created by Raghav Ahuja on 19/12/19.
 //
 
-import Foundation
+@available(*, deprecated, renamed: "Subscription")
+public typealias NKSubscription = Subscription
 
-@available(*, deprecated, renamed: "PKSubscription")
-public typealias NKSubscription = PKSubscription
+@available(*, deprecated, renamed: "Subscription")
+public typealias PKSubscription = Subscription
 
-public protocol PKSubscription: PKCancellable {
+public protocol Subscription: Cancellable, CustomCombineIdentifierConvertible {
 
     /// Tells a publisher that it may send more values to the subscriber.
-    func request(_ demand: PKSubscribers.Demand)
-}
-
-extension PKSubscription {
-    
-    func end() {}
+    func request(_ demand: Subscribers.Demand)
 }

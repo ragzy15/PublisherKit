@@ -5,15 +5,14 @@
 //  Created by Raghav Ahuja on 18/11/19.
 //
 
-import Foundation
-
-public extension PKPublishers {
+public extension Publishers {
     
-    struct Map<Upstream: PKPublisher, Output>: PKPublisher {
+    /// A publisher that transforms all elements received from an upstream publisher with a specified closure.
+    struct Map<Upstream: Publisher, Output>: Publisher {
         
         public typealias Failure = Upstream.Failure
         
-        /// The publisher that this publisher receives elements from.
+        /// The publisher from which this publisher receives elements.
         public let upstream: Upstream
         
         /// The closure that transforms elements from the upstream publisher.
@@ -24,65 +23,52 @@ public extension PKPublishers {
             self.transform = transform
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let mapSubscriber = InternalSink(downstream: subscriber, transform: transform)
-            
-            subscriber.receive(subscription: mapSubscriber)
-            mapSubscriber.request(.unlimited)
+            let mapSubscriber = Inner(downstream: subscriber, operation: transform)
             upstream.subscribe(mapSubscriber)
         }
     }
 }
 
-extension PKPublishers.Map {
+extension Publishers.Map {
     
-    public func map<T>(_ transform: @escaping (Output) -> T) -> PKPublishers.Map<Upstream, T> {
+    public func map<T>(_ transform: @escaping (Output) -> T) -> Publishers.Map<Upstream, T> {
         
         let newTransform: (Upstream.Output) -> T = { output in
             let newOutput = self.transform(output)
             return transform(newOutput)
         }
         
-        return PKPublishers.Map<Upstream, T>(upstream: upstream, transform: newTransform)
+        return Publishers.Map<Upstream, T>(upstream: upstream, transform: newTransform)
     }
     
-    public func tryMap<T>(_ transform: @escaping (Output) throws -> T) -> PKPublishers.TryMap<Upstream, T> {
+    public func tryMap<T>(_ transform: @escaping (Output) throws -> T) -> Publishers.TryMap<Upstream, T> {
         
         let newTransform: (Upstream.Output) throws -> T = { output in
             let newOutput = self.transform(output)
             return try transform(newOutput)
         }
         
-        return PKPublishers.TryMap<Upstream, T>(upstream: upstream, transform: newTransform)
+        return Publishers.TryMap<Upstream, T>(upstream: upstream, transform: newTransform)
     }
 }
 
-extension PKPublishers.Map {
+extension Publishers.Map {
     
     // MARK: MAP SINK
-    private final class InternalSink<Downstream: PKSubscriber>: UpstreamSinkable<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: OperatorSubscriber<Downstream, Upstream, (Upstream.Output) -> Output> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        private let transform: (Upstream.Output) -> Output
-        
-        init(downstream: Downstream, transform: @escaping (Upstream.Output) -> Output) {
-            self.transform = transform
-            super.init(downstream: downstream)
+        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+            .success(operation(input))
         }
         
-        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
-            guard !isCancelled else { return .none }
-            
-            let output = transform(input)
-            downstream?.receive(input: output)
-            
-            return demand
-        }
-        
-        override func receive(completion: PKSubscribers.Completion<Upstream.Failure>) {
-            guard !isCancelled else { return }
-            end()
+        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
             downstream?.receive(completion: completion)
+        }
+        
+        override var description: String {
+            "Map"
         }
     }
 }

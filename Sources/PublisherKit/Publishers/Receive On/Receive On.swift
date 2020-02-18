@@ -5,65 +5,104 @@
 //  Created by Raghav Ahuja on 19/12/19.
 //
 
-import Foundation
-
-extension PKPublishers {
+extension Publishers {
     
-    public struct ReceiveOn<Upstream: PKPublisher>: PKPublisher {
+    /// A publisher that publishes elements to its downstream subscriber on a specific scheduler.
+    public struct ReceiveOn<Upstream: Publisher, Context: Scheduler>: Publisher {
         
         public typealias Output = Upstream.Output
         
         public typealias Failure = Upstream.Failure
         
+        /// The publisher from which this publisher receives elements.
         public let upstream: Upstream
         
-        public let scheduler: PKScheduler
+        /// The scheduler the publisher is to use for element delivery.
+        public let scheduler: Context
         
-        public init(upstream: Upstream, on scheduler: PKScheduler) {
+        /// Scheduler options that customize the delivery of elements.
+        public let options: Context.PKSchedulerOptions?
+        
+        public init(upstream: Upstream, scheduler: Context, options: Context.PKSchedulerOptions?) {
             self.upstream = upstream
             self.scheduler = scheduler
+            self.options = options
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let receiveOnSubscriber = InternalSink(downstream: subscriber, scheduler: scheduler)
-            
-            subscriber.receive(subscription: receiveOnSubscriber)
-            receiveOnSubscriber.request(.unlimited)
+            let receiveOnSubscriber = Inner(downstream: subscriber, scheduler: scheduler, options: options)
             upstream.subscribe(receiveOnSubscriber)
         }
     }
 }
 
-extension PKPublishers.ReceiveOn {
+extension Publishers.ReceiveOn {
     
     // MARK: RECEIVEON SINK
-    private final class InternalSink<Downstream: PKSubscriber>: UpstreamSinkable<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber, Context: Scheduler>: InternalSubscriber<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        private let scheduler: PKScheduler
+        private let scheduler: Context
         
-        init(downstream: Downstream, scheduler: PKScheduler) {
+        private let options: Context.PKSchedulerOptions?
+        
+        private let downstreamLock = RecursiveLock()
+        
+        init(downstream: Downstream, scheduler: Context, options: Context.PKSchedulerOptions?) {
             self.scheduler = scheduler
+            self.options = options
             super.init(downstream: downstream)
         }
         
-        override func receive(_ input: Upstream.Output) -> PKSubscribers.Demand {
-            guard !isCancelled else { return .none }
+        override func onSubscription(_ subscription: Subscription) {
+            status = .subscribed(to: subscription)
+            getLock().unlock()
             
-            scheduler.schedule {
-                self.downstream?.receive(input: input)
+            downstreamLock.lock()
+            downstream?.receive(subscription: self)
+            downstreamLock.unlock()
+            
+            subscription.request(.unlimited)
+        }
+        
+        override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
+            getLock().lock()
+            guard status.isSubscribed else { getLock().unlock(); return .none }
+            
+            getLock().unlock()
+            
+            scheduler.schedule(options: options) { [weak self] in
+                self?.downstreamLock.lock()
+                _ = self?.downstream?.receive(input)
+                self?.downstreamLock.unlock()
             }
             
             return demand
         }
         
-        override func receive(completion: PKSubscribers.Completion<Upstream.Failure>) {
-            guard !isCancelled else { return }
-            end()
+        override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
+            getLock().lock()
+            guard status.isSubscribed else { getLock().unlock(); return }
             
-            scheduler.schedule {
-                self.downstream?.receive(completion: completion)
+            status = .terminated
+            getLock().unlock()
+            
+            scheduler.schedule(options: options) { [weak self] in
+                self?.end {
+                    self?.downstream?.receive(completion: completion)
+                }
             }
+        }
+        
+        override func end(completion: () -> Void) {
+            downstreamLock.lock()
+            completion()
+            downstreamLock.unlock()
+            downstream = nil
+        }
+        
+        override var description: String {
+            "ReceiveOn"
         }
     }
 }

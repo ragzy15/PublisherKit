@@ -5,21 +5,22 @@
 //  Created by Raghav Ahuja on 25/12/19.
 //
 
-import Foundation
-
-extension PKPublishers {
+extension Publishers {
     
     /// A publisher created by applying the zip function to three upstream publishers.
-    public struct Zip3<A: PKPublisher, B: PKPublisher, C: PKPublisher>: PKPublisher where A.Failure == B.Failure, B.Failure == C.Failure {
+    public struct Zip3<A: Publisher, B: Publisher, C: Publisher>: Publisher where A.Failure == B.Failure, B.Failure == C.Failure {
         
         public typealias Output = (A.Output, B.Output, C.Output)
         
         public typealias Failure = A.Failure
         
+        /// A publisher.
         public let a: A
         
+        /// A second publisher.
         public let b: B
         
+        /// A third publisher.
         public let c: C
         
         public init(_ a: A, _ b: B, _ c: C) {
@@ -28,15 +29,9 @@ extension PKPublishers {
             self.c = c
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let zipSubscriber = InternalSink(downstream: subscriber)
-            
-            zipSubscriber.receiveSubscription()
-            
-            subscriber.receive(subscription: zipSubscriber)
-            
-            zipSubscriber.sendRequest()
+            let zipSubscriber = Inner(downstream: subscriber)
             
             c.subscribe(zipSubscriber.cSubscriber)
             b.subscribe(zipSubscriber.bSubscriber)
@@ -45,58 +40,49 @@ extension PKPublishers {
     }
 }
 
-extension PKPublishers.Zip3: Equatable where A: Equatable, B: Equatable, C: Equatable {
+extension Publishers.Zip3: Equatable where A: Equatable, B: Equatable, C: Equatable {
     
-    public static func == (lhs: PKPublishers.Zip3<A, B, C>, rhs: PKPublishers.Zip3<A, B, C>) -> Bool {
+    public static func == (lhs: Publishers.Zip3<A, B, C>, rhs: Publishers.Zip3<A, B, C>) -> Bool {
         lhs.a == rhs.a && lhs.b == rhs.b && lhs.c == rhs.c
     }
 }
 
-extension PKPublishers.Zip3 {
+extension Publishers.Zip3 {
     
     // MARK: ZIP3 SINK
-    private final class InternalSink<Downstream: PKSubscriber>: CombineSink<Downstream> where Downstream.Input == Output {
+    private final class Inner<Downstream: Subscriber>: Subscribers.InternalCombine<Downstream> where Downstream.Input == Output {
         
-        private(set) lazy var aSubscriber = PKSubscribers.FinalOperatorSink<CombineSink<Downstream>, A.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var aSubscriber = Subscribers.InternalClosure<Inner, A.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
-        private(set) lazy var bSubscriber = PKSubscribers.FinalOperatorSink<CombineSink<Downstream>, B.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var bSubscriber = Subscribers.InternalClosure<Inner, B.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
-        private(set) lazy var cSubscriber = PKSubscribers.FinalOperatorSink<CombineSink<Downstream>, C.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
+        private(set) lazy var cSubscriber = Subscribers.InternalClosure<Inner, C.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
         
         private var aOutputs: [A.Output] = []
         private var bOutputs: [B.Output] = []
         private var cOutputs: [C.Output] = []
         
-        override func receiveSubscription() {
-            receive(subscription: aSubscriber)
-            receive(subscription: bSubscriber)
-            receive(subscription: cSubscriber)
-        }
-        
-        override func sendRequest() {
-            request(.unlimited)
-            aSubscriber.request(.unlimited)
-            bSubscriber.request(.unlimited)
-            cSubscriber.request(.unlimited)
-        }
-        
-        private func receive(a input: A.Output, downstream: CombineSink<Downstream>?) {
+        private func receive(a input: A.Output, downstream: Inner?) {
+            getLock().lock()
             aOutputs.append(input)
             checkAndSend()
         }
         
-        private func receive(b input: B.Output, downstream: CombineSink<Downstream>?) {
+        private func receive(b input: B.Output, downstream: Inner?) {
+            getLock().lock()
             bOutputs.append(input)
             checkAndSend()
         }
         
-        private func receive(c input: C.Output, downstream: CombineSink<Downstream>?) {
+        private func receive(c input: C.Output, downstream: Inner?) {
+            getLock().lock()
             cOutputs.append(input)
             checkAndSend()
         }
         
         override func checkAndSend() {
             guard !aOutputs.isEmpty, !bOutputs.isEmpty, !cOutputs.isEmpty else {
+                getLock().unlock()
                 return
             }
             
@@ -104,7 +90,19 @@ extension PKPublishers.Zip3 {
             let bOutput = bOutputs.removeFirst()
             let cOutput = cOutputs.removeFirst()
             
-            receive(input: (aOutput, bOutput, cOutput))
+            getLock().unlock()
+            
+            _ = receive((aOutput, bOutput, cOutput))
+        }
+        
+        override func onCompletion(_ completion: Subscribers.Completion<Failure>) {
+            end {
+                downstream?.receive(completion: completion)
+            }
+        }
+        
+        override var description: String {
+            "Zip3"
         }
     }
 }

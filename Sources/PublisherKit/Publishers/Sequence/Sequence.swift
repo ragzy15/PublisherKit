@@ -5,21 +5,19 @@
 //  Created by Raghav Ahuja on 25/12/19.
 //
 
-import Foundation
-
 extension Sequence {
     
-    public var pkPublisher: PKPublishers.Sequence<Self, Never> {
-        PKPublishers.Sequence(sequence: self)
+    public var pkPublisher: Publishers.Sequence<Self, Never> {
+        Publishers.Sequence(sequence: self)
     }
 }
 
-extension PKPublishers {
+extension Publishers {
     
     /// A publisher that publishes a given sequence of elements.
     ///
     /// When the publisher exhausts the elements in the sequence, the next request causes the publisher to finish.
-    public struct Sequence<Elements: Swift.Sequence, Failure: Error>: PKPublisher {
+    public struct Sequence<Elements: Swift.Sequence, Failure: Error>: Publisher {
         
         public typealias Output = Elements.Element
         
@@ -33,27 +31,30 @@ extension PKPublishers {
             self.sequence = sequence
         }
         
-        public func receive<S: PKSubscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let sequenceSubscriber = InternalSink(downstream: subscriber)
+            let sequenceSubscriber = Inner(downstream: subscriber)
             
             subscriber.receive(subscription: sequenceSubscriber)
+            sequenceSubscriber.request(.unlimited)
             
             for element in sequence {
-                if sequenceSubscriber.isCancelled { break }
+                if sequenceSubscriber.isTerminated { break }
                 sequenceSubscriber.receive(input: element)
             }
             
-            if !sequenceSubscriber.isCancelled {
-                subscriber.receive(completion: .finished)
-            }
+            sequenceSubscriber.receive(completion: .finished)
         }
     }
 }
 
-extension PKPublishers.Sequence {
+extension Publishers.Sequence {
 
     // MARK: SEQUENCE SINK
-    private final class InternalSink<Downstream: PKSubscriber>: PKSubscribers.InternalSink<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscriptions.Internal<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
+        
+        override var description: String {
+            "Sequence"
+        }
     }
 }
