@@ -71,7 +71,7 @@ searchTextField.textDidChangePublisher
         text.isEmpty ? nil : text
     }
     .removeDuplicates()
-    .flatMap { (text) -> AnyPublisher<[SearchResults], Never> in
+    .flatMap { (text) -> AnyPublisher<SearchResults, Never> in
         self.search(with: text)
     }
     .receive(on: DispatchQueue.main)
