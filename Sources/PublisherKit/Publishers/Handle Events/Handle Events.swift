@@ -65,7 +65,7 @@ extension Publishers {
 extension Publishers.HandleEvents {
     
     // MARK: HANDLE EVENTS SINK
-    final class HandleEvents<Downstream: Subscriber, Upstream: Publisher>: InternalSubscriber<Downstream, Upstream> where Downstream.Input == Upstream.Output, Downstream.Failure == Upstream.Failure {
+    private final class HandleEvents<Downstream: Subscriber, Upstream: Publisher>: InternalSubscriber<Downstream, Upstream> where Downstream.Input == Upstream.Output, Downstream.Failure == Upstream.Failure {
         
         final let receiveOutput: ((Input) -> Void)?
         

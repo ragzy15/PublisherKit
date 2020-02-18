@@ -17,8 +17,20 @@ extension UITextView {
         textChangePublisher
     }
     
+    public var textDidBeginEditingPublisher: AnyPublisher<String, Never> {
+        NotificationCenter.default.pkPublisher(for: UITextView.textDidBeginEditingNotification, object: self)
+            .map { ($0.object as? Self)?.text ?? "" }
+            .eraseToAnyPublisher()
+    }
+    
     public var textChangePublisher: AnyPublisher<String, Never> {
         NotificationCenter.default.pkPublisher(for: UITextView.textDidChangeNotification, object: self)
+            .map { ($0.object as? Self)?.text ?? "" }
+            .eraseToAnyPublisher()
+    }
+    
+    public var textDidEndEditingPublisher: AnyPublisher<String, Never> {
+        NotificationCenter.default.pkPublisher(for: UITextView.textDidEndEditingNotification, object: self)
             .map { ($0.object as? Self)?.text ?? "" }
             .eraseToAnyPublisher()
     }

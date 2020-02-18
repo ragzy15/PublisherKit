@@ -1,5 +1,5 @@
 //
-//  OperatorSink.swift
+//  Internal Subscribers.swift
 //  PublisherKit
 //
 //  Created by Raghav Ahuja on 19/12/19.
@@ -11,6 +11,7 @@ typealias InternalSubscriber<Downstream: Subscriber, Upstream: Publisher> = Subs
 
 extension Subscribers {
     
+    // MARK: BASE
     class InternalBase<Downstream: Subscriber, Input, Failure: Error>: Subscriptions.InternalBase<Downstream, Input, Failure>, Subscriber {
         
         final var status: SubscriptionStatus = .awaiting
@@ -116,6 +117,7 @@ extension Subscribers {
         }
     }
     
+    // MARK: OPERATOR
     class InternalOperators<Downstream: Subscriber, Input, Failure: Error, Operator>: InternalBase<Downstream, Input, Failure> {
         
         let operation: Operator
@@ -126,6 +128,7 @@ extension Subscribers {
         }
     }
     
+    // MARK: INNER
     class Inner<Downstream: Subscriber, Input, Failure>: InternalBase<Downstream, Input, Failure> where Downstream.Input == Input, Downstream.Failure == Failure {
         
         override func operate(on input: Input) -> Result<Downstream.Input, Downstream.Failure>? {
@@ -137,6 +140,7 @@ extension Subscribers {
         }
     }
     
+    // MARK: CLOSURE
     class InternalClosure<Downstream: Subscriber, Input, Failure: Error>: InternalBase<Downstream, Input, Failure> {
         
         private final var receiveValue: ((Input, Downstream?) -> Void)?
@@ -174,6 +178,7 @@ extension Subscribers {
         }
     }
     
+    // MARK: COMBINE
     class InternalCombine<Downstream: Subscriber>: Subscriptions.InternalBase<Downstream, Downstream.Input, Downstream.Failure>, Subscriber {
         
         final var subscriptions: [Subscription] = []
@@ -281,6 +286,7 @@ extension Subscribers {
         }
     }
     
+    // MARK: SUBJECT
     final class InternalSubject<DownstreamSubject: Subject>: Subscriber, Subscription, CustomStringConvertible, CustomReflectable {
         
         typealias Input = DownstreamSubject.Output

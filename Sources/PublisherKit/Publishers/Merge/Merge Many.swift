@@ -45,7 +45,7 @@ extension Publishers {
 extension Publishers.MergeMany {
 
     // MARK: MERGE ALL SINK
-    final class Inner<Downstream: Subscriber>: Subscribers.Inner<Downstream, Upstream.Output, Upstream.Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscribers.Inner<Downstream, Upstream.Output, Upstream.Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private let publisherCount: Int
         private var completedCount: Int = 0
