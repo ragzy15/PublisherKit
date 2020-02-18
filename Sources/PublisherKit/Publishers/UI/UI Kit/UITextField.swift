@@ -12,9 +12,14 @@ import UIKit
 
 extension UITextField {
     
-    @available(*, deprecated, renamed: "textChangePublisher")
+    @available(*, deprecated, renamed: "textDidChangePublisher")
     public var nkTextPublisher: AnyPublisher<String, Never> {
-        textChangePublisher
+        textDidChangePublisher
+    }
+    
+    @available(*, deprecated, renamed: "textDidChangePublisher")
+    public var textChangePublisher: AnyPublisher<String, Never> {
+        textDidChangePublisher
     }
     
     public var textDidBeginEditingPublisher: AnyPublisher<String, Never> {
@@ -23,7 +28,7 @@ extension UITextField {
             .eraseToAnyPublisher()
     }
     
-    public var textChangePublisher: AnyPublisher<String, Never> {
+    public var textDidChangePublisher: AnyPublisher<String, Never> {
         NotificationCenter.default.pkPublisher(for: UITextField.textDidChangeNotification, object: self)
             .map { ($0.object as? Self)?.text ?? "" }
             .eraseToAnyPublisher()
