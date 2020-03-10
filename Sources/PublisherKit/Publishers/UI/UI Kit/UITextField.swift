@@ -22,21 +22,21 @@ extension UITextField {
         textDidChangePublisher
     }
     
-    public var textDidBeginEditingPublisher: AnyPublisher<String, Never> {
+    public var textDidBeginEditingPublisher: AnyPublisher<Void, Never> {
         NotificationCenter.default.pkPublisher(for: UITextField.textDidBeginEditingNotification, object: self)
-            .map { ($0.object as? Self)?.text ?? "" }
+            .map { _  in }
             .eraseToAnyPublisher()
     }
     
     public var textDidChangePublisher: AnyPublisher<String, Never> {
         NotificationCenter.default.pkPublisher(for: UITextField.textDidChangeNotification, object: self)
-            .map { ($0.object as? Self)?.text ?? "" }
+            .map { ($0.object as? UITextField)?.text ?? "" }
             .eraseToAnyPublisher()
     }
     
-    public var textDidEndEditingPublisher: AnyPublisher<String, Never> {
+    public var textDidEndEditingPublisher: AnyPublisher<Void, Never> {
         NotificationCenter.default.pkPublisher(for: UITextField.textDidEndEditingNotification, object: self)
-            .map { ($0.object as? Self)?.text ?? "" }
+            .map { _  in }
             .eraseToAnyPublisher()
     }
 }

@@ -30,6 +30,7 @@ extension Publishers {
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let mergeSubscriber = Inner(downstream: subscriber, publisherCount: publisherCount)
+            subscriber.receive(subscription: mergeSubscriber)
             
             publishers.forEach { (publisher) in
                 publisher.subscribe(mergeSubscriber)
@@ -40,6 +41,10 @@ extension Publishers {
             Publishers.MergeMany(publishers + [other])
         }
     }
+}
+
+extension Publishers.MergeMany: Equatable where Upstream: Equatable {
+
 }
 
 extension Publishers.MergeMany {

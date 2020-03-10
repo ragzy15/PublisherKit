@@ -26,6 +26,7 @@ public extension Publishers {
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let mapKeypathSubscriber = Inner(downstream: subscriber, keyPath: keyPath)
+            subscriber.receive(subscription: mapKeypathSubscriber)
             upstream.subscribe(mapKeypathSubscriber)
         }
     }

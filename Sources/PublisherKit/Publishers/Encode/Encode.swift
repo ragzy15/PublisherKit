@@ -28,6 +28,7 @@ public extension Publishers {
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let encodeSubscriber = Inner(downstream: subscriber, encoder: encoder)
+            subscriber.receive(subscription: encodeSubscriber)
             upstream.subscribe(encodeSubscriber)
         }
     }

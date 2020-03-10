@@ -24,9 +24,14 @@ extension Publishers {
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let ignoreOutputSubscriber = Inner(downstream: subscriber)
+            subscriber.receive(subscription: ignoreOutputSubscriber)
             upstream.subscribe(ignoreOutputSubscriber)
         }
     }
+}
+
+extension Publishers.IgnoreOutput: Equatable where Upstream: Equatable {
+    
 }
 
 extension Publishers.IgnoreOutput {

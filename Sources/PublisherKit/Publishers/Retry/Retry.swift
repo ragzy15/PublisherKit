@@ -43,6 +43,7 @@ extension Publishers {
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let retrySubscriber = Inner(downstream: subscriber, demand: demand)
+            subscriber.receive(subscription: retrySubscriber)
             
             retrySubscriber.retrySubscription = {
                 self.upstream.subscribe(retrySubscriber)
@@ -51,6 +52,10 @@ extension Publishers {
             upstream.subscribe(retrySubscriber)
         }
     }
+}
+
+extension Publishers.Retry: Equatable where Upstream: Equatable {
+    
 }
 
 extension Publishers.Retry {

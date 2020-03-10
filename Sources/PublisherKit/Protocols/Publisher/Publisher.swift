@@ -61,7 +61,6 @@ public protocol Publisher {
     ///
     /// - SeeAlso: `subscribe(_:)`
     /// - Parameters:
-    ///     - subscriber: The subscriber to attach to this `Publisher`.
-    ///                   Once attached it can begin to receive values.
+    ///     - subscriber: The subscriber to attach to this `Publisher`. Once attached it can begin to receive values.
     func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure
 }

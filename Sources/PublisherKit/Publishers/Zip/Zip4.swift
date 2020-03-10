@@ -36,6 +36,7 @@ extension Publishers {
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let zipSubscriber = Inner(downstream: subscriber)
+            subscriber.receive(subscription: zipSubscriber)
             
             d.subscribe(zipSubscriber.dSubscriber)
             c.subscribe(zipSubscriber.cSubscriber)
@@ -47,9 +48,6 @@ extension Publishers {
 
 extension Publishers.Zip4: Equatable where A: Equatable, B: Equatable, C: Equatable, D: Equatable {
     
-    public static func == (lhs: Publishers.Zip4<A, B, C, D>, rhs: Publishers.Zip4<A, B, C, D>) -> Bool {
-        lhs.a == rhs.a && lhs.b == rhs.b && lhs.c == rhs.c && lhs.d == rhs.d
-    }
 }
 
 extension Publishers.Zip4 {

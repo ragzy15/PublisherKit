@@ -26,10 +26,16 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+            
             let containsSubscriber = Inner(downstream: subscriber, output: output)
+            subscriber.receive(subscription: containsSubscriber)
             upstream.subscribe(containsSubscriber)
         }
     }
+}
+
+extension Publishers.Contains: Equatable where Upstream: Equatable {
+    
 }
 
 extension Publishers.Contains {

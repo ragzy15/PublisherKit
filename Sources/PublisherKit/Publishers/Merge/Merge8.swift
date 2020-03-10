@@ -52,6 +52,7 @@ extension Publishers {
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let mergeSubscriber = Inner(downstream: subscriber)
+            subscriber.receive(subscription: mergeSubscriber)
             
             a.subscribe(mergeSubscriber.aSubscriber)
             b.subscribe(mergeSubscriber.bSubscriber)
@@ -63,6 +64,10 @@ extension Publishers {
             h.subscribe(mergeSubscriber.gSubscriber)
         }
     }
+}
+
+extension Publishers.Merge8: Equatable where A: Equatable, B: Equatable, C: Equatable, D: Equatable, E: Equatable, F: Equatable, G: Equatable, H: Equatable {
+    
 }
 
 extension Publishers.Merge8 {

@@ -32,6 +32,7 @@ extension Publishers {
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let combineLatestSubscriber = Inner(downstream: subscriber)
+            subscriber.receive(subscription: combineLatestSubscriber)
             
             c.subscribe(combineLatestSubscriber.cSubscriber)
             b.subscribe(combineLatestSubscriber.bSubscriber)
@@ -42,9 +43,6 @@ extension Publishers {
 
 extension Publishers.CombineLatest3: Equatable where A: Equatable, B: Equatable, C: Equatable {
     
-    public static func == (lhs: Publishers.CombineLatest3<A, B, C>, rhs: Publishers.CombineLatest3<A, B, C>) -> Bool {
-        lhs.a == rhs.a && lhs.b == rhs.b && lhs.c == rhs.c
-    }
 }
 
 extension Publishers.CombineLatest3 {

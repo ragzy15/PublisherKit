@@ -31,6 +31,7 @@ extension Publishers {
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let duplicatesSubscriber = Inner(downstream: subscriber, operation: predicate)
+            subscriber.receive(subscription: duplicatesSubscriber)
             upstream.subscribe(duplicatesSubscriber)
         }
     }

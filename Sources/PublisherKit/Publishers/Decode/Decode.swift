@@ -30,6 +30,7 @@ public extension Publishers {
             
             let decodeSubscriber = Inner(downstream: subscriber, decoder: decoder)
             decodeSubscriber.logOutput = logOutput
+            subscriber.receive(subscription: decodeSubscriber)
             upstream.subscribe(decodeSubscriber)
         }
     }

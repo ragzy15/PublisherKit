@@ -154,7 +154,6 @@ final public class Logger {
     @inline(__always)
     func assert(_ condition: @autoclosure () -> Bool, _ message: @autoclosure () -> String, file: StaticString = #file, line: UInt = #line, function: StaticString = #function) {
         
-        #if DEBUG
         let condition = condition()
         
         if condition { return }
@@ -163,7 +162,6 @@ final public class Logger {
         
         Swift.print("❗ [PublisherKit: Assertion Failure] in File: \((String(describing: file) as NSString).lastPathComponent): line: \(line) : function: \(function)\n  ↪︎ \(message)\n")
         Swift.assert(condition, message, file: file, line: line)
-        #endif
     }
     
     /**
@@ -178,7 +176,6 @@ final public class Logger {
     @inline(__always)
     func precondition(_ condition: @autoclosure () -> Bool, _ message: @autoclosure () -> String, file: StaticString = #file, line: UInt = #line, function: StaticString = #function) {
         
-        #if DEBUG
         let condition = condition()
         
         if condition { return }
@@ -187,7 +184,6 @@ final public class Logger {
         
         Swift.print("❗ [PublisherKit: Precondition Failure] \((String(describing: file) as NSString).lastPathComponent): line: \(line) : function: \(function)\n  ↪︎ \(message)\n")
         Swift.preconditionFailure(message, file: file, line: line)
-        #endif
     }
     
     /**
@@ -202,10 +198,8 @@ final public class Logger {
     @inline(__always)
     func fatalError(_ message: @autoclosure () -> String, file: StaticString = #file, line: UInt = #line, function: StaticString = #function) -> Never {
         
-        #if DEBUG
         let message = message()
         Swift.print("❗ [PublisherKit: Fatal Error] \((String(describing: file) as NSString).lastPathComponent): line: \(line) : function: \(function)\n  ↪︎ \(message)\n")
         Swift.fatalError(message, file: file, line: line)
-        #endif
     }
 }

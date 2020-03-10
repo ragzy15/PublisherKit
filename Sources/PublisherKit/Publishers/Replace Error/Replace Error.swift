@@ -28,6 +28,7 @@ public extension Publishers {
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let replaceErrorSubscriber = Inner(downstream: subscriber)
+            subscriber.receive(subscription: replaceErrorSubscriber)
             
             replaceErrorSubscriber.onError = { (downstream) in
                 _ = downstream?.receive(self.output)
@@ -36,6 +37,10 @@ public extension Publishers {
             upstream.subscribe(replaceErrorSubscriber)
         }
     }
+}
+
+extension Publishers.ReplaceError: Equatable where Upstream: Equatable, Upstream.Output: Equatable {
+    
 }
 
 extension Publishers.ReplaceError {

@@ -33,6 +33,7 @@ extension Publishers {
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let catchSubscriber = Inner(downstream: subscriber, operation: handler)
+            subscriber.receive(subscription: catchSubscriber)
             upstream.subscribe(catchSubscriber)
         }
     }
