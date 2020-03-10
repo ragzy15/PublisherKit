@@ -33,11 +33,11 @@ extension Publishers {
             
             scheduler.schedule(options: options) {
                 let subscribeOnSubscriber = Inner(downstream: subscriber, scheduler: self.scheduler, options: self.options)
-                subscriber.receive(subscription: subscribeOnSubscriber)
                 
                 subscribeOnSubscriber.upstreamLock.lock()
                 subscriber.receive(subscription: subscribeOnSubscriber)
                 subscribeOnSubscriber.upstreamLock.unlock()
+                
                 self.upstream.subscribe(subscribeOnSubscriber)
             }
         }
