@@ -37,6 +37,10 @@ extension Publishers {
     }
 }
 
+extension Publishers.SetFailureType: Equatable where Upstream: Equatable {
+    
+}
+
 extension Publishers.SetFailureType {
     
     // MARK: SET FAILURE TYPE SINK

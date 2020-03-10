@@ -53,9 +53,6 @@ extension Publishers {
 
 extension Publishers.CombineLatest5: Equatable where A: Equatable, B: Equatable, C: Equatable, D: Equatable, E: Equatable {
     
-    public static func == (lhs: Publishers.CombineLatest5<A, B, C, D, E>, rhs: Publishers.CombineLatest5<A, B, C, D, E>) -> Bool {
-        lhs.a == rhs.a && lhs.b == rhs.b && lhs.c == rhs.c && lhs.d == rhs.d && lhs.e == rhs.e
-    }
 }
 
 extension Publishers.CombineLatest5 {

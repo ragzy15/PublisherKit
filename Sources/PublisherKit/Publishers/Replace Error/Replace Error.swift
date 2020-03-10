@@ -39,6 +39,10 @@ public extension Publishers {
     }
 }
 
+extension Publishers.ReplaceError: Equatable where Upstream: Equatable, Upstream.Output: Equatable {
+    
+}
+
 extension Publishers.ReplaceError {
     
     // MARK: REPLACE ERROR SINK

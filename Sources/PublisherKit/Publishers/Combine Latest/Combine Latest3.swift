@@ -43,9 +43,6 @@ extension Publishers {
 
 extension Publishers.CombineLatest3: Equatable where A: Equatable, B: Equatable, C: Equatable {
     
-    public static func == (lhs: Publishers.CombineLatest3<A, B, C>, rhs: Publishers.CombineLatest3<A, B, C>) -> Bool {
-        lhs.a == rhs.a && lhs.b == rhs.b && lhs.c == rhs.c
-    }
 }
 
 extension Publishers.CombineLatest3 {

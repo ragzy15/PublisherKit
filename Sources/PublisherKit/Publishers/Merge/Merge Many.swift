@@ -43,6 +43,10 @@ extension Publishers {
     }
 }
 
+extension Publishers.MergeMany: Equatable where Upstream: Equatable {
+
+}
+
 extension Publishers.MergeMany {
 
     // MARK: MERGE ALL SINK

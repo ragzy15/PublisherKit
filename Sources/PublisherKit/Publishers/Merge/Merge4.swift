@@ -62,6 +62,10 @@ extension Publishers {
     }
 }
 
+extension Publishers.Merge4: Equatable where A: Equatable, B: Equatable, C: Equatable, D: Equatable {
+    
+}
+
 extension Publishers.Merge4 {
     
     // MARK: MERGE4 SINK

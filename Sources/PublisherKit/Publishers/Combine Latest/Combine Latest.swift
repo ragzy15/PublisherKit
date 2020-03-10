@@ -36,11 +36,8 @@ extension Publishers {
     }
 }
 
-extension Publishers.CombineLatest: Equatable where A: Equatable, B: Equatable{
+extension Publishers.CombineLatest: Equatable where A: Equatable, B: Equatable {
     
-    public static func == (lhs: Publishers.CombineLatest<A, B>, rhs: Publishers.CombineLatest<A, B>) -> Bool {
-        lhs.a == rhs.a && lhs.b == rhs.b
-    }
 }
 
 extension Publishers.CombineLatest {

@@ -31,6 +31,10 @@ extension Publishers {
     }
 }
 
+extension Publishers.Count: Equatable where Upstream: Equatable {
+    
+}
+
 extension Publishers.Count {
     
     // MARK: COUNT SINK

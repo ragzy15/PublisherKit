@@ -34,6 +34,10 @@ extension Publishers {
     }
 }
 
+extension Publishers.Contains: Equatable where Upstream: Equatable {
+    
+}
+
 extension Publishers.Contains {
     
     // MARK: CONTAINS SINK

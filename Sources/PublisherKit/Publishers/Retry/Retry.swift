@@ -54,6 +54,10 @@ extension Publishers {
     }
 }
 
+extension Publishers.Retry: Equatable where Upstream: Equatable {
+    
+}
+
 extension Publishers.Retry {
     
     // MARK: RETRY

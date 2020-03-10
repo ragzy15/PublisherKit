@@ -36,11 +36,8 @@ extension Publishers {
     }
 }
 
-extension Publishers.Zip: Equatable where A: Equatable, B: Equatable{
+extension Publishers.Zip: Equatable where A: Equatable, B: Equatable {
     
-    public static func == (lhs: Publishers.Zip<A, B>, rhs: Publishers.Zip<A, B>) -> Bool {
-        lhs.a == rhs.a && lhs.b == rhs.b
-    }
 }
 
 extension Publishers.Zip {

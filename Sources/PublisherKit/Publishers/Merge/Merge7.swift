@@ -65,6 +65,10 @@ extension Publishers {
     }
 }
 
+extension Publishers.Merge7: Equatable where A: Equatable, B: Equatable, C: Equatable, D: Equatable, E: Equatable, F: Equatable, G: Equatable {
+    
+}
+
 extension Publishers.Merge7 {
     
     // MARK: MERGE7 SINK

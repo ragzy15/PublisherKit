@@ -30,6 +30,10 @@ extension Publishers {
     }
 }
 
+extension Publishers.IgnoreOutput: Equatable where Upstream: Equatable {
+    
+}
+
 extension Publishers.IgnoreOutput {
     
     // MARK: IGNORE OUTPUT SINK

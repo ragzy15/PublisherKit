@@ -39,6 +39,10 @@ public extension Publishers {
     }
 }
 
+extension Publishers.ReplaceEmpty: Equatable where Upstream : Equatable, Upstream.Output: Equatable {
+    
+}
+
 extension Publishers.ReplaceEmpty {
     
     // MARK: REPLACE EMPTY SINK
