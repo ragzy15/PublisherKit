@@ -332,6 +332,22 @@ extension Publisher {
     }
 }
 
+// MARK: DELAY
+extension Publisher {
+    
+    /// Delays delivery of all output to the downstream receiver by a specified amount of time on a particular scheduler.
+    ///
+    /// The delay affects the delivery of elements and completion, but not of the original subscription.
+    /// - Parameters:
+    ///   - interval: The amount of time to delay.
+    ///   - tolerance: The allowed tolerance in firing delayed events.
+    ///   - scheduler: The scheduler to deliver the delayed events.
+    /// - Returns: A publisher that delays delivery of elements and completion to the downstream receiver.
+    public func delay<S: Scheduler>(for interval: S.PKSchedulerTimeType.Stride, tolerance: S.PKSchedulerTimeType.Stride? = nil, scheduler: S, options: S.PKSchedulerOptions? = nil) -> Publishers.Delay<Self, S> {
+        Publishers.Delay(upstream: self, interval: interval, tolerance: tolerance ?? scheduler.minimumTolerance, scheduler: scheduler, options: options)
+    }
+}
+
 // MARK: ENCODE
 extension Publisher where Output: Encodable {
     
