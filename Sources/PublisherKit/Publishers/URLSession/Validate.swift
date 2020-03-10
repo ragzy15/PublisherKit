@@ -61,9 +61,11 @@ extension Publishers {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let validationSubscriber = Inner(downstream: subscriber, acceptableStatusCodes: acceptableStatusCodes, acceptableContentTypes: acceptableContentTypes)
+            let validationSubscriber = Inner(downstream: subscriber,
+                                             acceptableStatusCodes: acceptableStatusCodes,
+                                             acceptableContentTypes: acceptableContentTypes)
             
-            validationSubscriber.request(.max(1))
+            subscriber.receive(subscription: validationSubscriber)
             upstream.subscribe(validationSubscriber)
         }
     }
@@ -81,6 +83,7 @@ extension Publishers.Validate {
             self.acceptableStatusCodes = acceptableStatusCodes
             self.acceptableContentTypes = acceptableContentTypes
             super.init(downstream: downstream)
+            requiredDemand = .max(1)
         }
         
         override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {

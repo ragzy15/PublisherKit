@@ -15,6 +15,7 @@ extension Subscribers {
     class InternalBase<Downstream: Subscriber, Input, Failure: Error>: Subscriptions.InternalBase<Downstream, Input, Failure>, Subscriber {
         
         final var status: SubscriptionStatus = .awaiting
+        var requiredDemand: Subscribers.Demand = .unlimited
         
         private let lock = Lock()
         
@@ -38,8 +39,7 @@ extension Subscribers {
         func onSubscription(_ subscription: Subscription) {
             status = .subscribed(to: subscription)
             lock.unlock()
-            downstream?.receive(subscription: self)
-            subscription.request(.unlimited)
+            subscription.request(requiredDemand)
         }
         
         override func receive(completion: Subscribers.Completion<Failure>) {
@@ -208,7 +208,6 @@ extension Subscribers {
             lock.lock()
             guard !isTerminated else { lock.unlock(); return }
             lock.unlock()
-            downstream?.receive(subscription: self)
             subscriptions.append(subscription)
             subscription.request(.unlimited)
         }

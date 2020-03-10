@@ -36,6 +36,7 @@ extension Publishers {
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let zipSubscriber = Inner(downstream: subscriber)
+            subscriber.receive(subscription: zipSubscriber)
             
             d.subscribe(zipSubscriber.dSubscriber)
             c.subscribe(zipSubscriber.cSubscriber)

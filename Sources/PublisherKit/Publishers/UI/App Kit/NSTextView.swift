@@ -21,21 +21,21 @@ extension NSTextView {
         textDidChangePublisher
     }
     
-    public var textDidBeginEditingPublisher: AnyPublisher<String, Never> {
+    public var textDidBeginEditingPublisher: AnyPublisher<Void, Never> {
         NotificationCenter.default.pkPublisher(for: NSTextView.didBeginEditingNotification, object: self)
-            .map { ($0.object as? Self)?.string ?? "" }
+            .map { _ in }
             .eraseToAnyPublisher()
     }
     
     public var textDidChangePublisher: AnyPublisher<String, Never> {
         NotificationCenter.default.pkPublisher(for: NSTextView.didChangeNotification, object: self)
-            .map { ($0.object as? Self)?.string ?? "" }
+            .map { ($0.object as? NSTextView)?.string ?? "" }
             .eraseToAnyPublisher()
     }
     
-    public var textDidEndEditingPublisher: AnyPublisher<String, Never> {
+    public var textDidEndEditingPublisher: AnyPublisher<Void, Never> {
         NotificationCenter.default.pkPublisher(for: NSTextView.didEndEditingNotification, object: self)
-            .map { ($0.object as? Self)?.string ?? "" }
+            .map { _ in }
             .eraseToAnyPublisher()
     }
 }

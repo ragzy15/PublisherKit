@@ -56,6 +56,7 @@ extension Publishers {
                                                     receiveOutput: receiveOutput,
                                                     receiveCompletion: receiveCompletion)
             
+            subscriber.receive(subscription: breakpointSubscriber)
             upstream.subscribe(breakpointSubscriber)
         }
     }

@@ -51,12 +51,14 @@ extension Publishers {
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             
-            let handleEventsSubscriber = HandleEvents<S, Upstream>(downstream: subscriber,
+            let handleEventsSubscriber = Inner<S, Upstream>(downstream: subscriber,
                                                                    receiveSubscription: receiveSubscription,
                                                                    receiveOutput: receiveOutput,
                                                                    receiveCompletion: receiveCompletion,
                                                                    receiveCancel: receiveCancel,
                                                                    receiveRequest: receiveRequest)
+            
+            subscriber.receive(subscription: handleEventsSubscriber)
             upstream.subscribe(handleEventsSubscriber)
         }
     }
@@ -65,7 +67,7 @@ extension Publishers {
 extension Publishers.HandleEvents {
     
     // MARK: HANDLE EVENTS SINK
-    private final class HandleEvents<Downstream: Subscriber, Upstream: Publisher>: InternalSubscriber<Downstream, Upstream> where Downstream.Input == Upstream.Output, Downstream.Failure == Upstream.Failure {
+    private final class Inner<Downstream: Subscriber, Upstream: Publisher>: InternalSubscriber<Downstream, Upstream> where Downstream.Input == Upstream.Output, Downstream.Failure == Upstream.Failure {
         
         final let receiveOutput: ((Input) -> Void)?
         

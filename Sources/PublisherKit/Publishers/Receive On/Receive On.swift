@@ -32,6 +32,11 @@ extension Publishers {
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let receiveOnSubscriber = Inner(downstream: subscriber, scheduler: scheduler, options: options)
+                        
+            receiveOnSubscriber.downstreamLock.lock()
+            subscriber.receive(subscription: receiveOnSubscriber)
+            receiveOnSubscriber.downstreamLock.unlock()
+            
             upstream.subscribe(receiveOnSubscriber)
         }
     }
@@ -46,23 +51,12 @@ extension Publishers.ReceiveOn {
         
         private let options: Context.PKSchedulerOptions?
         
-        private let downstreamLock = RecursiveLock()
+        fileprivate let downstreamLock = RecursiveLock()
         
         init(downstream: Downstream, scheduler: Context, options: Context.PKSchedulerOptions?) {
             self.scheduler = scheduler
             self.options = options
             super.init(downstream: downstream)
-        }
-        
-        override func onSubscription(_ subscription: Subscription) {
-            status = .subscribed(to: subscription)
-            getLock().unlock()
-            
-            downstreamLock.lock()
-            downstream?.receive(subscription: self)
-            downstreamLock.unlock()
-            
-            subscription.request(.unlimited)
         }
         
         override func receive(_ input: Upstream.Output) -> Subscribers.Demand {

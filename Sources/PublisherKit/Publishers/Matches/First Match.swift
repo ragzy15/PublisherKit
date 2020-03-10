@@ -55,6 +55,7 @@ extension Publishers {
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let firstMatchSubscriber = Inner(downstream: subscriber, result: result, matchOptions: matchOptions)
+            subscriber.receive(subscription: firstMatchSubscriber)
             upstream.subscribe(firstMatchSubscriber)
         }
     }
@@ -76,7 +77,7 @@ extension Publishers.FirstMatch {
         
         override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
             result.map { (expression) -> Downstream.Input in
-                let match = expression.firstMatch(in: input, options: matchOptions, range: NSRange(location: 0, length: input.utf8.count))
+                let match = expression.firstMatch(in: input, options: matchOptions, range: NSRange(location: 0, length: input.count))
                 return match != nil
             }
         }

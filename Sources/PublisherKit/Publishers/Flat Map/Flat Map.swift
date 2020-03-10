@@ -32,6 +32,11 @@ extension Publishers {
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let flatMapSubscriber = Inner(downstream: subscriber, maxPublishers: maxPublishers, operation: transform)
+            
+            flatMapSubscriber.downstreamLock.lock()
+            subscriber.receive(subscription: flatMapSubscriber)
+            flatMapSubscriber.downstreamLock.unlock()
+            
             upstream.subscribe(flatMapSubscriber)
         }
     }
@@ -50,20 +55,17 @@ extension Publishers.FlatMap {
         private var currentIndex = 0
         private var pendingSubscriptions = 0
         
-        private let downstreamLock = RecursiveLock()
+        fileprivate let downstreamLock = RecursiveLock()
         
         init(downstream: Downstream, maxPublishers: Subscribers.Demand, operation: @escaping (Upstream.Output) -> NewPublisher) {
             self.maxPublishers = maxPublishers
             super.init(downstream: downstream, operation: operation)
+            requiredDemand = maxPublishers
         }
         
         override final func onSubscription(_ subscription: Subscription) {
             status = .subscribed(to: subscription)
             getLock().unlock()
-            
-            downstreamLock.lock()
-            downstream?.receive(subscription: self)
-            downstreamLock.unlock()
             
             subscription.request(maxPublishers)
         }

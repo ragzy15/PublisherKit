@@ -28,6 +28,7 @@ extension Publishers {
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let tryFilterSubscriber = Inner(downstream: subscriber, operation: isIncluded)
+            subscriber.receive(subscription: tryFilterSubscriber)
             upstream.receive(subscriber: tryFilterSubscriber)
         }
     }

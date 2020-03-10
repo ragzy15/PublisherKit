@@ -28,6 +28,7 @@ public extension Publishers {
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let replaceEmptySubscriber = Inner(downstream: subscriber)
+            subscriber.receive(subscription: replaceEmptySubscriber)
             
             replaceEmptySubscriber.onFinish = { (downstream) in
                 _ = downstream?.receive(self.output)
