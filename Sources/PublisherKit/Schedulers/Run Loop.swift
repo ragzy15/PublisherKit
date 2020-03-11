@@ -10,7 +10,7 @@ import Foundation
 extension RunLoop: Scheduler {
     
     /// The scheduler time type used by the run loop.
-    public struct PKStrideType: Strideable, Codable, Hashable {
+    public struct PKSchedulerTimeType: Strideable, Codable, Hashable {
         
         /// The date represented by this type.
         public var date: Date
@@ -26,22 +26,22 @@ extension RunLoop: Scheduler {
         ///
         /// - Parameter other: Another dispatch queue time.
         /// - Returns: The time interval between this time and the provided time.
-        public func distance(to other: PKStrideType) -> PKStrideType.Stride {
+        public func distance(to other: PKSchedulerTimeType) -> Stride {
             let timeIntervalSince1970 =
                 date > other.date
                     ? date.timeIntervalSince1970 - other.date.timeIntervalSince1970
                     : other.date.timeIntervalSince1970 - date.timeIntervalSince1970
             
-            return PKStrideType.Stride(timeIntervalSince1970)
+            return Stride(timeIntervalSince1970)
         }
         
         /// Returns a run loop scheduler time calculated by advancing this instance’s time by the given interval.
         ///
         /// - Parameter n: A time interval to advance.
         /// - Returns: A dispatch queue time advanced by the given interval from this instance’s time.
-        public func advanced(by n: PKStrideType.Stride) -> PKStrideType {
+        public func advanced(by n: Stride) -> PKSchedulerTimeType {
             let timeIntervalSince1970 = date.timeIntervalSince1970 + n.magnitude
-            return PKStrideType(Date(timeIntervalSince1970: timeIntervalSince1970))
+            return PKSchedulerTimeType(Date(timeIntervalSince1970: timeIntervalSince1970))
         }
         
         /// The interval by which run loop times advance.
@@ -157,31 +157,31 @@ extension RunLoop: Scheduler {
     public struct PKSchedulerOptions {
     }
     
-    public var now: PKStrideType { PKStrideType(Date()) }
+    public var now: PKSchedulerTimeType { PKSchedulerTimeType(Date()) }
     
-    public var minimumTolerance: PKStrideType.Stride { .seconds(0) }
+    public var minimumTolerance: PKSchedulerTimeType.Stride { .seconds(0) }
     
     public func schedule(options: PKSchedulerOptions?, _ action: @escaping () -> Void) {
         let timer = Timer(fireAt: now.date, interval: 0, target: self, selector: #selector(scheduledAction(_:)), userInfo: action, repeats: false)
-        
+
         add(timer, forMode: .default)
     }
-    
-    public func schedule(after date: PKStrideType, tolerance: PKStrideType.Stride, options: PKSchedulerOptions?, _ action: @escaping () -> Void) {
+
+    public func schedule(after date: PKSchedulerTimeType, tolerance: PKSchedulerTimeType.Stride, options: PKSchedulerOptions?, _ action: @escaping () -> Void) {
         let timer = Timer(fireAt: date.date, interval: 0, target: self, selector: #selector(scheduledAction(_:)), userInfo: action, repeats: false)
-        
+
         timer.tolerance = tolerance.timeInterval
-        
+
         add(timer, forMode: .default)
     }
-    
-    public func schedule(after date: PKStrideType, interval: PKStrideType.Stride, tolerance: PKStrideType.Stride, options: PKSchedulerOptions?, _ action: @escaping () -> Void) -> Cancellable {
+
+    public func schedule(after date: PKSchedulerTimeType, interval: PKSchedulerTimeType.Stride, tolerance: PKSchedulerTimeType.Stride, options: PKSchedulerOptions?, _ action: @escaping () -> Void) -> Cancellable {
         let timer = Timer(fireAt: date.date, interval: interval.timeInterval, target: self, selector: #selector(scheduledAction(_:)), userInfo: action, repeats: true)
-        
+
         timer.tolerance = tolerance.timeInterval
-        
+
         add(timer, forMode: .default)
-        
+
         return AnyCancellable(cancel: timer.invalidate)
     }
     
