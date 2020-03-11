@@ -60,14 +60,12 @@ extension Scheduler {
         schedule(after: date, tolerance: tolerance, options: nil, action)
     }
 
-    /// Performs the action at some time after the specified date, at the specified
-    /// frequency, taking into account tolerance if possible.
+    /// Performs the action at some time after the specified date, at the specified frequency, taking into account tolerance if possible.
     public func schedule(after date: PKSchedulerTimeType, interval: PKSchedulerTimeType.Stride, tolerance: PKSchedulerTimeType.Stride, _ action: @escaping () -> Void) -> Cancellable {
         schedule(after: date, interval: interval, tolerance: tolerance, options: nil, action)
     }
 
-    /// Performs the action at some time after the specified date, at the specified
-    /// frequency, using minimum tolerance possible for this Scheduler.
+    /// Performs the action at some time after the specified date, at the specified frequency, using minimum tolerance possible for this Scheduler.
     public func schedule(after date: PKSchedulerTimeType, interval: PKSchedulerTimeType.Stride, _ action: @escaping () -> Void) -> Cancellable {
         schedule(after: date, interval: interval, tolerance: minimumTolerance, action)
     }

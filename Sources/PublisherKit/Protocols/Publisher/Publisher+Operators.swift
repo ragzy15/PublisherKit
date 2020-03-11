@@ -867,6 +867,21 @@ extension Publisher {
     }
 }
 
+// MARK: THROTTLE
+extension Publisher {
+    
+    /// Publishes either the most-recent or first element published by the upstream publisher in the specified time interval.
+    ///
+    /// - Parameters:
+    ///   - interval: The interval at which to find and emit the most recent element, expressed in the time system of the scheduler.
+    ///   - scheduler: The scheduler on which to publish elements.
+    ///   - latest: A Boolean value that indicates whether to publish the most recent element. If `false`, the publisher emits the first element received during the interval.
+    /// - Returns: A publisher that emits either the most-recent or first element received during the specified interval.
+    public func throttle<S: Scheduler>(for interval: S.PKSchedulerTimeType.Stride, scheduler: S, latest: Bool) -> Publishers.Throttle<Self, S> {
+        Publishers.Throttle(upstream: self, interval: interval, scheduler: scheduler, latest: latest)
+    }
+}
+
 // MARK: VALIDATE
 extension Publisher where Output == (data: Data, response: HTTPURLResponse) {
     
