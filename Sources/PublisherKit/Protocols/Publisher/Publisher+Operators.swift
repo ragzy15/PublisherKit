@@ -471,6 +471,17 @@ extension Publisher where Output == String {
     }
 }
 
+// MARK: MAKE CONNECTABLE
+extension Publisher where Failure == Never {
+
+    /// Creates a connectable wrapper around the publisher.
+    ///
+    /// - Returns: A `ConnectablePublisher` wrapping this publisher.
+    public func makeConnectable() -> Publishers.MakeConnectable<Self> {
+        Publishers.MakeConnectable(upstream: self)
+    }
+}
+
 // MARK: MAP ERROR
 extension Publisher {
     
@@ -662,6 +673,28 @@ extension Publisher {
     /// - Returns: A publisher that emits an event when either upstream publisher emits an event.
     public func merge(with other: Self) -> Publishers.MergeMany<Self> {
         Publishers.MergeMany(self, other)
+    }
+}
+
+// MARK: MULTICAST
+extension Publisher {
+
+    /// Applies a closure to create a subject that delivers elements to subscribers.
+    ///
+    /// Use a multicast publisher when you have multiple downstream subscribers, but you want upstream publishers to only process one `receive(_:)` call per event.
+    /// In contrast with `multicast(subject:)`, this method produces a publisher that creates a separate Subject for each subscriber.
+    /// - Parameter createSubject: A closure to create a new Subject each time a subscriber attaches to the multicast publisher.
+    public func multicast<S: Subject>(_ createSubject: @escaping () -> S) -> Publishers.Multicast<Self, S> where Output == S.Output, Failure == S.Failure {
+        Publishers.Multicast(upstream: self, createSubject: createSubject)
+    }
+
+    /// Provides a subject to deliver elements to multiple subscribers.
+    ///
+    /// Use a multicast publisher when you have multiple downstream subscribers, but you want upstream publishers to only process one `receive(_:)` call per event.
+    /// In contrast with `multicast(_:)`, this method produces a publisher shares the provided Subject among all the downstream subscribers.
+    /// - Parameter subject: A subject to deliver elements to downstream subscribers.
+    public func multicast<S: Subject>(subject: S) -> Publishers.Multicast<Self, S> where Output == S.Output, Failure == S.Failure {
+        multicast { subject }
     }
 }
 
