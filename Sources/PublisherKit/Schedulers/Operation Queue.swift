@@ -10,7 +10,7 @@ import Foundation
 extension OperationQueue: Scheduler {
     
     /// The scheduler time type used by the operation queue.
-    public struct PKStrideType: Strideable, Codable, Hashable {
+    public struct PKSchedulerTimeType: Strideable, Codable, Hashable {
         
         /// The date represented by this type.
         public var date: Date
@@ -26,21 +26,21 @@ extension OperationQueue: Scheduler {
         ///
         /// - Parameter other: Another operation queue time.
         /// - Returns: The time interval between this time and the provided time.
-        public func distance(to other: PKStrideType) -> PKStrideType.Stride {
+        public func distance(to other: PKSchedulerTimeType) -> Stride {
             let timeIntervalSince1970 =
                 date > other.date
                     ? date.timeIntervalSince1970 - other.date.timeIntervalSince1970
                     : other.date.timeIntervalSince1970 - date.timeIntervalSince1970
-            return PKStrideType.Stride(timeIntervalSince1970)
+            return PKSchedulerTimeType.Stride(timeIntervalSince1970)
         }
         
         /// Returns a operation queue scheduler time calculated by advancing this instance’s time by the given interval.
         ///
         /// - Parameter n: A time interval to advance.
         /// - Returns: A operation queue time advanced by the given interval from this instance’s time.
-        public func advanced(by n: PKStrideType.Stride) -> PKStrideType {
+        public func advanced(by n: Stride) -> PKSchedulerTimeType {
             let timeIntervalSince1970 = date.timeIntervalSince1970 + n.magnitude
-            return PKStrideType(Date(timeIntervalSince1970: timeIntervalSince1970))
+            return PKSchedulerTimeType(Date(timeIntervalSince1970: timeIntervalSince1970))
         }
         
         /// The interval by which operation queue times advance.
@@ -171,20 +171,20 @@ extension OperationQueue: Scheduler {
     public struct PKSchedulerOptions {
     }
     
-    public var now: PKStrideType { PKStrideType(Date(timeIntervalSinceNow: 0)) }
+    public var now: PKSchedulerTimeType { PKSchedulerTimeType(Date(timeIntervalSinceNow: 0)) }
     
-    public var minimumTolerance: PKStrideType.Stride { .seconds(0) }
+    public var minimumTolerance: PKSchedulerTimeType.Stride { .seconds(0) }
     
     public func schedule(options: PKSchedulerOptions?, _ action: @escaping () -> Void) {
         addOperation(BlockOperation(block: action))
     }
     
-    public func schedule(after date: PKStrideType, tolerance: PKStrideType.Stride, options: PKSchedulerOptions?, _ action: @escaping () -> Void) {
+    public func schedule(after date: PKSchedulerTimeType, tolerance: PKSchedulerTimeType.Stride, options: PKSchedulerOptions?, _ action: @escaping () -> Void) {
         let op = AsynchronousBlockOperation(after: date, interval: 0, tolerance: tolerance, repeats: false, action)
         addOperation(op)
     }
     
-    public func schedule(after date: PKStrideType, interval: PKStrideType.Stride, tolerance: PKStrideType.Stride, options: PKSchedulerOptions?, _ action: @escaping () -> Void) -> Cancellable {
+    public func schedule(after date: PKSchedulerTimeType, interval: PKSchedulerTimeType.Stride, tolerance: PKSchedulerTimeType.Stride, options: PKSchedulerOptions?, _ action: @escaping () -> Void) -> Cancellable {
         let op = AsynchronousBlockOperation(after: date, interval: interval, tolerance: tolerance, repeats: true, action)
         addOperation(op)
         return AnyCancellable(cancel: op.cancel)

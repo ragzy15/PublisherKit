@@ -57,16 +57,16 @@ public class AsynchronousOperation: Operation {
 final class AsynchronousBlockOperation: AsynchronousOperation {
     
     private var block: (() -> Void)?
-    private let date: OperationQueue.PKStrideType
-    private let interval: OperationQueue.PKStrideType.Stride
-    private let tolerance: OperationQueue.PKStrideType.Stride
+    private let date: OperationQueue.PKSchedulerTimeType
+    private let interval: OperationQueue.PKSchedulerTimeType.Stride
+    private let tolerance: OperationQueue.PKSchedulerTimeType.Stride
     private let repeats: Bool
     
     private var timer: Timer?
     
     private var stopRunLoop = false
     
-    init(after date: OperationQueue.PKStrideType, interval: OperationQueue.PKStrideType.Stride, tolerance: OperationQueue.PKStrideType.Stride, repeats: Bool, _ block: @escaping () -> Void) {
+    init(after date: OperationQueue.PKSchedulerTimeType, interval: OperationQueue.PKSchedulerTimeType.Stride, tolerance: OperationQueue.PKSchedulerTimeType.Stride, repeats: Bool, _ block: @escaping () -> Void) {
         self.date = date
         self.interval = interval
         self.tolerance = tolerance

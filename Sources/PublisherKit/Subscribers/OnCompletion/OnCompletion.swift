@@ -53,7 +53,6 @@ public extension Subscribers {
         }
         
         final func end() {
-            subscription?.cancel()
             subscription = nil
         }
 
