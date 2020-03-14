@@ -66,7 +66,7 @@ extension Publishers.CompactMap {
     // MARK: COMPACTMAP SINK
     private final class Inner<Downstream: Subscriber>: OperatorSubscriber<Downstream, Upstream, (Upstream.Output) -> Output?> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+        override func operate(on input: Upstream.Output) -> Result<Output, Failure>? {
             let output = operation(input)
             if let value = output {
                 return .success(value)

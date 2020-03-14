@@ -37,7 +37,7 @@ extension Publishers.MapError {
     // MARK: MAPERROR SINK
     private final class Inner<Downstream: Subscriber, Failure>: OperatorSubscriber<Downstream, Upstream, (Upstream.Failure) -> Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+        override func operate(on input: Upstream.Output) -> Result<Output, Failure>? {
             .success(input)
         }
         

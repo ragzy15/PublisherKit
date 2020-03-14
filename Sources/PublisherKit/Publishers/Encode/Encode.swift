@@ -46,7 +46,7 @@ extension Publishers.Encode {
             super.init(downstream: downstream)
         }
         
-        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+        override func operate(on input: Upstream.Output) -> Result<Encoder.Output, Downstream.Failure>? {
             return Result { try encoder.encode(input) }
         }
         

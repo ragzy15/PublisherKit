@@ -48,7 +48,7 @@ extension Publishers.Reduce {
             super.init(downstream: downstream, operation: nextPartialResult)
         }
         
-        override func operate(on input: Input) -> Result<Downstream.Input, Downstream.Failure>? {
+        override func operate(on input: Upstream.Output) -> Result<Output, Failure>? {
             output = operation(output, input)
             return .success(output)
         }

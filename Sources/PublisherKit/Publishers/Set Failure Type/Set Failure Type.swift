@@ -46,7 +46,7 @@ extension Publishers.SetFailureType {
     // MARK: SET FAILURE TYPE SINK
     private final class Inner<Downstream: Subscriber>: InternalSubscriber<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+        override func operate(on input: Upstream.Output) -> Result<Output, Failure>? {
             .success(input)
         }
         

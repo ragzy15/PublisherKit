@@ -68,7 +68,7 @@ extension Publishers.TryFilter {
     // MARK: TRY FILTER SINK
     private final class Inner<Downstream: Subscriber>: OperatorSubscriber<Downstream, Upstream, (Upstream.Output) throws -> Bool> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-         override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+        override func operate(on input: Upstream.Output) -> Result<Output, Downstream.Failure>? {
             
             do {
                 let isIncluded = try operation(input)

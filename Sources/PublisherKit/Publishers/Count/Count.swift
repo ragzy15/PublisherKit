@@ -42,7 +42,7 @@ extension Publishers.Count {
         
         private var counter = 0
         
-        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+        override func operate(on input: Upstream.Output) -> Result<Output, Failure>? {
             counter += 1
             return nil
         }

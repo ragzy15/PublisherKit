@@ -75,7 +75,7 @@ extension Publishers.Matches {
             super.init(downstream: downstream)
         }
         
-        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+        override func operate(on input: Upstream.Output) -> Result<Output, Downstream.Failure>? {
             result.map { (expression) -> Downstream.Input in
                 let matches = expression.matches(in: input, options: matchOptions, range: NSRange(location: 0, length: input.count))
                 return matches

@@ -58,7 +58,7 @@ extension Publishers.MapKeyPath3 {
             super.init(downstream: downstream)
         }
         
-        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+        override func operate(on input: Upstream.Output) -> Result<Output, Failure>? {
             let output0 = input[keyPath: keyPath0]
             let output1 = input[keyPath: keyPath1]
             let output2 = input[keyPath: keyPath2]

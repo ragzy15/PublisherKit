@@ -46,7 +46,7 @@ extension Publishers.Catch {
         
         private lazy var subscriber = Subscribers.Inner<Downstream, Output, NewPublisher.Failure>(downstream: downstream!)
         
-        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+        override func operate(on input: Upstream.Output) -> Result<Output, NewPublisher.Failure>? {
             .success(input)
         }
         

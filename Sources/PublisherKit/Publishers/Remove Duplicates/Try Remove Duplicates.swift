@@ -44,7 +44,7 @@ extension Publishers.TryRemoveDuplicates {
         
         private var previousValue: Output? = nil
         
-        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+        override func operate(on input: Upstream.Output) -> Result<Output, Downstream.Failure>? {
             do {
                 if let previousValue = previousValue, try operation(previousValue, input) {
                     return nil

@@ -74,7 +74,7 @@ extension Publishers.FlatMap {
             super.request(self.demand + demand)
         }
         
-        override final func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+        override func operate(on input: Upstream.Output) -> Result<NewPublisher.Output, Downstream.Failure>? {
             let publisher = operation(input)
             
             getLock().lock()

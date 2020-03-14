@@ -50,7 +50,7 @@ extension Publishers.ReplaceError {
         
         var onError: ((Downstream?) -> Void)?
         
-        override func operate(on input: Input) -> Result<Downstream.Input, Downstream.Failure>? {
+        override func operate(on input: Upstream.Output) -> Result<Output, Downstream.Failure>? {
             .success(input)
         }
         

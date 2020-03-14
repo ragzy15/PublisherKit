@@ -44,7 +44,7 @@ extension Publishers.MapKeyPath {
             super.init(downstream: downstream)
         }
         
-        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+        override func operate(on input: Upstream.Output) -> Result<Output, Failure>? {
             .success(input[keyPath: keyPath])
         }
         

@@ -1,57 +1,62 @@
 //
-//  Contains.swift
+//  Drop.swift
 //  PublisherKit
 //
-//  Created by Raghav Ahuja on 08/02/20.
+//  Created by Raghav Ahuja on 14/03/20.
 //
 
 extension Publishers {
     
-    /// A publisher that emits a Boolean value when a specified element is received from its upstream publisher.
-    public struct Contains<Upstream: Publisher>: Publisher where Upstream.Output: Equatable {
+    /// A publisher that omits a specified number of elements before republishing later elements.
+    public struct Drop<Upstream: Publisher>: Publisher {
         
-        public typealias Output = Bool
+        public typealias Output = Upstream.Output
         
         public typealias Failure = Upstream.Failure
         
         /// The publisher from which this publisher receives elements.
         public let upstream: Upstream
         
-        /// The element to scan for in the upstream publisher.
-        public let output: Upstream.Output
+        /// The number of elements to drop.
+        public let count: Int
         
-        public init(upstream: Upstream, output: Upstream.Output) {
+        public init(upstream: Upstream, count: Int) {
             self.upstream = upstream
-            self.output = output
+            self.count = count
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let containsSubscriber = Inner(downstream: subscriber, output: output)
-            subscriber.receive(subscription: containsSubscriber)
-            upstream.subscribe(containsSubscriber)
+            let dropSubscription = Inner(downstream: subscriber, count: count)
+            
+            subscriber.receive(subscription: dropSubscription)
+            upstream.subscribe(dropSubscription)
         }
     }
 }
 
-extension Publishers.Contains: Equatable where Upstream: Equatable {
-    
+extension Publishers.Drop: Equatable where Upstream: Equatable {
 }
 
-extension Publishers.Contains {
+extension Publishers.Drop {
     
-    // MARK: CONTAINS SINK
+    // MARK: DROP SINK
     private final class Inner<Downstream: Subscriber>: InternalSubscriber<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        let output: Upstream.Output
+        private var count: Int
         
-        init(downstream: Downstream, output: Upstream.Output) {
-            self.output = output
+        init(downstream: Downstream, count: Int) {
+            self.count = count
             super.init(downstream: downstream)
         }
         
         override func operate(on input: Upstream.Output) -> Result<Output, Failure>? {
-            .success(input == output)
+            if count > 0 { count -= 1 }
+            if count == 0 {
+                return .success(input)
+            } else {
+                return nil
+            }
         }
         
         override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
@@ -59,7 +64,7 @@ extension Publishers.Contains {
         }
         
         override var description: String {
-            "Contains"
+            "Drop"
         }
     }
 }

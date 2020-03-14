@@ -50,7 +50,7 @@ extension Publishers.Decode {
             super.init(downstream: downstream)
         }
         
-        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+        override func operate(on input: Upstream.Output) -> Result<Output, Downstream.Failure>? {
             if logOutput {
                 decoder.log(from: input)
             }

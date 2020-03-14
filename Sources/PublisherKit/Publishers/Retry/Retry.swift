@@ -76,7 +76,7 @@ extension Publishers.Retry {
             super.request(_demand)
         }
         
-        override func operate(on input: Input) -> Result<Downstream.Input, Downstream.Failure>? {
+        override func operate(on input: Upstream.Output) -> Result<Output, Failure>? {
             .success(input)
         }
         

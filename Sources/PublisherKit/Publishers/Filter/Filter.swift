@@ -68,7 +68,7 @@ extension Publishers.Filter {
     // MARK: FILTER SINK
     private final class Inner<Downstream: Subscriber>: OperatorSubscriber<Downstream, Upstream, (Upstream.Output) -> Bool> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+        override func operate(on input: Upstream.Output) -> Result<Output, Failure>? {
             operation(input) ? .success(input) : nil
         }
         

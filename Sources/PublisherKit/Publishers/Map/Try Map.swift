@@ -60,7 +60,7 @@ extension Publishers.TryMap {
     // MARK: TRY MAP SINK
     private final class Inner<Downstream: Subscriber>: OperatorSubscriber<Downstream, Upstream, (Upstream.Output) throws -> Output> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+        override func operate(on input: Upstream.Output) -> Result<Output, Downstream.Failure>? {
             Result { try operation(input) }
         }
         

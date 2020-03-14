@@ -53,7 +53,7 @@ extension Publishers.TryCompactMap {
     // MARK: TRY COMPACTMAP SINK
     private final class Inner<Downstream: Subscriber>: OperatorSubscriber<Downstream, Upstream, (Upstream.Output) throws -> Output?> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+        override func operate(on input: Upstream.Output) -> Result<Output, Downstream.Failure>? {
             do {
                 if let output = try operation(input) {
                     return .success(output)

@@ -51,7 +51,7 @@ extension Publishers.ReplaceEmpty {
         private var inputReceived = false
         var onFinish: ((Downstream?) -> Void)?
         
-        override func operate(on input: Input) -> Result<Downstream.Input, Downstream.Failure>? {
+        override func operate(on input: Upstream.Output) -> Result<Output, Failure>? {
             inputReceived = true
             return .success(input)
         }
