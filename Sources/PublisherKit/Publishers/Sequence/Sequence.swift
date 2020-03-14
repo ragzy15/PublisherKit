@@ -33,28 +33,39 @@ extension Publishers {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let sequenceSubscriber = Inner(downstream: subscriber)
+            let sequenceSubscriber = Inner(downstream: subscriber, sequence: sequence)
             
             subscriber.receive(subscription: sequenceSubscriber)
             sequenceSubscriber.request(.unlimited)
             
-            for element in sequence {
-                if sequenceSubscriber.isTerminated { break }
-                sequenceSubscriber.receive(input: element)
-            }
-            
-            sequenceSubscriber.receive(completion: .finished)
+            sequenceSubscriber.send()
         }
     }
 }
 
 extension Publishers.Sequence {
-
+    
     // MARK: SEQUENCE SINK
     private final class Inner<Downstream: Subscriber>: Subscriptions.Internal<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
         
+        private let sequence: Elements
+        
+        init(downstream: Downstream, sequence: Elements) {
+            self.sequence = sequence
+            super.init(downstream: downstream)
+        }
+        
+        func send() {
+            for element in sequence {
+                if isTerminated { break }
+                receive(input: element)
+            }
+            
+            receive(completion: .finished)
+        }
+        
         override var description: String {
-            "Sequence"
+            "\(sequence)"
         }
     }
 }

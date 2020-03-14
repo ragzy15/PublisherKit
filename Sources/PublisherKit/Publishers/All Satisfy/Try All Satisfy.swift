@@ -41,7 +41,7 @@ extension Publishers.TryAllSatisfy {
     // MARK: TRY ALL SATISFY SINK
     private final class Inner<Downstream: Subscriber>: OperatorSubscriber<Downstream, Upstream, (Upstream.Output) throws -> Bool> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        override func operate(on input: Upstream.Output) -> Result<Output, Failure>? {
+        override func operate(on input: Upstream.Output) -> Result<Output, Downstream.Failure>? {
             Result { try operation(input) }
         }
         
