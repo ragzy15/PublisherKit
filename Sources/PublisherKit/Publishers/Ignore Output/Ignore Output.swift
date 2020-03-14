@@ -22,9 +22,7 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            
-            let ignoreOutputSubscriber = Inner(downstream: subscriber)
-            upstream.subscribe(ignoreOutputSubscriber)
+            upstream.subscribe(Inner(downstream: subscriber))
         }
     }
 }
@@ -42,6 +40,15 @@ extension Publishers.IgnoreOutput {
         
         override var description: String {
             "IgnoreOutput"
+        }
+        
+        override var customMirror: Mirror {
+            let children: [Mirror.Child] = [
+                ("downstream", downstream ?? "nil"),
+                ("status", status)
+            ]
+            
+            return Mirror(self, children: children)
         }
     }
 }

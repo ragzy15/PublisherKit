@@ -123,7 +123,7 @@ extension Publishers.Breakpoint {
         }
         
         var customMirror: Mirror {
-            return Mirror(self, children: [])
+            Mirror(self, children: [])
         }
     }
 }
