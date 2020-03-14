@@ -54,9 +54,7 @@ extension Publishers {
             let breakpointSubscriber = Inner(downstream: subscriber,
                                                     receiveSubscription: receiveSubscription,
                                                     receiveOutput: receiveOutput,
-                                                    receiveCompletion: receiveCompletion)
-            
-            subscriber.receive(subscription: breakpointSubscriber)
+                                                    receiveCompletion: receiveCompletion)            
             upstream.subscribe(breakpointSubscriber)
         }
     }

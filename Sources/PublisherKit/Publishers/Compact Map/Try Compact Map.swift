@@ -5,10 +5,10 @@
 //  Created by Raghav Ahuja on 26/11/19.
 //
 
-public extension Publishers {
+extension Publishers {
     
     /// A publisher that republishes all non-`nil` results of calling an error-throwing closure with each received element.
-    struct TryCompactMap<Upstream: Publisher, Output>: Publisher {
+    public struct TryCompactMap<Upstream: Publisher, Output>: Publisher {
         
         public typealias Failure = Error
         
@@ -26,7 +26,6 @@ public extension Publishers {
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let tryCompactMapSubscriber = Inner(downstream: subscriber, operation: transform)
-            subscriber.receive(subscription: tryCompactMapSubscriber)
             upstream.receive(subscriber: tryCompactMapSubscriber)
         }
     }
@@ -35,16 +34,7 @@ public extension Publishers {
 extension Publishers.TryCompactMap {
     
     public func compactMap<T>(_ transform: @escaping (Output) throws -> T?) -> Publishers.TryCompactMap<Upstream, T> {
-        
-        let newTransform: (Upstream.Output) throws -> T? = { output in
-            if let newOutput = try self.transform(output) {
-                return try transform(newOutput)
-            } else {
-                return nil
-            }
-        }
-        
-        return Publishers.TryCompactMap<Upstream, T>(upstream: upstream, transform: newTransform)
+        Publishers.TryCompactMap(upstream: upstream, transform: { try self.transform($0).flatMap(transform) })
     }
 }
 

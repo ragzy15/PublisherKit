@@ -5,10 +5,10 @@
 //  Created by Raghav Ahuja on 26/11/19.
 //
 
-public extension Publishers {
+extension Publishers {
     
     /// A publisher that republishes all non-`nil` results of calling a closure with each received element.
-    struct CompactMap<Upstream: Publisher, Output>: Publisher {
+   public  struct CompactMap<Upstream: Publisher, Output>: Publisher {
         
         public typealias Failure = Upstream.Failure
         
@@ -26,7 +26,6 @@ public extension Publishers {
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let compactMapSubscriber = Inner(downstream: subscriber, operation: transform)
-            subscriber.receive(subscription: compactMapSubscriber)
             upstream.subscribe(compactMapSubscriber)
         }
     }
@@ -35,29 +34,11 @@ public extension Publishers {
 extension Publishers.CompactMap {
     
     public func compactMap<T>(_ transform: @escaping (Output) -> T?) -> Publishers.CompactMap<Upstream, T> {
-        
-        let newTransform: (Upstream.Output) -> T? = { output in
-            if let newOutput = self.transform(output) {
-                return transform(newOutput)
-            } else {
-                return nil
-            }
-        }
-        
-        return Publishers.CompactMap<Upstream, T>(upstream: upstream, transform: newTransform)
+        Publishers.CompactMap(upstream: upstream, transform: { self.transform($0).flatMap(transform) })
     }
     
     public func map<T>(_ transform: @escaping (Output) -> T) -> Publishers.CompactMap<Upstream, T> {
-        
-        let newTransform: (Upstream.Output) -> T? = { output in
-            if let newOutput = self.transform(output) {
-                return transform(newOutput)
-            } else {
-                return nil
-            }
-        }
-        
-        return Publishers.CompactMap<Upstream, T>(upstream: upstream, transform: newTransform)
+        Publishers.CompactMap(upstream: upstream, transform: { self.transform($0).map(transform) })
     }
 }
 

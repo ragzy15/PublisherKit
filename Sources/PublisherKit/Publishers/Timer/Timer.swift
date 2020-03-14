@@ -68,10 +68,7 @@ extension Timer {
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let timerSubscription = Inner(downstream: AnySubscriber(subscriber))
-
             subscriber.receive(subscription: timerSubscription)
-            timerSubscription.request(.unlimited)
-
             subscriptions.append(timerSubscription)
         }
         

@@ -44,11 +44,6 @@ extension Publishers {
             let delaySubscriber = Inner(downstream: subscriber, interval: interval,
                                         tolerance: tolerance, scheduler: scheduler,
                                         options: options)
-            
-            delaySubscriber.downstreamLock.lock()
-            subscriber.receive(subscription: delaySubscriber)
-            delaySubscriber.downstreamLock.unlock()
-            
             upstream.subscribe(delaySubscriber)
         }
     }
@@ -78,6 +73,23 @@ extension Publishers.Delay {
             self.scheduler = scheduler
             self.options = options
             super.init(downstream: downstream)
+        }
+        
+        override func onSubscription(_ subscription: Subscription) {
+            status = .subscribed(to: subscription)
+            getLock().unlock()
+            
+            downstreamLock.lock()
+            downstream?.receive(subscription: self)
+            downstreamLock.unlock()
+        }
+        
+        override func request(_ demand: Subscribers.Demand) {
+            getLock().lock()
+            guard case let .subscribed(subscription) = status else { getLock().unlock(); return }
+            getLock().unlock()
+            
+            subscription.request(demand)
         }
         
         override func receive(_ input: Upstream.Output) -> Subscribers.Demand {

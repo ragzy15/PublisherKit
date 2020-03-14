@@ -5,10 +5,10 @@
 //  Created by Raghav Ahuja on 18/11/19.
 //
 
-public extension Publishers {
+extension Publishers {
     
     /// A publisher that publishes elements only after a specified time interval elapses after receiving an element from upstream publisher, using the specified scheduler.
-    struct Debounce<Upstream: Publisher, Context: Scheduler>: Publisher {
+    public struct Debounce<Upstream: Publisher, Context: Scheduler>: Publisher {
         
         public typealias Output = Upstream.Output
         
@@ -35,12 +35,7 @@ public extension Publishers {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let debounceSubscriber = Inner(downstream: subscriber, dueTime: dueTime, scheduler: scheduler, options: options)
-                        
-            debounceSubscriber.downstreamLock.lock()
-            subscriber.receive(subscription: debounceSubscriber)
-            debounceSubscriber.downstreamLock.unlock()
-            
+            let debounceSubscriber = Inner(downstream: subscriber, dueTime: dueTime, scheduler: scheduler, options: options)            
             upstream.subscribe(debounceSubscriber)
         }
     }
@@ -68,6 +63,23 @@ extension Publishers.Debounce {
             self.dueTime = dueTime
             self.options = options
             super.init(downstream: downstream)
+        }
+        
+        override func onSubscription(_ subscription: Subscription) {
+            status = .subscribed(to: subscription)
+            getLock().unlock()
+            
+            downstreamLock.lock()
+            downstream?.receive(subscription: self)
+            downstreamLock.unlock()
+        }
+        
+        override func request(_ demand: Subscribers.Demand) {
+            getLock().lock()
+            guard case let .subscribed(subscription) = status else { getLock().unlock(); return }
+            getLock().unlock()
+            
+            subscription.request(demand)
         }
         
         override func receive(_ input: Output) -> Subscribers.Demand {

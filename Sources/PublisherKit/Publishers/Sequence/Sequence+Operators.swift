@@ -107,14 +107,7 @@ extension Publishers.Sequence {
     }
     
     public func replaceNil<T>(with output: T) -> Publishers.Sequence<[Output], Failure> where Elements.Element == T? {
-        let newSequence = sequence.map { (value) -> T in
-            if let value = value {
-                return value
-            } else {
-                return output
-            }
-        }
-        
+        let newSequence = sequence.map { $0 ?? output }
         return Publishers.Sequence(sequence: newSequence)
     }
     

@@ -5,10 +5,10 @@
 //  Created by Raghav Ahuja on 18/11/19.
 //
 
-public extension Publishers {
+extension Publishers {
     
     /// A publisher that decodes elements received from an upstream publisher into the specified type.
-    struct Decode<Upstream: Publisher, Output: Decodable, Decoder: TopLevelDecoder>: Publisher where Upstream.Output == Decoder.Input {
+    public struct Decode<Upstream: Publisher, Output: Decodable, Decoder: TopLevelDecoder>: Publisher where Upstream.Output == Decoder.Input {
         
         public typealias Failure = Error
         
@@ -30,7 +30,6 @@ public extension Publishers {
             
             let decodeSubscriber = Inner(downstream: subscriber, decoder: decoder)
             decodeSubscriber.logOutput = logOutput
-            subscriber.receive(subscription: decodeSubscriber)
             upstream.subscribe(decodeSubscriber)
         }
     }

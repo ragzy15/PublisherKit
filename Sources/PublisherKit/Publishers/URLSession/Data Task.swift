@@ -73,7 +73,6 @@ extension URLSession {
             let dataTaskSubscriber = Inner(downstream: subscriber)
             
             subscriber.receive(subscription: dataTaskSubscriber)
-            dataTaskSubscriber.request(.max(1))
             
             dataTaskSubscriber.resume(with: request, in: session)
             

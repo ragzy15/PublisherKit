@@ -38,7 +38,6 @@ extension Optional {
             let optionalSubscriber = Inner(downstream: subscriber)
             
             subscriber.receive(subscription: optionalSubscriber)
-            optionalSubscriber.request(.max(1))
             
             if let output = output {
                 optionalSubscriber.receive(input: output)

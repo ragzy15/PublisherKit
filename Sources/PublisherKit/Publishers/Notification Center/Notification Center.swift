@@ -55,7 +55,6 @@ extension NotificationCenter {
             let notificationSubscriber = Inner(downstream: subscriber, center: center, name: name, object: object)
             
             subscriber.receive(subscription: notificationSubscriber)
-            notificationSubscriber.request(.unlimited)
             
             notificationSubscriber.observe()
         }

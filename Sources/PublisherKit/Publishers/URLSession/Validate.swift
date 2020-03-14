@@ -64,8 +64,6 @@ extension Publishers {
             let validationSubscriber = Inner(downstream: subscriber,
                                              acceptableStatusCodes: acceptableStatusCodes,
                                              acceptableContentTypes: acceptableContentTypes)
-            
-            subscriber.receive(subscription: validationSubscriber)
             upstream.subscribe(validationSubscriber)
         }
     }

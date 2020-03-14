@@ -27,7 +27,6 @@ extension Publishers {
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let failureTypeSubscriber = Inner(downstream: subscriber)
-            subscriber.receive(subscription: failureTypeSubscriber)
             upstream.subscribe(failureTypeSubscriber)
         }
         
@@ -37,9 +36,7 @@ extension Publishers {
     }
 }
 
-extension Publishers.SetFailureType: Equatable where Upstream: Equatable {
-    
-}
+extension Publishers.SetFailureType: Equatable where Upstream: Equatable { }
 
 extension Publishers.SetFailureType {
     

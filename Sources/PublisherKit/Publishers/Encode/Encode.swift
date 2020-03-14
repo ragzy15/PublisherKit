@@ -5,10 +5,10 @@
 //  Created by Raghav Ahuja on 25/01/20.
 //
 
-public extension Publishers {
+extension Publishers {
     
     /// A publisher that encodes elements received from an upstream publisher using the specified encoder.
-    struct Encode<Upstream: Publisher, Encoder: TopLevelEncoder>: Publisher where Upstream.Output: Encodable {
+    public struct Encode<Upstream: Publisher, Encoder: TopLevelEncoder>: Publisher where Upstream.Output: Encodable {
         
         public typealias Output = Encoder.Output
         
@@ -28,7 +28,6 @@ public extension Publishers {
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let encodeSubscriber = Inner(downstream: subscriber, encoder: encoder)
-            subscriber.receive(subscription: encodeSubscriber)
             upstream.subscribe(encodeSubscriber)
         }
     }

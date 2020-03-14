@@ -39,6 +39,7 @@ extension Subscribers {
         func onSubscription(_ subscription: Subscription) {
             status = .subscribed(to: subscription)
             lock.unlock()
+            downstream?.receive(subscription: self)
             subscription.request(requiredDemand)
         }
         

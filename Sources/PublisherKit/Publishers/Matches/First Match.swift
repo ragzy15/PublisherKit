@@ -55,7 +55,6 @@ extension Publishers {
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let firstMatchSubscriber = Inner(downstream: subscriber, result: result, matchOptions: matchOptions)
-            subscriber.receive(subscription: firstMatchSubscriber)
             upstream.subscribe(firstMatchSubscriber)
         }
     }

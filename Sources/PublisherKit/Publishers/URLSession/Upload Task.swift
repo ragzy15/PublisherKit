@@ -85,7 +85,6 @@ extension URLSession {
             let uploadTaskSubscriber = Inner(downstream: subscriber)
             
             subscriber.receive(subscription: uploadTaskSubscriber)
-            uploadTaskSubscriber.request(.max(1))
             
             if let url = fileUrl {
                 uploadTaskSubscriber.resume(with: request, fromFile: url, in: session)

@@ -26,7 +26,6 @@ public extension Publishers {
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let tryMapSubscriber = Inner(downstream: subscriber, operation: transform)
-            subscriber.receive(subscription: tryMapSubscriber)
             upstream.receive(subscriber: tryMapSubscriber)
         }
     }

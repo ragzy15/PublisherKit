@@ -24,10 +24,7 @@ extension Publishers {
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let autoconnectSubscriber = Inner(downstream: subscriber)
-            
             upstream.subscribe(autoconnectSubscriber)
-            subscriber.receive(subscription: autoconnectSubscriber)
-            
             autoconnectSubscriber.cancellable = upstream.connect()
         }
     }

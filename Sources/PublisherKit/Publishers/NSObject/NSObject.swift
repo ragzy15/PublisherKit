@@ -39,7 +39,6 @@ extension NSObject {
             let nsObjectSubscriber = Inner(downstream: subscriber, object: object, keyPath: keyPath, options: options)
             
             subscriber.receive(subscription: nsObjectSubscriber)
-            nsObjectSubscriber.request(.unlimited)
             
             nsObjectSubscriber.observe()
         }

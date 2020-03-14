@@ -39,11 +39,6 @@ extension Publishers {
             
             let throttleSubscriber = Inner(downstream: subscriber, interval: interval,
                                            scheduler: scheduler, latest: latest)
-            
-            throttleSubscriber.downstreamLock.lock()
-            subscriber.receive(subscription: throttleSubscriber)
-            throttleSubscriber.downstreamLock.unlock()
-            
             upstream.subscribe(throttleSubscriber)
         }
     }
@@ -72,6 +67,23 @@ extension Publishers.Throttle {
             self.scheduler = scheduler
             self.latest = latest
             super.init(downstream: downstream)
+        }
+        
+        override func onSubscription(_ subscription: Subscription) {
+            status = .subscribed(to: subscription)
+            getLock().unlock()
+            
+            downstreamLock.lock()
+            downstream?.receive(subscription: self)
+            downstreamLock.unlock()
+        }
+        
+        override func request(_ demand: Subscribers.Demand) {
+            getLock().lock()
+            guard case let .subscribed(subscription) = status else { getLock().unlock(); return }
+            getLock().unlock()
+            
+            subscription.request(demand)
         }
         
         override func receive(_ input: Input) -> Subscribers.Demand {

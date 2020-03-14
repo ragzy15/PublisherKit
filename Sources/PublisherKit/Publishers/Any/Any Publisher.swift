@@ -26,7 +26,6 @@ public struct AnyPublisher<Output, Failure: Error>: Publisher {
     /// - Parameters:
     ///   - publisher: A publisher to wrap with a type-eraser.
     @inlinable public init<P: Publisher>(_ publisher: P) where Output == P.Output, Failure == P.Failure {
-        
         subscriberBlock = { (subscriber) in
             publisher.subscribe(subscriber)
         }

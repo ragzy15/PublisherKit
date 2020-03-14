@@ -33,11 +33,6 @@ extension Publishers {
             
             scheduler.schedule(options: options) {
                 let subscribeOnSubscriber = Inner(downstream: subscriber, scheduler: self.scheduler, options: self.options)
-                
-                subscribeOnSubscriber.upstreamLock.lock()
-                subscriber.receive(subscription: subscribeOnSubscriber)
-                subscribeOnSubscriber.upstreamLock.unlock()
-                
                 self.upstream.subscribe(subscribeOnSubscriber)
             }
         }
@@ -58,6 +53,26 @@ extension Publishers.SubscribeOn {
             self.scheduler = scheduler
             self.options = options
             super.init(downstream: downstream)
+        }
+        
+        override func onSubscription(_ subscription: Subscription) {
+            status = .subscribed(to: subscription)
+            getLock().unlock()
+            downstream?.receive(subscription: self)
+        }
+        
+        override func request(_ demand: Subscribers.Demand) {
+            getLock().lock()
+            guard case let .subscribed(subscription) = status else { getLock().unlock(); return }
+            self.demand = demand
+            getLock().unlock()
+            
+            
+            scheduler.schedule(options: options) { [weak self] in
+                self?.upstreamLock.lock()
+                subscription.request(demand)
+                self?.upstreamLock.unlock()
+            }
         }
         
         override func cancel() {

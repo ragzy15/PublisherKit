@@ -30,7 +30,6 @@ extension Publishers {
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let allSatisfySubscriber = Inner(downstream: subscriber, operation: predicate)
-            subscriber.receive(subscription: allSatisfySubscriber)
             upstream.subscribe(allSatisfySubscriber)
         }
     }

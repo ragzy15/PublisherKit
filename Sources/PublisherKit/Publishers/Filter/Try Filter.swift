@@ -28,7 +28,6 @@ extension Publishers {
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let tryFilterSubscriber = Inner(downstream: subscriber, operation: isIncluded)
-            subscriber.receive(subscription: tryFilterSubscriber)
             upstream.receive(subscriber: tryFilterSubscriber)
         }
     }
@@ -37,29 +36,11 @@ extension Publishers {
 extension Publishers.TryFilter {
     
     public func filter(_ isIncluded: @escaping (Output) -> Bool) -> Publishers.TryFilter<Upstream> {
-        
-        let newIsIncluded: (Upstream.Output) throws -> Bool = { output in
-            if try self.isIncluded(output) {
-                return isIncluded(output)
-            } else {
-                return false
-            }
-        }
-        
-        return Publishers.TryFilter(upstream: upstream, isIncluded: newIsIncluded)
+        Publishers.TryFilter(upstream: upstream, isIncluded: { try self.isIncluded($0) && isIncluded($0) })
     }
     
     public func tryFilter(_ isIncluded: @escaping (Output) throws -> Bool) -> Publishers.TryFilter<Upstream> {
-        
-        let newIsIncluded: (Upstream.Output) throws -> Bool = { output in
-            if try self.isIncluded(output) {
-                return try isIncluded(output)
-            } else {
-                return false
-            }
-        }
-        
-        return Publishers.TryFilter(upstream: upstream, isIncluded: newIsIncluded)
+        Publishers.TryFilter(upstream: upstream, isIncluded: { try self.isIncluded($0) && isIncluded($0) })
     }
 }
 
@@ -68,8 +49,7 @@ extension Publishers.TryFilter {
     // MARK: TRY FILTER SINK
     private final class Inner<Downstream: Subscriber>: OperatorSubscriber<Downstream, Upstream, (Upstream.Output) throws -> Bool> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-         override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
-            
+         override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {            
             do {
                 let isIncluded = try operation(input)
                 return isIncluded ? .success(input) : nil

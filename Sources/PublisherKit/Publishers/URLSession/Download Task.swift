@@ -80,7 +80,6 @@ extension URLSession {
             let downloadTaskSubscriber = Inner(downstream: subscriber)
             
             subscriber.receive(subscription: downloadTaskSubscriber)
-            downloadTaskSubscriber.request(.max(1))
             
             if let request = request {
                 downloadTaskSubscriber.resume(with: request, in: session)

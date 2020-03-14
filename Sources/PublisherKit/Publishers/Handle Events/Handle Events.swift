@@ -34,8 +34,8 @@ extension Publishers {
         
         public init(upstream: Upstream,
                     receiveSubscription: ((Subscription) -> Void)? = nil,
-                    receiveOutput: ((Publishers.HandleEvents<Upstream>.Output) -> Void)? = nil,
-                    receiveCompletion: ((Subscribers.Completion<Publishers.HandleEvents<Upstream>.Failure>) -> Void)? = nil,
+                    receiveOutput: ((Output) -> Void)? = nil,
+                    receiveCompletion: ((Subscribers.Completion<Failure>) -> Void)? = nil,
                     receiveCancel: (() -> Void)? = nil,
                     receiveRequest: ((Subscribers.Demand) -> Void)?) {
             
@@ -50,13 +50,12 @@ extension Publishers {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            
             let handleEventsSubscriber = Inner<S, Upstream>(downstream: subscriber,
-                                                                   receiveSubscription: receiveSubscription,
-                                                                   receiveOutput: receiveOutput,
-                                                                   receiveCompletion: receiveCompletion,
-                                                                   receiveCancel: receiveCancel,
-                                                                   receiveRequest: receiveRequest)
+                                                            receiveSubscription: receiveSubscription,
+                                                            receiveOutput: receiveOutput,
+                                                            receiveCompletion: receiveCompletion,
+                                                            receiveCancel: receiveCancel,
+                                                            receiveRequest: receiveRequest)
             
             subscriber.receive(subscription: handleEventsSubscriber)
             upstream.subscribe(handleEventsSubscriber)
@@ -100,8 +99,10 @@ extension Publishers.HandleEvents {
         }
         
         override func onSubscription(_ subscription: Subscription) {
-            super.onSubscription(subscription)
+            status = .subscribed(to: subscription)
+            getLock().unlock()
             receiveSubscription?(subscription)
+            subscription.request(requiredDemand)
         }
         
         override func operate(on input: Input) -> Result<Downstream.Input, Downstream.Failure>? {

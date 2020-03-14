@@ -28,7 +28,6 @@ extension Publishers {
             let justSubscriber = Inner(downstream: subscriber)
             
             subscriber.receive(subscription: justSubscriber)
-            justSubscriber.request(.max(1))
             
             justSubscriber.receive(input: output)
             justSubscriber.receive(completion: .finished)

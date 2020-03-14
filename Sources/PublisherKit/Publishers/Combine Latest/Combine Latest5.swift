@@ -40,7 +40,6 @@ extension Publishers {
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let combineLatestSubscriber = Inner(downstream: subscriber)
-            subscriber.receive(subscription: combineLatestSubscriber)
             
             e.subscribe(combineLatestSubscriber.eSubscriber)
             d.subscribe(combineLatestSubscriber.dSubscriber)

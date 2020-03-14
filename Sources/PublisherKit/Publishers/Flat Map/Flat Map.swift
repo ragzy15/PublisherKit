@@ -32,11 +32,6 @@ extension Publishers {
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let flatMapSubscriber = Inner(downstream: subscriber, maxPublishers: maxPublishers, operation: transform)
-            
-            flatMapSubscriber.downstreamLock.lock()
-            subscriber.receive(subscription: flatMapSubscriber)
-            flatMapSubscriber.downstreamLock.unlock()
-            
             upstream.subscribe(flatMapSubscriber)
         }
     }

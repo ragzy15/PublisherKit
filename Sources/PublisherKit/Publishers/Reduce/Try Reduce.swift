@@ -32,7 +32,6 @@ extension Publishers {
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let tryReduceSubscriber = Inner(downstream: subscriber, initial: initial, nextPartialResult: nextPartialResult)
-            subscriber.receive(subscription: tryReduceSubscriber)
             upstream.subscribe(tryReduceSubscriber)
         }
     }
