@@ -38,8 +38,7 @@ public protocol Scheduler {
     /// Performs the action at some time after the specified date.
     func schedule(after date: PKSchedulerTimeType, tolerance: PKSchedulerTimeType.Stride, options: PKSchedulerOptions?, _ action: @escaping () -> Void)
 
-    /// Performs the action at some time after the specified date, at the specified
-    /// frequency, optionally taking into account tolerance if possible.
+    /// Performs the action at some time after the specified date, at the specified frequency, optionally taking into account tolerance if possible.
     func schedule(after date: PKSchedulerTimeType, interval: PKSchedulerTimeType.Stride, tolerance: PKSchedulerTimeType.Stride, options: PKSchedulerOptions?, _ action: @escaping () -> Void) -> Cancellable
 }
 

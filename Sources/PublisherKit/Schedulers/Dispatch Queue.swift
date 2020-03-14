@@ -123,7 +123,7 @@ extension DispatchQueue: Scheduler {
             ///
             /// If `exactly` cannot convert to an `Int`, the resulting time interval is `nil`.
             /// - Parameter exactly: A binary integer representing a time interval.
-            public init?<T>(exactly source: T) where T : BinaryInteger {
+            public init?<T: BinaryInteger>(exactly source: T) {
                 guard let value = Double(exactly: source) else { return nil }
                 magnitude = Int(value * pow(10, 9))
             }
