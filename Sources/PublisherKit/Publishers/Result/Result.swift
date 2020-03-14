@@ -50,19 +50,13 @@ extension Result {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            
-            let resultSubscriber = Inner(downstream: subscriber)
-            
-            subscriber.receive(subscription: resultSubscriber)
-            resultSubscriber.request(.max(1))
-            
             switch result {
             case .success(let output):
-                resultSubscriber.receive(input: output)
-                resultSubscriber.receive(completion: .finished)
+                subscriber.receive(subscription: Inner(downstream: subscriber, output: output))
                 
             case .failure(let error):
-                resultSubscriber.receive(completion: .failure(error))
+                subscriber.receive(subscription: Subscriptions.empty)
+                subscriber.receive(completion: .failure(error))
             }
         }
     }
@@ -71,10 +65,31 @@ extension Result {
 extension Result.PKPublisher {
     
     // MARK: RESULT SINK
-    private final class Inner<Downstream: Subscriber>: Subscriptions.Internal<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscriptions.InternalBase<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
+        
+        private let output: Output
+        
+        init(downstream: Downstream, output: Output) {
+            self.output = output
+            super.init(downstream: downstream)
+        }
+        
+        override func request(_ demand: Subscribers.Demand) {
+            guard let downstream = downstream else { return }
+            _ = downstream.receive(output)
+            downstream.receive(completion: .finished)
+        }
+        
+        override func cancel() {
+            downstream = nil
+        }
         
         override var description: String {
-            "Result"
+            "Once"
+        }
+        
+        override var customMirror: Mirror {
+            Mirror(self, unlabeledChildren: [output])
         }
     }
 }
