@@ -7,8 +7,8 @@
 
 extension Optional {
     
-    public var pkPublisher: Optional<Wrapped>.PKPublisher {
-        .init(self)
+    public var pkPublisher: PKPublisher {
+        PKPublisher(self)
     }
 }
 
@@ -34,27 +34,46 @@ extension Optional {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            
-            let optionalSubscriber = Inner(downstream: subscriber)
-            
-            subscriber.receive(subscription: optionalSubscriber)
-            
             if let output = output {
-                optionalSubscriber.receive(input: output)
+                subscriber.receive(subscription: Inner(downstream: subscriber, output: output))
+            } else {
+                subscriber.receive(subscription: Subscriptions.empty)
+                subscriber.receive(completion: .finished)
             }
-            
-            optionalSubscriber.receive(completion: .finished)
         }
     }
 }
 
+extension Optional.PKPublisher: Equatable where Wrapped: Equatable { }
+
 extension Optional.PKPublisher {
     
     // MARK: OPTIONAL SINK
-    private final class Inner<Downstream: Subscriber>: Subscriptions.Internal<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscriptions.InternalBase<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
+        
+        private let output: Output
+        
+        init(downstream: Downstream, output: Output) {
+            self.output = output
+            super.init(downstream: downstream)
+        }
+        
+        override func request(_ demand: Subscribers.Demand) {
+            guard let downstream = downstream else { return }
+            _ = downstream.receive(output)
+            downstream.receive(completion: .finished)
+        }
+        
+        override func cancel() {
+            downstream = nil
+        }
         
         override var description: String {
             "Optional"
+        }
+        
+        override var customMirror: Mirror {
+            Mirror(self, unlabeledChildren: [output])
         }
     }
 }
