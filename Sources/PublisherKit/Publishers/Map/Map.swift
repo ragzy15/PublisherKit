@@ -24,9 +24,7 @@ public extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            
-            let mapSubscriber = Inner(downstream: subscriber, operation: transform)
-            upstream.subscribe(mapSubscriber)
+            upstream.subscribe(Inner(downstream: subscriber, transform: transform))
         }
     }
 }
@@ -57,18 +55,42 @@ extension Publishers.Map {
 extension Publishers.Map {
     
     // MARK: MAP SINK
-    private final class Inner<Downstream: Subscriber>: OperatorSubscriber<Downstream, Upstream, (Upstream.Output) -> Output> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private struct Inner<Downstream: Subscriber>: Subscriber, CustomStringConvertible, CustomReflectable where Downstream.Input == Output, Downstream.Failure == Upstream.Failure {
         
-        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
-            .success(operation(input))
+        typealias Input = Upstream.Output
+
+        typealias Failure = Upstream.Failure
+
+        private var downstream: Downstream?
+
+        private let transform: (Input) -> Output
+
+        let combineIdentifier: CombineIdentifier
+
+        fileprivate init(downstream: Downstream, transform: @escaping (Input) -> Output) {
+            self.downstream = downstream
+            self.transform = transform
+            combineIdentifier = CombineIdentifier()
         }
-        
-        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
+
+        func receive(subscription: Subscription) {
+            downstream?.receive(subscription: subscription)
+        }
+
+        func receive(_ input: Input) -> Subscribers.Demand {
+            downstream?.receive(transform(input)) ?? .none
+        }
+
+        func receive(completion: Subscribers.Completion<Failure>) {
             downstream?.receive(completion: completion)
         }
-        
-        override var description: String {
+
+        var description: String {
             "Map"
+        }
+
+        var customMirror: Mirror {
+            Mirror(self, children: [])
         }
     }
 }
