@@ -55,7 +55,7 @@ extension Publishers.Map {
 extension Publishers.Map {
     
     // MARK: MAP SINK
-    private struct Inner<Downstream: Subscriber>: Subscriber, CustomStringConvertible, CustomReflectable where Downstream.Input == Output, Downstream.Failure == Upstream.Failure {
+    private struct Inner<Downstream: Subscriber>: Subscriber, CustomStringConvertible, CustomReflectable where Output == Downstream.Input, Upstream.Failure == Downstream.Failure {
         
         typealias Input = Upstream.Output
 
