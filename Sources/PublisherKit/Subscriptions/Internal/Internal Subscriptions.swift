@@ -104,6 +104,10 @@ extension Subscriptions {
             downstream = nil
         }
         
+        func terminate() {
+            isTerminated = true
+        }
+        
         override var customMirror: Mirror {
             let children: [Mirror.Child] = [
                 ("downstream", downstream ?? "nil"),
