@@ -50,7 +50,7 @@ extension Publishers.FlatMap {
         private var currentIndex = 0
         private var pendingSubscriptions = 0
         
-        fileprivate let downstreamLock = RecursiveLock()
+        private let downstreamLock = RecursiveLock()
         
         init(downstream: Downstream, maxPublishers: Subscribers.Demand, operation: @escaping (Upstream.Output) -> NewPublisher) {
             self.maxPublishers = maxPublishers
@@ -61,6 +61,10 @@ extension Publishers.FlatMap {
         override final func onSubscription(_ subscription: Subscription) {
             status = .subscribed(to: subscription)
             getLock().unlock()
+            
+            downstreamLock.lock()
+            downstream?.receive(subscription: self)
+            downstreamLock.unlock()
             
             subscription.request(maxPublishers)
         }
