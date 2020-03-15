@@ -18,11 +18,6 @@ public extension Publishers {
         /// The key path of a property to publish.
         public let keyPath: KeyPath<Upstream.Output, Output>
         
-        public init(upstream: Upstream, keyPath: KeyPath<Upstream.Output, Output>) {
-            self.upstream = upstream
-            self.keyPath = keyPath
-        }
-        
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             upstream.subscribe(Inner(downstream: subscriber, keyPath: keyPath))
         }
