@@ -40,7 +40,7 @@ extension Publishers {
 extension Publishers.Catch {
     
     // MARK: CATCH SINK
-    private final class Inner<Downstream: Subscriber>: Subscription where Downstream.Input == Output, Downstream.Failure == Failure {
+    private final class Inner<Downstream: Subscriber>: Subscription, CustomStringConvertible, CustomReflectable where Downstream.Input == Output, Downstream.Failure == Failure {
         
         private var downstream: Downstream?
         private let handler: (Upstream.Failure) -> NewPublisher
@@ -48,6 +48,7 @@ extension Publishers.Catch {
         var status: SubscriptionStatus = .awaiting
         
         private(set) var isCancelled = false
+        private var demand: Subscribers.Demand = .unlimited
         
         let lock = Lock()
         
@@ -106,7 +107,8 @@ extension Publishers.Catch {
                 return
             }
             lock.unlock()
-
+            
+            self.demand = demand
             subscription.request(demand)
         }
         
@@ -121,7 +123,23 @@ extension Publishers.Catch {
             subscription.cancel()
         }
         
-        fileprivate final class UncaughtS<Failure: Error>: Subscriber {
+        var description: String {
+            "Catch"
+        }
+        
+        var customMirror: Mirror {
+            lock.lock()
+            defer { lock.unlock() }
+            
+            let children: [Mirror.Child] = [
+                ("downstream", downstream ?? "nil"),
+                ("demand", demand)
+            ]
+            
+            return Mirror(self, children: children)
+        }
+        
+        fileprivate final class UncaughtS<Failure: Error>: Subscriber, CustomStringConvertible, CustomReflectable {
             
             typealias Input = Output
             
@@ -165,6 +183,14 @@ extension Publishers.Catch {
                     let completion = completion.mapError { $0 as! NewPublisher.Failure }
                     inner.receivePost(completion: completion)
                 }
+            }
+            
+            var description: String {
+                inner.description
+            }
+            
+            var customMirror: Mirror {
+                inner.customMirror
             }
         }
     }
