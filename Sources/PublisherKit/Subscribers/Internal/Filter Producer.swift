@@ -68,7 +68,7 @@ extension FilterProducer: Subscriber {
     
     func receive(_ input: Input) -> Subscribers.Demand {
         lock.lock()
-        guard case let .subscribed(subscription) = status else { lock.unlock(); return .none }
+        guard case .subscribed(let subscription) = status else { lock.unlock(); return .none }
         lock.unlock()
         
         switch receive(input: input) {
