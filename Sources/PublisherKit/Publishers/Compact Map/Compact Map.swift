@@ -8,7 +8,7 @@
 extension Publishers {
     
     /// A publisher that republishes all non-`nil` results of calling a closure with each received element.
-   public  struct CompactMap<Upstream: Publisher, Output>: Publisher {
+    public  struct CompactMap<Upstream: Publisher, Output>: Publisher {
         
         public typealias Failure = Upstream.Failure
         
@@ -45,19 +45,14 @@ extension Publishers.CompactMap {
 extension Publishers.CompactMap {
     
     // MARK: COMPACTMAP SINK
-    private final class Inner<Downstream: Subscriber>: OperatorSubscriber<Downstream, Upstream, (Upstream.Output) -> Output?> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: FilterProducer<Downstream, Output, Upstream.Output, Upstream.Failure, (Upstream.Output) -> Output?> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
-            let output = operation(input)
-            if let value = output {
-                return .success(value)
+        override func receive(input: Input) -> CompletionResult<Output, Failure>? {
+            if let value = operation(input) {
+                return .send(value)
             } else {
                 return nil
             }
-        }
-        
-        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
-            downstream?.receive(completion: completion)
         }
         
         override var description: String {

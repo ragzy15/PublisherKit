@@ -24,9 +24,7 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            
-            let tryCompactMapSubscriber = Inner(downstream: subscriber, operation: transform)
-            upstream.receive(subscriber: tryCompactMapSubscriber)
+            upstream.receive(subscriber: Inner(downstream: subscriber, operation: transform))
         }
     }
 }
@@ -41,23 +39,18 @@ extension Publishers.TryCompactMap {
 extension Publishers.TryCompactMap {
     
     // MARK: TRY COMPACTMAP SINK
-    private final class Inner<Downstream: Subscriber>: OperatorSubscriber<Downstream, Upstream, (Upstream.Output) throws -> Output?> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: FilterProducer<Downstream, Output, Upstream.Output, Upstream.Failure, (Upstream.Output) throws -> Output?> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+        override func receive(input: Input) -> CompletionResult<Output, Downstream.Failure>? {
             do {
                 if let output = try operation(input) {
-                    return .success(output)
+                    return .send(output)
                 } else {
                     return nil
                 }
             } catch {
                 return .failure(error)
             }
-        }
-        
-        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
-            let completion = completion.mapError { $0 as Downstream.Failure }
-            downstream?.receive(completion: completion)
         }
         
         override var description: String {

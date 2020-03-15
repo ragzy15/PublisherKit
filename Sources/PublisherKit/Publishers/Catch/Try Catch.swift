@@ -31,9 +31,8 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            
-            let tryCatchSubscriber = Inner(downstream: subscriber, operation: handler)
-            upstream.receive(subscriber: tryCatchSubscriber)
+            let inner = Inner(downstream: subscriber, handler: handler)
+            upstream.subscribe(Inner.UncaughtS<Upstream.Failure>(inner: inner, state: .pre))
         }
     }
 }
@@ -41,59 +40,135 @@ extension Publishers {
 extension Publishers.TryCatch {
     
     // MARK: TRY CATCH SINK
-    private final class Inner<Downstream: Subscriber>: OperatorSubscriber<Downstream, Upstream, (Upstream.Failure) throws -> NewPublisher> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscription where Downstream.Input == Output, Downstream.Failure == Failure {
         
-        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
-            .success(input)
+        private var downstream: Downstream?
+        private let handler: (Upstream.Failure) throws -> NewPublisher
+        
+        var status: SubscriptionStatus = .awaiting
+        
+        private(set) var isCancelled = false
+        
+        let lock = Lock()
+        
+        init(downstream: Downstream,  handler: @escaping (Upstream.Failure) throws -> NewPublisher) {
+            self.downstream = downstream
+            self.handler = handler
         }
         
-        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
+        func receivePre(subscription: Subscription) {
+            lock.lock()
+            guard status == .awaiting, !isCancelled else { lock.unlock(); return }
+            status = .subscribed(to: subscription)
+            lock.unlock()
             
-            guard let error = completion.getError() else {
+            downstream?.receive(subscription: self)
+        }
+        
+        func receive(_ input: Output) -> Subscribers.Demand {
+            lock.lock()
+            guard status.isSubscribed, !isCancelled else { lock.unlock(); return .none }
+            lock.unlock()
+            
+            return downstream?.receive(input) ?? .none
+        }
+        
+        func receivePre(completion: Subscribers.Completion<Upstream.Failure>) {
+            switch completion {
+            case .finished:
                 downstream?.receive(completion: .finished)
+                
+            case .failure(let error):
+                do {
+                    let newPublisher = try handler(error)
+                    let subscriber = UncaughtS<NewPublisher.Failure>(inner: self, state: .post)
+                    
+                    lock.lock()
+                    status = .awaiting
+                    lock.unlock()
+                    
+                    newPublisher.subscribe(subscriber)
+                } catch {
+                    downstream?.receive(completion: .failure(error))
+                }
+            }
+        }
+        
+        func receivePost(subscription: Subscription) {
+            subscription.request(.unlimited)
+        }
+        
+        func receivePost(completion: Subscribers.Completion<Failure>) {
+            downstream?.receive(completion: completion)
+            downstream = nil
+        }
+        
+        func request(_ demand: Subscribers.Demand) {
+            lock.lock()
+            guard case .subscribed(let subscription) = status else {
+                lock.unlock()
                 return
             }
-            
-            do {
-                let newPublisher = try operation(error)
-                
-                let subscriber = CatchInner(downstream: downstream)
-                newPublisher.subscribe(subscriber)
-                
-            } catch let catchError {
-                downstream?.receive(completion: .failure(catchError as Downstream.Failure))
-            }
+            lock.unlock()
+
+            subscription.request(demand)
         }
         
-        override var description: String {
-            "TryCatch"
+        func cancel() {
+            lock.lock()
+            guard case .subscribed(let subscription) = status else { lock.unlock(); return }
+            status = .terminated
+            isCancelled = true
+            lock.unlock()
+            
+            downstream = nil
+            subscription.cancel()
         }
         
-        private final class CatchInner: Subscriber {
+        fileprivate final class UncaughtS<Failure: Error>: Subscriber {
             
-            private var subscription: Subscription?
+            typealias Input = Output
             
-            private var downstream: Downstream?
+            private let inner: Inner
             
-            init(downstream: Downstream?) {
-                self.downstream = downstream
+            enum State {
+                case pre
+                case post
             }
             
-            final func receive(subscription: Subscription) {
-                self.subscription = subscription
-                subscription.request(.unlimited)
+            private let state: State
+            
+            init(inner: Inner, state: State) {
+                self.inner = inner
+                self.state = state
             }
             
-            final func receive(_ input: Upstream.Output) -> Subscribers.Demand {
-                downstream?.receive(input) ?? .none
+            func receive(subscription: Subscription) {
+                switch state {
+                case .pre: inner.receivePre(subscription: subscription)
+                case .post: inner.receivePost(subscription: subscription)
+                }
             }
             
-            final func receive(completion: Subscribers.Completion<NewPublisher.Failure>) {
-                let newCompletion = completion.mapError { $0 as Downstream.Failure }
-                downstream?.receive(completion: newCompletion)
+            func receive(_ input: Upstream.Output) -> Subscribers.Demand {
+                inner.receive(input)
+            }
+            
+            func receive(completion: Subscribers.Completion<Failure>) {
+                inner.lock.lock()
+                guard inner.status.isSubscribed, !inner.isCancelled else { inner.lock.unlock(); return }
+                inner.status = .terminated
+                inner.lock.unlock()
                 
-                subscription = nil
-                downstream = nil
+                switch state {
+                case .pre:
+                    let completion = completion.mapError { $0 as! Upstream.Failure }
+                    inner.receivePre(completion: completion)
+                    
+                case .post:
+                    let completion = completion.mapError { $0 as Error }
+                    inner.receivePost(completion: completion)
+                }
             }
         }
     }

@@ -29,9 +29,7 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            
-            let tryDuplicatesSubscriber = Inner(downstream: subscriber, operation: predicate)
-            upstream.subscribe(tryDuplicatesSubscriber)
+            upstream.subscribe(Inner(downstream: subscriber, operation: predicate))
         }
     }
 }
@@ -39,27 +37,22 @@ extension Publishers {
 extension Publishers.TryRemoveDuplicates {
     
     // MARK: TRY REMOVE DUPLICATES SINK
-    private final class Inner<Downstream: Subscriber>: OperatorSubscriber<Downstream, Upstream, (Output, Output) throws -> Bool> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: FilterProducer<Downstream, Output, Upstream.Output, Upstream.Failure, (Output, Output) throws -> Bool> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        private var previousValue: Output? = nil
+        private var previousInput: Output? = nil
         
-        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+        override func receive(input: Input) -> CompletionResult<Output, Downstream.Failure>? {
             do {
-                if let previousValue = previousValue, try operation(previousValue, input) {
+                if let previousInput = previousInput, try operation(previousInput, input) {
                     return nil
                 }
                 
-                previousValue = input
-                return .success(input)
+                previousInput = input
+                return .send(input)
                 
             } catch {
                 return .failure(error)
             }
-        }
-        
-        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
-            let completion = completion.mapError { $0 as Downstream.Failure }
-            downstream?.receive(completion: completion)
         }
         
         override var description: String {

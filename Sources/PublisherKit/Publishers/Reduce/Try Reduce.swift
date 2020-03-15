@@ -30,9 +30,7 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            
-            let tryReduceSubscriber = Inner(downstream: subscriber, initial: initial, nextPartialResult: nextPartialResult)
-            upstream.subscribe(tryReduceSubscriber)
+            upstream.subscribe(Inner(downstream: subscriber, initial: initial, operation: nextPartialResult))
         }
     }
 }
@@ -40,25 +38,15 @@ extension Publishers {
 extension Publishers.TryReduce {
     
     // MARK: TRY REDUCE SINK
-    private final class Inner<Downstream: Subscriber>: OperatorSubscriber<Downstream, Upstream, (Output, Upstream.Output) throws -> Output> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: ReduceProducer<Downstream, Output, Upstream.Output, Upstream.Failure, (Output, Upstream.Output) throws -> Output> where Downstream.Input == Output, Downstream.Failure == Failure {
         
-        private var output: Output
-        
-        init(downstream: Downstream, initial: Output, nextPartialResult: @escaping (Output, Upstream.Output) throws -> Output) {
-            self.output = initial
-            super.init(downstream: downstream, operation: nextPartialResult)
-        }
-        
-        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
-            Result {
-                output = try operation(output, input)
-                return output
+        override func receive(input: Input) -> CompletionResult<Void, Downstream.Failure> {
+            do {
+                output = try operation(output!, input)
+                return .send
+            } catch {
+                return .failure(error)
             }
-        }
-        
-        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
-            let completion = completion.mapError { $0 as Downstream.Failure }
-            downstream?.receive(completion: completion)
         }
         
         override var description: String {

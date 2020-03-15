@@ -32,23 +32,11 @@ public extension Publishers {
 extension Publishers.Map {
     
     public func map<T>(_ transform: @escaping (Output) -> T) -> Publishers.Map<Upstream, T> {
-        
-        let newTransform: (Upstream.Output) -> T = { output in
-            let newOutput = self.transform(output)
-            return transform(newOutput)
-        }
-        
-        return Publishers.Map<Upstream, T>(upstream: upstream, transform: newTransform)
+        Publishers.Map(upstream: upstream, transform: { transform(self.transform($0)) })
     }
     
     public func tryMap<T>(_ transform: @escaping (Output) throws -> T) -> Publishers.TryMap<Upstream, T> {
-        
-        let newTransform: (Upstream.Output) throws -> T = { output in
-            let newOutput = self.transform(output)
-            return try transform(newOutput)
-        }
-        
-        return Publishers.TryMap<Upstream, T>(upstream: upstream, transform: newTransform)
+        Publishers.TryMap(upstream: upstream, transform: { try transform(self.transform($0)) })
     }
 }
 

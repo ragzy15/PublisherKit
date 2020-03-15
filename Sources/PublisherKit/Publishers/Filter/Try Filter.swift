@@ -26,9 +26,7 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            
-            let tryFilterSubscriber = Inner(downstream: subscriber, operation: isIncluded)
-            upstream.receive(subscriber: tryFilterSubscriber)
+            upstream.receive(subscriber: Inner(downstream: subscriber, operation: isIncluded))
         }
     }
 }
@@ -47,20 +45,14 @@ extension Publishers.TryFilter {
 extension Publishers.TryFilter {
     
     // MARK: TRY FILTER SINK
-    private final class Inner<Downstream: Subscriber>: OperatorSubscriber<Downstream, Upstream, (Upstream.Output) throws -> Bool> where Output == Downstream.Input, Failure == Downstream.Failure {
-        
-         override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {            
+    private final class Inner<Downstream: Subscriber>: FilterProducer<Downstream, Output, Upstream.Output, Upstream.Failure, (Upstream.Output) throws -> Bool> where Output == Downstream.Input, Failure == Downstream.Failure {
+    
+        override func receive(input: Input) -> CompletionResult<Output, Downstream.Failure>? {
             do {
-                let isIncluded = try operation(input)
-                return isIncluded ? .success(input) : nil
+                return try operation(input) ? .send(input) : nil
             } catch {
                 return .failure(error)
             }
-        }
-        
-         override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
-            let completion = completion.mapError { $0 as Downstream.Failure }
-            downstream?.receive(completion: completion)
         }
         
         override var description: String {
