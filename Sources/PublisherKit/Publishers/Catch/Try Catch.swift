@@ -189,7 +189,7 @@ extension Publishers.TryCatch {
         }
         
         var description: String {
-            "Catch"
+            "TryCatch"
         }
         
         var customMirror: Mirror {
