@@ -35,7 +35,7 @@ class ReduceProducer<Downstream: Subscriber, Output, Input, Failure: Error, Oper
         defer { lock.unlock() }
         
         let children: [Mirror.Child] = [
-            ("downstream", downstream ?? "nil"),
+            ("downstream", downstream as Any),
             ("status", status)
         ]
         

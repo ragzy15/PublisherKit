@@ -46,7 +46,7 @@ extension Subscriptions {
         
         var customMirror: Mirror {
             let children: [Mirror.Child] = [
-                ("downstream", downstream ?? "nil")
+                ("downstream", downstream as Any)
             ]
             
             return Mirror(self, children: children)
@@ -106,7 +106,7 @@ extension Subscriptions {
         
         override var customMirror: Mirror {
             let children: [Mirror.Child] = [
-                ("downstream", downstream ?? "nil"),
+                ("downstream", downstream as Any),
                 ("isTerminated", isTerminated)
             ]
             

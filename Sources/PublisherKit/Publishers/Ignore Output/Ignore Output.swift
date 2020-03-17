@@ -94,7 +94,7 @@ extension Publishers.IgnoreOutput {
             defer { lock.unlock() }
             
             let children: [Mirror.Child] = [
-                ("downstream", downstream ?? "nil"),
+                ("downstream", downstream as Any),
                 ("status", status)
             ]
             

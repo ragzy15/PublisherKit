@@ -34,9 +34,9 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            
-            let debounceSubscriber = Inner(downstream: subscriber, dueTime: dueTime, scheduler: scheduler, options: options)            
-            upstream.subscribe(debounceSubscriber)
+            let inner = Inner(downstream: subscriber, dueTime: dueTime, scheduler: scheduler, options: options)
+            inner.parent = self
+            upstream.subscribe(inner)
         }
     }
 }
@@ -44,11 +44,15 @@ extension Publishers {
 extension Publishers.Debounce {
     
     // MARK: DEBOUNCE SINK
-    private final class Inner<Downstream: Subscriber, Context: Scheduler>: InternalSubscriber<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber, Context: Scheduler>: Subscriber, Subscription, CustomStringConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        private var outputCounter = 0
+        typealias Input = Upstream.Output
         
-        private var newOutput: Output?
+        typealias Failure = Upstream.Failure
+        
+        private var _id = 0
+        
+        private var currentValue: Output?
         
         private let dueTime: Context.PKSchedulerTimeType.Stride
         
@@ -57,70 +61,76 @@ extension Publishers.Debounce {
         private let options: Context.PKSchedulerOptions?
         
         fileprivate let downstreamLock = RecursiveLock()
+        private let lock = Lock()
+        
+        private var downstream: Downstream?
+        private var status: SubscriptionStatus = .awaiting
+        private var downstreamDemand: Subscribers.Demand = .none
+        
+        fileprivate var parent: Publishers.Debounce<Upstream, Context>?
         
         init(downstream: Downstream, dueTime: Context.PKSchedulerTimeType.Stride, scheduler: Context, options: Context.PKSchedulerOptions?) {
             self.scheduler = scheduler
             self.dueTime = dueTime
             self.options = options
-            super.init(downstream: downstream)
+            self.downstream = downstream
         }
         
-        override func onSubscription(_ subscription: Subscription) {
+        func receive(subscription: Subscription) {
+            lock.lock()
+            guard status == .awaiting else { lock.unlock(); return }
             status = .subscribed(to: subscription)
-            getLock().unlock()
+            lock.unlock()
             
             downstreamLock.lock()
             downstream?.receive(subscription: self)
             downstreamLock.unlock()
+            
+            subscription.request(downstreamDemand)
         }
         
-        override func request(_ demand: Subscribers.Demand) {
-            getLock().lock()
-            guard case let .subscribed(subscription) = status else { getLock().unlock(); return }
-            getLock().unlock()
+        func request(_ demand: Subscribers.Demand) {
+            lock.lock()
+            guard status.isSubscribed else { lock.unlock(); return }
+            lock.unlock()
             
-            subscription.request(demand)
+            downstreamDemand = demand
         }
         
-        override func receive(_ input: Output) -> Subscribers.Demand {
-            getLock().lock()
-            guard status.isSubscribed else { getLock().unlock(); return .none }
+        func receive(_ input: Input) -> Subscribers.Demand {
+            lock.lock()
+            guard status.isSubscribed else { lock.unlock(); return .none }
+            currentValue = input
+            _id += 1
+            let currentId = _id
+            lock.unlock()
             
-            newOutput = input
-            
-            outputCounter += 1
-            getLock().unlock()
             scheduler.schedule(after: scheduler.now.advanced(by: dueTime), tolerance: scheduler.minimumTolerance, options: options) { [weak self] in
-                self?.sendInput()
+                guard let `self` = self else { return }
+                
+                self.lock.lock()
+                guard self.status.isSubscribed else { self.lock.unlock(); return }
+                
+                guard self._id == currentId, let value = self.currentValue else {
+                    self.lock.unlock()
+                    return
+                }
+                
+                self.lock.unlock()
+                
+                self.downstreamLock.lock()
+                _ = self.downstream?.receive(value)
+                self.downstreamLock.unlock()
             }
             
-            return demand
+            return downstreamDemand
         }
         
-        private func sendInput() {
-            getLock().lock()
-            guard status.isSubscribed else { getLock().unlock(); return }
-            
-            outputCounter -= 1
-            
-            guard outputCounter <= 0, let output = newOutput else {
-                getLock().unlock()
-                return
-            }
-            
-            getLock().unlock()
-            
-            downstreamLock.lock()
-            _ = downstream?.receive(output)
-            downstreamLock.unlock()
-        }
-        
-        override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
-            getLock().lock()
-            guard status.isSubscribed else { getLock().unlock(); return }
-            
+        func receive(completion: Subscribers.Completion<Failure>) {
+            lock.lock()
+            guard status.isSubscribed else { lock.unlock(); return }
             status = .terminated
-            getLock().unlock()
+            lock.unlock()
             
             scheduler.schedule(options: options) { [weak self] in
                 self?.end {
@@ -129,15 +139,43 @@ extension Publishers.Debounce {
             }
         }
         
-        override func end(completion: () -> Void) {
+        func end(completion: () -> Void) {
             downstreamLock.lock()
             completion()
             downstreamLock.unlock()
-            downstream = nil
         }
         
-        override var description: String {
+        func cancel() {
+            lock.lock()
+            guard case .subscribed(let subscription) = status else { lock.unlock(); return }
+            status = .terminated
+            lock.unlock()
+            
+            subscription.cancel()
+        }
+        
+        var description: String {
             "Debounce"
+        }
+        
+        var customMirror: Mirror {
+            lock.lock()
+            defer { lock.unlock() }
+            
+            var subscription: Subscription? = nil
+            if case .subscribed(let _subscription) = status {
+                subscription = _subscription
+            }
+            
+            let children: [Mirror.Child] = [
+                ("upstream", parent?.upstream as Any),
+                ("downstream", downstream as Any),
+                ("upstreamSubscription", subscription as Any),
+                ("downstreamDemand", downstreamDemand),
+                ("currentValue", currentValue as Any)
+            ]
+            
+            return Mirror(self, children: children)
         }
     }
 }

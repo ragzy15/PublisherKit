@@ -82,7 +82,7 @@ extension Subscribers {
         
         override var customMirror: Mirror {
             let children: [Mirror.Child] = [
-                ("downstream", downstream ?? "nil"),
+                ("downstream", downstream as Any),
                 ("status", status)
             ]
             
