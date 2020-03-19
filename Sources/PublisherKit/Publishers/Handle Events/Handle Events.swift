@@ -66,7 +66,16 @@ extension Publishers {
 extension Publishers.HandleEvents {
     
     // MARK: HANDLE EVENTS SINK
-    private final class Inner<Downstream: Subscriber, Upstream: Publisher>: InternalSubscriber<Downstream, Upstream> where Downstream.Input == Upstream.Output, Downstream.Failure == Upstream.Failure {
+    private final class Inner<Downstream: Subscriber, Upstream: Publisher>: Subscriber, Subscription where Downstream.Input == Upstream.Output, Downstream.Failure == Upstream.Failure {
+        
+        typealias Input = Upstream.Output
+        
+        typealias Failure = Upstream.Failure
+        
+        private var downstream: Downstream?
+        private var status: SubscriptionStatus = .awaiting
+        private var pendingDemand: Subscribers.Demand = .none
+        private let lock = Lock()
         
         final let receiveOutput: ((Input) -> Void)?
         
@@ -90,41 +99,73 @@ extension Publishers.HandleEvents {
             self.receiveCancel = receiveCancel
             self.receiveRequest = receiveRequest
             
-            super.init(downstream: downstream)
+            self.downstream = downstream
         }
         
-        override func request(_ demand: Subscribers.Demand) {
-            receiveRequest?(demand)
-            super.request(demand)
+        func request(_ demand: Subscribers.Demand) {
+            lock.lock()
+            switch status {
+            case .awaiting:
+                pendingDemand += demand
+                lock.unlock()
+                
+            case .subscribed(let subscription):
+                lock.unlock()
+                receiveRequest?(demand)
+                subscription.request(demand)
+                
+            default:
+                lock.unlock()
+            }
         }
         
-        override func onSubscription(_ subscription: Subscription) {
+        func receive(subscription: Subscription) {
+            lock.lock()
+            guard status == .awaiting else { lock.unlock(); return }
             status = .subscribed(to: subscription)
-            getLock().unlock()
+            
+            let pendingDemand = self.pendingDemand
+            self.pendingDemand = .none
+            lock.unlock()
             receiveSubscription?(subscription)
-            subscription.request(requiredDemand)
+            
+            if pendingDemand > 0 {
+                subscription.request(pendingDemand)
+            }
         }
         
-        override func operate(on input: Input) -> Result<Downstream.Input, Downstream.Failure>? {
+        func receive(_ input: Input) -> Subscribers.Demand {
+            lock.lock()
+            guard status.isSubscribed else { lock.unlock(); return .none }
+            lock.unlock()
             receiveOutput?(input)
-            return .success(input)
+            
+            return downstream?.receive(input) ?? .none
         }
         
-        override func onCompletion(_ completion: Subscribers.Completion<Failure>) {
+        func receive(completion: Subscribers.Completion<Downstream.Failure>) {
+            lock.lock()
+            guard status.isSubscribed else { lock.unlock(); return }
+            status = .terminated
+            lock.unlock()
             receiveCompletion?(completion)
             downstream?.receive(completion: completion)
         }
         
-        override func cancel() {
+        func cancel() {
+            lock.lock()
+            guard case .subscribed(let subscription) = status else { lock.unlock(); return }
+            status = .terminated
+            lock.unlock()
             receiveCancel?()
-            super.cancel()
+            subscription.cancel()
         }
         
-        override var description: String {
+        var description: String {
             "HandleEvents"
         }
         
-        override var customMirror: Mirror {
+        var customMirror: Mirror {
             Mirror(self, children: [])
         }
     }
