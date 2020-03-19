@@ -91,8 +91,7 @@ extension Publishers.Autoconnect {
         }
         
         func receive(subscription: Subscription) {
-            let sideEffectSubscription = SideEffectSubscription(subscription: subscription, parent: parent)
-            downstream.receive(subscription: sideEffectSubscription)
+            downstream.receive(subscription: SideEffectSubscription(upstreamSubscription: subscription, parent: parent))
         }
         
         func receive(_ input: Input) -> Subscribers.Demand {
@@ -114,33 +113,28 @@ extension Publishers.Autoconnect {
     
     private struct SideEffectSubscription: Subscription, CustomStringConvertible, CustomReflectable {
         
-        private let subscription: Subscription
+        private let upstreamSubscription: Subscription
         private let parent: Publishers.Autoconnect<Upstream>
         
-        var combineIdentifier: CombineIdentifier {
-            subscription.combineIdentifier
-        }
-        
-        init(subscription: Subscription, parent: Publishers.Autoconnect<Upstream>) {
-            self.subscription = subscription
+        init(upstreamSubscription: Subscription, parent: Publishers.Autoconnect<Upstream>) {
+            self.upstreamSubscription = upstreamSubscription
             self.parent = parent
         }
         
+        var combineIdentifier: CombineIdentifier {
+            upstreamSubscription.combineIdentifier
+        }
+        
         func request(_ demand: Subscribers.Demand) {
-            subscription.request(demand)
+            upstreamSubscription.request(demand)
         }
         
         func cancel() {
             parent.cancel()
-            subscription.cancel()
+            upstreamSubscription.cancel()
         }
         
-        var description: String {
-            String(describing: subscription)
-        }
-        
-        var customMirror: Mirror {
-            Mirror(self, children: [])
-        }
+        var description: String { "" }
+        var customMirror: Mirror { Mirror(self, children: []) }
     }
 }
