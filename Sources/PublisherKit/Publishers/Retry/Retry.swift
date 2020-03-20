@@ -41,14 +41,9 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            
-            let retrySubscriber = Inner(downstream: subscriber, demand: demand)
-            
-            retrySubscriber.retrySubscription = {
-                self.upstream.subscribe(retrySubscriber)
-            }
-            
-            upstream.subscribe(retrySubscriber)
+            let inner = Inner(downstream: subscriber, upstream: upstream, retries: demand)
+            inner.upstream.subscribe(inner)
+            subscriber.receive(subscription: inner)
         }
     }
 }
@@ -58,62 +53,102 @@ extension Publishers.Retry: Equatable where Upstream: Equatable { }
 extension Publishers.Retry {
     
     // MARK: RETRY
-    private final class Inner<Downstream: Subscriber>: InternalSubscriber<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscriber, Subscription, CustomStringConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        var retrySubscription: (() -> Void)?
+        private var downstream: Downstream?
+        private var status: SubscriptionStatus = .awaiting
+        private let lock = Lock()
+        private var retries: Subscribers.Demand
+        private var isRetrying = false
         
-        let _demand: Subscribers.Demand
+        fileprivate let upstream: Upstream
+        private var downstreamDemand: Subscribers.Demand = .none
         
-        init(downstream: Downstream, demand: Subscribers.Demand) {
-            _demand = demand
-            super.init(downstream: downstream)
+        init(downstream: Downstream, upstream: Upstream, retries: Subscribers.Demand) {
+            self.downstream = downstream
+            self.upstream = upstream
+            self.retries = retries
         }
         
-        override func request(_ demand: Subscribers.Demand) {
-            super.request(_demand)
-        }
-        
-        override func operate(on input: Input) -> Result<Downstream.Input, Downstream.Failure>? {
-            .success(input)
-        }
-        
-        override func receive(completion: Subscribers.Completion<Failure>) {
-            getLock().lock()
-            guard status.isSubscribed else { getLock().unlock(); return }
+        func receive(subscription: Subscription) {
+            lock.lock()
+            guard status == .awaiting else { lock.unlock(); return }
+            status = .subscribed(to: subscription)
+            lock.unlock()
             
-            guard let error = completion.getError() else {
-                end {
-                    downstream?.receive(completion: completion)
-                }
-                return
+            if isRetrying {
+                subscription.request(downstreamDemand)
             }
+        }
+        
+        func receive(_ input: Upstream.Output) -> Subscribers.Demand {
+            lock.lock()
+            guard status.isSubscribed else { lock.unlock(); return .none }
+            downstreamDemand -= 1
+            lock.unlock()
             
-            Logger.default.log(error: error)
+            let demand = downstream?.receive(input) ?? .none
+            lock.lock()
+            downstreamDemand += demand
+            lock.unlock()
             
-            guard demand != .none else {
-                end {
+            return downstreamDemand
+        }
+        
+        func receive(completion: Subscribers.Completion<Upstream.Failure>) {
+            lock.lock()
+            guard status.isSubscribed else { lock.unlock(); return }
+            status = .terminated
+            
+            switch completion {
+            case .finished:
+                lock.unlock()
+                downstream?.receive(completion: .finished)
+                
+            case .failure(let error):
+                if retries == .unlimited {
+                    status = .awaiting
+                    isRetrying = true
+                    lock.unlock()
+                    upstream.subscribe(self)
+                } else if retries > .none {
+                    retries -= 1
+                    status = .awaiting
+                    isRetrying = true
+                    lock.unlock()
+                    upstream.subscribe(self)
+                } else {
+                    isRetrying = false
+                    lock.unlock()
                     downstream?.receive(completion: .failure(error))
                 }
-                return
             }
+        }
+        
+        func request(_ demand: Subscribers.Demand) {
+            lock.lock()
+            guard case .subscribed(let subscription) = status else { lock.unlock(); return }
+            downstreamDemand += demand
+            lock.unlock()
             
-            demand -= 1
-            status = .awaiting
-            retrySubscription?()
+            subscription.request(downstreamDemand)
         }
         
-        override func end(completion: () -> Void) {
-            super.end(completion: completion)
-            retrySubscription = nil
+        func cancel() {
+            lock.lock()
+            guard case .subscribed(let subscription) = status else { lock.unlock(); return }
+            status = .terminated
+            lock.unlock()
+            
+            subscription.cancel()
         }
         
-        override func cancel() {
-            super.cancel()
-            retrySubscription = nil
+        var description: String {
+            "ReplaceError"
         }
         
-        override var description: String {
-            "Retry"
+        var customMirror: Mirror {
+            Mirror(self, children: [])
         }
     }
 }

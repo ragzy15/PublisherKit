@@ -102,24 +102,8 @@ extension Publishers.HandleEvents {
             self.downstream = downstream
         }
         
-        func request(_ demand: Subscribers.Demand) {
-            lock.lock()
-            switch status {
-            case .awaiting:
-                pendingDemand += demand
-                lock.unlock()
-                
-            case .subscribed(let subscription):
-                lock.unlock()
-                receiveRequest?(demand)
-                subscription.request(demand)
-                
-            default:
-                lock.unlock()
-            }
-        }
-        
         func receive(subscription: Subscription) {
+            receiveSubscription?(subscription)
             lock.lock()
             guard status == .awaiting else { lock.unlock(); return }
             status = .subscribed(to: subscription)
@@ -127,7 +111,6 @@ extension Publishers.HandleEvents {
             let pendingDemand = self.pendingDemand
             self.pendingDemand = .none
             lock.unlock()
-            receiveSubscription?(subscription)
             
             if pendingDemand > 0 {
                 subscription.request(pendingDemand)
@@ -135,29 +118,46 @@ extension Publishers.HandleEvents {
         }
         
         func receive(_ input: Input) -> Subscribers.Demand {
+            receiveOutput?(input)
             lock.lock()
             guard status.isSubscribed else { lock.unlock(); return .none }
             lock.unlock()
-            receiveOutput?(input)
             
-            return downstream?.receive(input) ?? .none
+            let newDemand = downstream?.receive(input) ?? .none
+            if newDemand > 0 {
+                receiveRequest?(newDemand)
+            }
+            
+            return newDemand
         }
         
         func receive(completion: Subscribers.Completion<Downstream.Failure>) {
+            receiveCompletion?(completion)
             lock.lock()
             guard status.isSubscribed else { lock.unlock(); return }
             status = .terminated
             lock.unlock()
-            receiveCompletion?(completion)
             downstream?.receive(completion: completion)
         }
         
+        func request(_ demand: Subscribers.Demand) {
+            receiveRequest?(demand)
+            lock.lock()
+            if case .subscribed(let subscription) = status {
+                lock.unlock()
+                subscription.request(demand)
+                return
+            }
+            pendingDemand += demand
+            lock.unlock()
+        }
+        
         func cancel() {
+            receiveCancel?()
             lock.lock()
             guard case .subscribed(let subscription) = status else { lock.unlock(); return }
             status = .terminated
             lock.unlock()
-            receiveCancel?()
             subscription.cancel()
         }
         
