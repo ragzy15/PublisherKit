@@ -59,6 +59,8 @@ extension Publishers.ReplaceEmpty {
             guard status == .awaiting else { lock.unlock(); return }
             status = .subscribed(to: subscription)
             lock.unlock()
+            
+            downstream?.receive(subscription: self)
         }
         
         func receive(_ input: Upstream.Output) -> Subscribers.Demand {
