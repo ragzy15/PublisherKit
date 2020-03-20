@@ -59,7 +59,7 @@ extension URLSession {
         
         public let session: URLSession
         
-        public var name: String
+        public let name: String
         
         public init(name: String = "", request: URLRequest, session: URLSession) {
             self.name = name
@@ -76,17 +76,7 @@ extension URLSession {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            
-            let downloadTaskSubscriber = Inner(downstream: subscriber)
-            
-            subscriber.receive(subscription: downloadTaskSubscriber)
-            
-            if let request = request {
-                downloadTaskSubscriber.resume(with: request, in: session)
-                Logger.default.logAPIRequest(request: request, name: name)
-            } else if let data = resumeData {
-                downloadTaskSubscriber.resume(withResumeData: data, in: session)
-            }
+            subscriber.receive(subscription: Inner(downstream: subscriber, parent: self))
         }
     }
 }
@@ -94,62 +84,89 @@ extension URLSession {
 extension URLSession.DownloadTaskPKPublisher {
     
     // MARK: DOWNLOAD TASK SINK
-    private final class Inner<Downstream: Subscriber>: Subscriptions.Internal<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscription, CustomStringConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private var task: URLSessionDownloadTask?
         
-        func resume(with request: URLRequest, in session: URLSession) {
-            getLock().lock()
-            guard task == nil else { getLock().unlock(); return }
+        private let lock = Lock()
+        private var downstream: Downstream?
+        private var demand: Subscribers.Demand = .none
+        
+        private var parent: URLSession.DownloadTaskPKPublisher?
+        
+        init(downstream: Downstream, parent: URLSession.DownloadTaskPKPublisher) {
+            self.downstream = downstream
+            self.parent = parent
+        }
+        
+        func request(_ demand: Subscribers.Demand) {
+            lock.lock()
+            guard let parent = parent, task == nil else { lock.unlock(); return }
             
-            task = session.downloadTask(with: request, completionHandler: getCompletion)
+            if let request = parent.request {
+                task = parent.session.downloadTask(with: request) { [weak self] in
+                    self?.handleResponse(url: $0, response: $1, error: $2)
+                }
+                Logger.default.logAPIRequest(request: request, name: parent.name)
+            } else if let data = parent.resumeData {
+                task = parent.session.downloadTask(withResumeData: data) { [weak self] in
+                    self?.handleResponse(url: $0, response: $1, error: $2)
+                }
+            }
             
-            getLock().unlock()
+            self.demand += demand
+            
+            lock.unlock()
             
             task?.resume()
         }
         
-        func resume(withResumeData data: Data, in session: URLSession) {
-            getLock().lock()
-            guard task == nil else { getLock().unlock(); return }
+        private func handleResponse(url: URL?, response: URLResponse?, error: Error?) {
+            lock.lock()
+            guard demand > .none, let downstream = downstream else { lock.unlock(); return }
+            terminate()
+            lock.unlock()
             
-            task = session.downloadTask(withResumeData: data, completionHandler: getCompletion)
-            
-            getLock().unlock()
-            
-            task?.resume()
-        }
-        
-        private func getCompletion(url: URL?, response: URLResponse?, error: Error?) {
-            getLock().lock()
-            guard !isTerminated else { getLock().unlock(); return }
-            
-            getLock().unlock()
-            
-            if let error = error as NSError? {
-                receive(completion: .failure(error))
-                
-            } else if let response = response as? HTTPURLResponse, let url = url {
-                receive(input: (url, response))
-                receive(completion: .finished)
+            if let error = error {
+                downstream.receive(completion: .failure(error))
+            } else if let url = url, let response = response as? HTTPURLResponse {
+                _ = downstream.receive((url, response))
+                downstream.receive(completion: .finished)
             } else {
-                receive(completion: .failure(URLError(.unknown)))
+                downstream.receive(completion: .failure(URLError(.unknown)))
             }
         }
         
-        override func end(completion: () -> Void) {
-            super.end(completion: completion)
-            task = nil
-        }
-        
-        override func cancel() {
-            super.cancel()
+        func cancel() {
+            lock.lock()
+            guard downstream != nil else { lock.unlock(); return }
+            let task = self.task
+            terminate()
+            lock.unlock()
+            
             task?.cancel()
+        }
+        
+        private func terminate() {
+            downstream = nil
+            demand = .none
+            parent = nil
             task = nil
         }
         
-        override var description: String {
-            "Download Task Publisher"
+        var description: String {
+            "DownloadTaskPublisher"
+        }
+        
+        var customMirror: Mirror {
+            let children: [Mirror.Child] = [
+                ("task", task as Any),
+                ("downstream", downstream as Any),
+                ("parent", parent as Any),
+                ("demand", demand)
+            ]
+            
+            return Mirror(self, children: children)
         }
     }
 }

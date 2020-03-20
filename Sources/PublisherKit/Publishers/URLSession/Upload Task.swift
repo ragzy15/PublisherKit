@@ -81,18 +81,7 @@ extension URLSession {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            
-            let uploadTaskSubscriber = Inner(downstream: subscriber)
-            
-            subscriber.receive(subscription: uploadTaskSubscriber)
-            
-            if let url = fileUrl {
-                uploadTaskSubscriber.resume(with: request, fromFile: url, in: session)
-            } else {
-                uploadTaskSubscriber.resume(with: request, from: data, in: session)
-            }
-            
-            Logger.default.logAPIRequest(request: request, name: name)
+            subscriber.receive(subscription: Inner(downstream: subscriber, parent: self))
         }
     }
 }
@@ -100,45 +89,89 @@ extension URLSession {
 extension URLSession.UploadTaskPKPublisher {
     
     // MARK: UPLOAD TASK SINK
-    private final class Inner<Downstream: Subscriber>: Subscriptions.Internal<Downstream, Output, Failure>, URLSessionTaskPublisherDelegate where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscription, CustomStringConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private var task: URLSessionUploadTask?
         
-        func resume(with request: URLRequest, from data: Data?, in session: URLSession) {
-            getLock().lock()
-            guard task == nil else { getLock().unlock(); return }
+        private let lock = Lock()
+        private var downstream: Downstream?
+        private var demand: Subscribers.Demand = .none
+        
+        private var parent: URLSession.UploadTaskPKPublisher?
+        
+        init(downstream: Downstream, parent: URLSession.UploadTaskPKPublisher) {
+            self.downstream = downstream
+            self.parent = parent
+        }
+        
+        func request(_ demand: Subscribers.Demand) {
+            lock.lock()
+            guard let parent = parent, task == nil else { lock.unlock(); return }
             
-            task = session.uploadTask(with: request, from: data, completionHandler: handleCompletion(subscriber: self))
+            if let url = parent.fileUrl {
+                task = parent.session.uploadTask(with: parent.request, fromFile: url) { [weak self] in
+                    self?.handleResponse(data: $0, response: $1, error: $2)
+                }
+            } else {
+                task = parent.session.uploadTask(with: parent.request, from: parent.data) { [weak self] in
+                    self?.handleResponse(data: $0, response: $1, error: $2)
+                }
+            }
             
-            getLock().unlock()
+            self.demand += demand
+            lock.unlock()
+            
+            Logger.default.logAPIRequest(request: parent.request, name: parent.name)
             
             task?.resume()
         }
         
-        func resume(with request: URLRequest, fromFile fileUrl: URL, in session: URLSession) {
-            getLock().lock()
-            guard task == nil else { getLock().unlock(); return }
+        private func handleResponse(data: Data?, response: URLResponse?, error: Error?) {
+            lock.lock()
+            guard demand > .none, let downstream = downstream else { lock.unlock(); return }
+            terminate()
+            lock.unlock()
             
-            task = session.uploadTask(with: request, fromFile: fileUrl, completionHandler: handleCompletion(subscriber: self))
-            
-            getLock().unlock()
-            
-            task?.resume()
+            if let error = error {
+                downstream.receive(completion: .failure(error))
+            } else if let response = response as? HTTPURLResponse, let data = data {
+                _ = downstream.receive((data, response))
+                downstream.receive(completion: .finished)
+            } else {
+                downstream.receive(completion: .failure(URLError(.unknown)))
+            }
         }
         
-        override func end(completion: () -> Void) {
-            super.end(completion: completion)
-            task = nil
-        }
-        
-        override func cancel() {
-            super.cancel()
+        func cancel() {
+            lock.lock()
+            guard downstream != nil else { lock.unlock(); return }
+            let task = self.task
+            terminate()
+            lock.unlock()
+            
             task?.cancel()
+        }
+        
+        private func terminate() {
+            downstream = nil
+            demand = .none
+            parent = nil
             task = nil
         }
         
-        override var description: String {
-            "Upload Task Publisher"
+        var description: String {
+            "UploadTaskPublisher"
+        }
+        
+        var customMirror: Mirror {
+            let children: [Mirror.Child] = [
+                ("task", task as Any),
+                ("downstream", downstream as Any),
+                ("parent", parent as Any),
+                ("demand", demand)
+            ]
+            
+            return Mirror(self, children: children)
         }
     }
 }
