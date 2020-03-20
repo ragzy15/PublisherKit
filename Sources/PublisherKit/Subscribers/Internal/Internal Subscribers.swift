@@ -5,10 +5,6 @@
 //  Created by Raghav Ahuja on 19/12/19.
 //
 
-typealias OperatorSubscriber<Downstream: Subscriber, Upstream: Publisher, Operator> = Subscribers.InternalOperators<Downstream, Upstream.Output, Upstream.Failure, Operator>
-
-typealias InternalSubscriber<Downstream: Subscriber, Upstream: Publisher> = Subscribers.InternalBase<Downstream, Upstream.Output, Upstream.Failure>
-
 extension Subscribers {
     
     // MARK: BASE
@@ -115,17 +111,6 @@ extension Subscribers {
             lock.unlock()
             completion()
             downstream = nil
-        }
-    }
-    
-    // MARK: OPERATOR
-    class InternalOperators<Downstream: Subscriber, Input, Failure: Error, Operator>: InternalBase<Downstream, Input, Failure> {
-        
-        let operation: Operator
-        
-        init(downstream: Downstream, operation: Operator) {
-            self.operation = operation
-            super.init(downstream: downstream)
         }
     }
     
@@ -282,84 +267,6 @@ extension Subscribers {
         }
         
         override var customMirror: Mirror {
-            Mirror(self, children: [])
-        }
-    }
-    
-    // MARK: SUBJECT
-    final class InternalSubject<DownstreamSubject: Subject>: Subscriber, Subscription, CustomStringConvertible, CustomReflectable {
-        
-        typealias Input = DownstreamSubject.Output
-        
-        typealias Failure = DownstreamSubject.Failure
-        
-        private var subject: DownstreamSubject?
-        
-        private var status: SubscriptionStatus = .awaiting
-        
-        private var demand: Subscribers.Demand = .none
-        
-        private let lock = Lock()
-        
-        init(subject: DownstreamSubject) {
-            self.subject = subject
-        }
-        
-        final func request(_ demand: Subscribers.Demand) {
-            lock.lock()
-            guard case let .subscribed(subscription) = status else { lock.unlock(); return }
-            self.demand = demand
-            lock.unlock()
-            subscription.request(demand)
-        }
-        
-        final func receive(subscription: Subscription) {
-            lock.lock()
-            guard status == .awaiting else { lock.unlock(); return }
-            status = .subscribed(to: subscription)
-            lock.unlock()
-            subject?.send(subscription: self)
-        }
-        
-        final func receive(_ input: Input) -> Subscribers.Demand {
-            lock.lock()
-            guard status.isSubscribed else { lock.unlock(); return .none }
-            lock.unlock()
-            subject?.send(input)
-            return demand
-        }
-        
-        final func receive(completion: Subscribers.Completion<Failure>) {
-            lock.lock()
-            guard status.isSubscribed else { lock.unlock(); return }
-            
-            end {
-                subject?.send(completion: completion)
-            }
-        }
-        
-        final func end(completion: () -> Void) {
-            status = .terminated
-            lock.unlock()
-            completion()
-            subject = nil
-        }
-        
-        final func cancel() {
-            lock.lock()
-            guard case let .subscribed(subscription) = status else { lock.unlock(); return }
-            status = .terminated
-            lock.unlock()
-            
-            subscription.cancel()
-            subject = nil
-        }
-        
-        var description: String {
-            "Internal Subject"
-        }
-        
-        var customMirror: Mirror {
             Mirror(self, children: [])
         }
     }

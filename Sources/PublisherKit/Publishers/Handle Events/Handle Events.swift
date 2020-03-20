@@ -123,12 +123,7 @@ extension Publishers.HandleEvents {
             guard status.isSubscribed else { lock.unlock(); return .none }
             lock.unlock()
             
-            let newDemand = downstream?.receive(input) ?? .none
-            if newDemand > 0 {
-                receiveRequest?(newDemand)
-            }
-            
-            return newDemand
+            return downstream?.receive(input) ?? .none
         }
         
         func receive(completion: Subscribers.Completion<Downstream.Failure>) {
