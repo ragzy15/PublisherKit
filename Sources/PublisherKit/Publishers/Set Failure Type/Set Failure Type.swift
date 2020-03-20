@@ -25,9 +25,7 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            
-            let failureTypeSubscriber = Inner(downstream: subscriber)
-            upstream.subscribe(failureTypeSubscriber)
+            upstream.subscribe(Inner(downstream: subscriber))
         }
         
         public func setFailureType<E: Error>(to failure: E.Type) -> Publishers.SetFailureType<Upstream, E> {
@@ -41,18 +39,34 @@ extension Publishers.SetFailureType: Equatable where Upstream: Equatable { }
 extension Publishers.SetFailureType {
     
     // MARK: SET FAILURE TYPE SINK
-    private final class Inner<Downstream: Subscriber>: InternalSubscriber<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private struct Inner<Downstream: Subscriber>: Subscriber, CustomStringConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
-            .success(input)
+        private let downstream: Downstream
+        let combineIdentifier: CombineIdentifier
+        
+        init(downstream: Downstream) {
+            self.downstream = downstream
+            combineIdentifier = CombineIdentifier()
         }
         
-        override func onCompletion(_ completion: Subscribers.Completion<Never>) {
-            downstream?.receive(completion: .finished)
+        func receive(subscription: Subscription) {
+            downstream.receive(subscription: subscription)
         }
         
-        override var description: String {
+        func receive(_ input: Upstream.Output) -> Subscribers.Demand {
+            downstream.receive(input)
+        }
+        
+        func receive(completion: Subscribers.Completion<Never>) {
+            downstream.receive(completion: .finished)
+        }
+        
+        var description: String {
             "SetFailureType"
+        }
+        
+        var customMirror: Mirror {
+            Mirror(self, children: [])
         }
     }
 }
