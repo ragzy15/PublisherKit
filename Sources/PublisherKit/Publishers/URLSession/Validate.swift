@@ -60,11 +60,7 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            
-            let validationSubscriber = Inner(downstream: subscriber,
-                                             acceptableStatusCodes: acceptableStatusCodes,
-                                             acceptableContentTypes: acceptableContentTypes)
-            upstream.subscribe(validationSubscriber)
+            upstream.subscribe(Inner(downstream: subscriber, acceptableStatusCodes: acceptableStatusCodes, acceptableContentTypes: acceptableContentTypes))
         }
     }
 }
@@ -72,24 +68,85 @@ extension Publishers {
 extension Publishers.Validate {
     
     // MARK: VALIDATE SINK
-    fileprivate final class Inner<Downstream: Subscriber>: InternalSubscriber<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    fileprivate final class Inner<Downstream: Subscriber>: Subscriber, Subscription, CustomStringConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private let acceptableStatusCodes: [Int]
         private let acceptableContentTypes: AcceptableContentTypes?
         
+        private let lock = Lock()
+        private var downstream: Downstream?
+        private var status: SubscriptionStatus = .awaiting
+        
         init(downstream: Downstream, acceptableStatusCodes: [Int], acceptableContentTypes: AcceptableContentTypes?) {
             self.acceptableStatusCodes = acceptableStatusCodes
             self.acceptableContentTypes = acceptableContentTypes
-            super.init(downstream: downstream)
-            requiredDemand = .max(1)
+            self.downstream = downstream
         }
         
-        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
-            return validate(input: input)
+        func receive(subscription: Subscription) {
+            lock.lock()
+            guard status == .awaiting else { lock.unlock(); return }
+            status = .subscribed(to: subscription)
+            lock.unlock()
+            downstream?.receive(subscription: self)
         }
         
-        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
+        func receive(_ input: Upstream.Output) -> Subscribers.Demand {
+            lock.lock()
+            guard status.isSubscribed else { lock.unlock(); return .none }
+            lock.unlock()
+            
+            switch validate(input: input) {
+            case .success(let output):
+                return downstream?.receive(output) ?? .none
+                
+            case .failure(let error):
+                lock.lock()
+                status = .terminated
+                lock.unlock()
+                
+                downstream?.receive(completion: .failure(error))
+                return .none
+            }
+        }
+        
+        func receive(completion: Subscribers.Completion<Upstream.Failure>) {
+            lock.lock()
+            guard status.isSubscribed else { lock.unlock(); return }
+            status = .terminated
+            lock.unlock()
+            
             downstream?.receive(completion: completion.mapError { $0 as Failure })
+        }
+        
+        func request(_ demand: Subscribers.Demand) {
+            lock.lock()
+            guard case .subscribed(let subscription) = status else { lock.unlock(); return }
+            lock.unlock()
+            
+            subscription.request(demand)
+        }
+        
+        func cancel() {
+            lock.lock()
+            guard case .subscribed(let subscription) = status else { lock.unlock(); return }
+            status = .terminated
+            lock.unlock()
+            
+            subscription.cancel()
+        }
+        
+        var description: String {
+            "Validate"
+        }
+        
+        var customMirror: Mirror {
+            let children: [Mirror.Child] = [
+                ("downstream", downstream as Any),
+                ("status", status)
+            ]
+            
+            return Mirror(self, children: children)
         }
     }
 }
