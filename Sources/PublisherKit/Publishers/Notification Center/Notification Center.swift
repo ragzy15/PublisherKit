@@ -59,7 +59,7 @@ extension NotificationCenter {
 extension NotificationCenter.PKPublisher {
     
     // MARK: NOTIFICATION CENTER SINK
-    private final class Subscription<Downstream: Subscriber>: Subscriptions.Internal<Downstream, Output, Failure> where Downstream.Failure == Failure, Downstream.Input == Output {
+    private final class Subscription<Downstream: Subscriber>: PublisherKit.Subscription, CustomStringConvertible, CustomReflectable where Downstream.Failure == Failure, Downstream.Input == Output {
         
         private var center: NotificationCenter?
         private let name: Notification.Name
@@ -67,20 +67,42 @@ extension NotificationCenter.PKPublisher {
         
         private var observer: NSObjectProtocol?
         
+        private let lock = Lock()
+        private let downstreamLock = RecursiveLock()
+        
+        private var demand: Subscribers.Demand = .none
+        
         init(downstream: Downstream, center: NotificationCenter, name: Notification.Name, object: AnyObject?) {
             self.center = center
             self.name = name
             self.object = object
-            super.init(downstream: downstream)
             
             observer = center.addObserver(forName: name, object: object, queue: nil) { [weak self] (notification) in
-                self?.receive(input: notification)
+                
+                guard let `self` = self else { return }
+                
+                self.lock.lock()
+                guard self.demand > .none else { self.lock.unlock(); return }
+                self.demand -= 1
+                self.lock.unlock()
+                
+                self.downstreamLock.lock()
+                let additionalDemand = downstream.receive(notification)
+                self.downstreamLock.unlock()
+                
+                self.lock.lock()
+                self.demand += additionalDemand
+                self.lock.unlock()
             }
         }
         
-        override func cancel() {
-            super.cancel()
-            
+        func request(_ demand: Subscribers.Demand) {
+            lock.lock()
+            self.demand += demand
+            lock.unlock()
+        }
+        
+        func cancel() {
             if let observer = observer {
                 center?.removeObserver(observer, name: name, object: object)
             }
@@ -90,12 +112,22 @@ extension NotificationCenter.PKPublisher {
             center = nil
         }
         
-        override var description: String {
+        var description: String {
             "NotificationCenter Observer"
         }
         
-        override var customMirror: Mirror {
-            Mirror(self, children: [])
+        var customMirror: Mirror {
+            lock.lock()
+            defer { lock.unlock() }
+            
+            let children: [Mirror.Child] = [
+                ("center", center as Any),
+                ("name", name),
+                ("object", object as Any),
+                ("demand", demand)
+            ]
+            
+            return Mirror(self, children: children)
         }
     }
 }
