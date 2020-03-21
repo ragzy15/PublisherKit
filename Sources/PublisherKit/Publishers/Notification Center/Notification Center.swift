@@ -103,13 +103,18 @@ extension NotificationCenter.PKPublisher {
         }
         
         func cancel() {
-            if let observer = observer {
-                center?.removeObserver(observer, name: name, object: object)
+            lock.lock()
+            guard let center = center, let observer = observer else {
+                lock.unlock()
+                return
             }
             
-            observer = nil
-            object = nil
-            center = nil
+            self.observer = nil
+            self.center = nil
+            let object = self.object
+            self.object = nil
+            lock.unlock()
+            center.removeObserver(observer, name: name, object: object)
         }
         
         var description: String {
