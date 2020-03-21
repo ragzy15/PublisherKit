@@ -65,30 +65,35 @@ extension Result {
 extension Result.PKPublisher {
     
     // MARK: RESULT SINK
-    private final class Inner<Downstream: Subscriber>: Subscriptions.InternalBase<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscription, CustomStringConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private let output: Output
+        private var downstream: Downstream?
         
         init(downstream: Downstream, output: Output) {
+            self.downstream = downstream
             self.output = output
-            super.init(downstream: downstream)
         }
         
-        override func request(_ demand: Subscribers.Demand) {
+        func request(_ demand: Subscribers.Demand) {
+            precondition(demand > .none, "Demand must not be zero.")
+            
             guard let downstream = downstream else { return }
+            self.downstream = nil
+            
             _ = downstream.receive(output)
             downstream.receive(completion: .finished)
         }
         
-        override func cancel() {
+        func cancel() {
             downstream = nil
         }
         
-        override var description: String {
+        var description: String {
             "Once"
         }
         
-        override var customMirror: Mirror {
+        var customMirror: Mirror {
             Mirror(self, unlabeledChildren: [output])
         }
     }
