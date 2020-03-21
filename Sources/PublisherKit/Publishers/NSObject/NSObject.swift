@@ -44,7 +44,7 @@ extension NSObject {
 extension NSObject: PublisherCompatible {
     
     // MARK: NSOBJECT SINK
-    final class KVOSubscription<Subject: NSObject, Output, Failure: Error>: Subscription, CustomStringConvertible, CustomReflectable {
+    private final class KVOSubscription<Subject: NSObject, Output, Failure: Error>: Subscription, CustomStringConvertible, CustomReflectable {
         
         private var observer: NSKeyValueObservation?
         
