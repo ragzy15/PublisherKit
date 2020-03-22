@@ -130,9 +130,8 @@ extension Publishers.Debounce {
         func request(_ demand: Subscribers.Demand) {
             lock.lock()
             guard case .subscribed(_, _, _) = status else { lock.unlock(); return }
+            downstreamDemand += demand
             lock.unlock()
-            
-            downstreamDemand = demand
         }
         
         func cancel() {
