@@ -30,7 +30,7 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            upstream.subscribe(Inner(downstream: subscriber, scheduler: scheduler, options: options))
+            upstream.subscribe(Inner(downstream: subscriber, parent: self))
         }
     }
 }
@@ -38,51 +38,51 @@ extension Publishers {
 extension Publishers.ReceiveOn {
     
     // MARK: RECEIVEON SINK
-    private final class Inner<Downstream: Subscriber, Context: Scheduler>: Subscriber, Subscription, CustomStringConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscriber, Subscription, CustomStringConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        private let scheduler: Context
+        typealias Input = Upstream.Output
         
-        private let options: Context.PKSchedulerOptions?
+        typealias Failure = Upstream.Failure
+        
+        fileprivate typealias ReceiveOn = Publishers.ReceiveOn<Upstream, Context>
+        
+        private enum SubscriptionStatus {
+            case awaiting(parent: ReceiveOn, downstream: Downstream)
+            case subscribed(parent: ReceiveOn, downstream: Downstream, subscription: Subscription)
+            case terminated
+        }
+        
+        private var status: SubscriptionStatus
         
         private let downstreamLock = RecursiveLock()
         private let lock = Lock()
-        private var downstream: Downstream?
-        private var status: SubscriptionStatus = .awaiting
         
-        init(downstream: Downstream, scheduler: Context, options: Context.PKSchedulerOptions?) {
-            self.scheduler = scheduler
-            self.options = options
-            self.downstream = downstream
+        init(downstream: Downstream, parent: ReceiveOn) {
+            status = .awaiting(parent: parent, downstream: downstream)
         }
         
         func receive(subscription: Subscription) {
             lock.lock()
-            guard status == .awaiting else { lock.unlock(); return }
-            status = .subscribed(to: subscription)
+            guard case .awaiting(let parent, let downstream) = status else { lock.unlock(); return }
+            status = .subscribed(parent: parent, downstream: downstream, subscription: subscription)
             lock.unlock()
             
             downstreamLock.lock()
-            downstream?.receive(subscription: self)
+            downstream.receive(subscription: self)
             downstreamLock.unlock()
-        }
-        
-        func request(_ demand: Subscribers.Demand) {
-            lock.lock()
-            guard case .subscribed(let subscription) = status else { lock.unlock(); return }
-            lock.unlock()
-            
-            subscription.request(demand)
         }
         
         func receive(_ input: Upstream.Output) -> Subscribers.Demand {
             lock.lock()
-            guard status.isSubscribed else { lock.unlock(); return .none }
+            guard case .subscribed(let parent, let downstream, let subscription) = status else { lock.unlock(); return .none }
             lock.unlock()
             
-            scheduler.schedule(options: options) { [weak self] in
-                self?.downstreamLock.lock()
-                _ = self?.downstream?.receive(input)
-                self?.downstreamLock.unlock()
+            parent.scheduler.schedule(options: parent.options) { [weak self] in
+                guard let `self` = self else { return }
+                
+                self.downstreamLock.lock()
+                _ = downstream.receive(input)
+                self.downstreamLock.unlock()
             }
             
             return .none
@@ -90,20 +90,30 @@ extension Publishers.ReceiveOn {
         
         func receive(completion: Subscribers.Completion<Upstream.Failure>) {
             lock.lock()
-            guard status.isSubscribed else { lock.unlock(); return }
+            guard case .subscribed(let parent, let downstream, _) = status else { lock.unlock(); return }
             status = .terminated
             lock.unlock()
             
-            scheduler.schedule(options: options) { [weak self] in
-                self?.downstreamLock.lock()
-                self?.downstream?.receive(completion: completion)
-                self?.downstreamLock.unlock()
+            parent.scheduler.schedule(options: parent.options) { [weak self] in
+                guard let `self` = self else { return }
+                
+                self.downstreamLock.lock()
+                downstream.receive(completion: completion)
+                self.downstreamLock.unlock()
             }
+        }
+        
+        func request(_ demand: Subscribers.Demand) {
+            lock.lock()
+            guard case .subscribed(_, _, let subscription) = status else { lock.unlock(); return }
+            lock.unlock()
+            
+            subscription.request(demand)
         }
         
         func cancel() {
             lock.lock()
-            guard case .subscribed(let subscription) = status else { lock.unlock(); return }
+            guard case .subscribed(_, _, let subscription) = status else { lock.unlock(); return }
             status = .terminated
             lock.unlock()
             
