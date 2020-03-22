@@ -25,8 +25,7 @@ extension Publishers {
         
         private var demand: Subscribers.Demand = .max(1)
         
-        private var isCancelled = false
-        private var isFinished = false
+        private var isTerminated = false
         private var isActive = false
         
         init(downstream: Downstream, upstreamCount: Int) {
@@ -37,7 +36,7 @@ extension Publishers {
         
         fileprivate final func receive(subscription: Subscription, _ index: Int) {
             lock.lock()
-            guard !isCancelled && upstreamSubscriptions[index] == nil else {
+            guard !isTerminated && upstreamSubscriptions[index] == nil else {
                 lock.unlock()
                 subscription.cancel()
                 return
@@ -45,12 +44,12 @@ extension Publishers {
             
             upstreamSubscriptions[index] = subscription
             lock.unlock()
-            subscription.request(demand)
+            subscription.request(demand == .unlimited ? .unlimited : .max(1))
         }
         
         fileprivate final func receive(_ input: Input, _ index: Int) -> Subscribers.Demand {
             lock.lock()
-            if isCancelled || isFinished { lock.unlock(); return .none }
+            guard !isTerminated else { lock.unlock(); return .none }
             
             guard !isActive, demand > 0 else { lock.unlock(); return .none }
             
@@ -71,18 +70,17 @@ extension Publishers {
         }
         
         fileprivate final func receive(completion: Subscribers.Completion<Failure>, _ index: Int) {
-            guard !isFinished else { lock.unlock(); return }
+            lock.lock()
+            guard !isTerminated else { lock.unlock(); return }
             
             switch completion {
             case .finished:
-                lock.lock()
-                
                 finishedSubscriptions += 1
                 upstreamSubscriptions[index] = nil
                 
                 guard finishedSubscriptions == upstreamCount else { lock.unlock(); return }
                 
-                isFinished = true
+                isTerminated = true
                 lock.unlock()
                 
                 downstreamLock.lock()
@@ -90,15 +88,14 @@ extension Publishers {
                 downstreamLock.unlock()
                 
             case .failure(let error):
-                lock.lock()
-                isFinished = true
+                isTerminated = true
                 
-                let subscriptions = self.upstreamSubscriptions
+                let upstreamSubscriptions = self.upstreamSubscriptions
                 self.upstreamSubscriptions = Array(repeating: nil, count: upstreamCount)
                 
                 lock.unlock()
                 
-                for (i, subscription) in subscriptions.enumerated() where i != index {
+                for (i, subscription) in upstreamSubscriptions.enumerated() where i != index {
                     subscription?.cancel()
                 }
                 
@@ -143,7 +140,7 @@ extension Publishers._Merged: Subscription, CustomStringConvertible, CustomPlayg
     
     func request(_ demand: Subscribers.Demand) {
         lock.lock()
-        guard !isCancelled && !isFinished else { lock.unlock(); return }
+        guard !isTerminated else { lock.unlock(); return }
         self.demand += demand
         lock.unlock()
         
@@ -154,7 +151,9 @@ extension Publishers._Merged: Subscription, CustomStringConvertible, CustomPlayg
     
     func cancel() {
         lock.lock()
-        isCancelled = true
+        guard !isTerminated else { lock.unlock(); return }
+        isTerminated = true
+        
         let upstreamSubscriptions = self.upstreamSubscriptions
         self.upstreamSubscriptions = Array(repeating: nil, count: upstreamCount)
         lock.unlock()
