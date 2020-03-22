@@ -26,60 +26,124 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            
-            let combineLatestSubscriber = Inner(downstream: subscriber)
-            
-            b.subscribe(combineLatestSubscriber.bSubscriber)
-            a.subscribe(combineLatestSubscriber.aSubscriber)
+            let abstractCombineLatest = AbstractCombineLatest(downstream: subscriber, upstreamCount: 2)
+            a.subscribe(AbstractCombineLatest.Side(index: 0, abstractCombineLatest: abstractCombineLatest))
+            b.subscribe(AbstractCombineLatest.Side(index: 1, abstractCombineLatest: abstractCombineLatest))
+            subscriber.receive(subscription: abstractCombineLatest)
+        }
+    }
+    
+    /// A publisher that receives and combines the latest elements from three publishers.
+    public struct CombineLatest3<A: Publisher, B: Publisher, C: Publisher>: Publisher where A.Failure == B.Failure, B.Failure == C.Failure {
+        
+        public typealias Output = (A.Output, B.Output, C.Output)
+        
+        public typealias Failure = A.Failure
+        
+        /// A publisher.
+        public let a: A
+        
+        /// A second publisher.
+        public let b: B
+        
+        /// A third publisher.
+        public let c: C
+        
+        public init(_ a: A, _ b: B, _ c: C) {
+            self.a = a
+            self.b = b
+            self.c = c
+        }
+        
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+            let abstractCombineLatest = AbstractCombineLatest(downstream: subscriber, upstreamCount: 3)
+            a.subscribe(AbstractCombineLatest.Side(index: 0, abstractCombineLatest: abstractCombineLatest))
+            b.subscribe(AbstractCombineLatest.Side(index: 1, abstractCombineLatest: abstractCombineLatest))
+            c.subscribe(AbstractCombineLatest.Side(index: 2, abstractCombineLatest: abstractCombineLatest))
+            subscriber.receive(subscription: abstractCombineLatest)
+        }
+    }
+    /// A publisher that receives and combines the latest elements from four publishers.
+    public struct CombineLatest4<A: Publisher, B: Publisher, C: Publisher, D: Publisher>: Publisher where A.Failure == B.Failure, B.Failure == C.Failure, C.Failure == D.Failure {
+        
+        public typealias Output = (A.Output, B.Output, C.Output, D.Output)
+        
+        public typealias Failure = A.Failure
+        
+        /// A publisher.
+        public let a: A
+        
+        /// A second publisher.
+        public let b: B
+        
+        /// A third publisher.
+        public let c: C
+        
+        /// A fourth publisher.
+        public let d: D
+        
+        public init(_ a: A, _ b: B, _ c: C, _ d: D) {
+            self.a = a
+            self.b = b
+            self.c = c
+            self.d = d
+        }
+        
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+            let abstractCombineLatest = AbstractCombineLatest(downstream: subscriber, upstreamCount: 4)
+            a.subscribe(AbstractCombineLatest.Side(index: 0, abstractCombineLatest: abstractCombineLatest))
+            b.subscribe(AbstractCombineLatest.Side(index: 1, abstractCombineLatest: abstractCombineLatest))
+            c.subscribe(AbstractCombineLatest.Side(index: 2, abstractCombineLatest: abstractCombineLatest))
+            d.subscribe(AbstractCombineLatest.Side(index: 3, abstractCombineLatest: abstractCombineLatest))
+            subscriber.receive(subscription: abstractCombineLatest)
+        }
+    }
+    /// A publisher that receives and combines the latest elements from five publishers.
+    public struct CombineLatest5<A: Publisher, B: Publisher, C: Publisher, D: Publisher, E: Publisher>: Publisher where A.Failure == B.Failure, B.Failure == C.Failure, C.Failure == D.Failure, D.Failure == E.Failure {
+        
+        public typealias Output = (A.Output, B.Output, C.Output, D.Output, E.Output)
+        
+        public typealias Failure = A.Failure
+        
+        /// A publisher.
+        public let a: A
+        
+        /// A second publisher.
+        public let b: B
+        
+        /// A third publisher.
+        public let c: C
+        
+        /// A fourth publisher.
+        public let d: D
+        
+        /// A fifth publisher.
+        public let e: E
+        
+        public init(_ a: A, _ b: B, _ c: C, _ d: D, _ e: E) {
+            self.a = a
+            self.b = b
+            self.c = c
+            self.d = d
+            self.e = e
+        }
+        
+        public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+            let abstractCombineLatest = AbstractCombineLatest(downstream: subscriber, upstreamCount: 5)
+            a.subscribe(AbstractCombineLatest.Side(index: 0, abstractCombineLatest: abstractCombineLatest))
+            b.subscribe(AbstractCombineLatest.Side(index: 1, abstractCombineLatest: abstractCombineLatest))
+            c.subscribe(AbstractCombineLatest.Side(index: 2, abstractCombineLatest: abstractCombineLatest))
+            d.subscribe(AbstractCombineLatest.Side(index: 3, abstractCombineLatest: abstractCombineLatest))
+            e.subscribe(AbstractCombineLatest.Side(index: 4, abstractCombineLatest: abstractCombineLatest))
+            subscriber.receive(subscription: abstractCombineLatest)
         }
     }
 }
 
-extension Publishers.CombineLatest: Equatable where A: Equatable, B: Equatable {
-    
-}
+extension Publishers.CombineLatest: Equatable where A: Equatable, B: Equatable { }
 
-extension Publishers.CombineLatest {
-    
-    // MARK: COMBINELATEST SINK
-    private final class Inner<Downstream: Subscriber>: Subscribers.InternalCombine<Downstream> where Output == Downstream.Input {
-        
-        private(set) lazy var aSubscriber = Subscribers.InternalClosure<Inner, A.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
-        
-        private(set) lazy var bSubscriber = Subscribers.InternalClosure<Inner, B.Output, Failure>(downstream: self, receiveCompletion: receive, receiveValue: receive)
-        
-        private var aOutput: A.Output?
-        private var bOutput: B.Output?
-        
-        private func receive(a input: A.Output, downstream: Inner?) {
-            getLock().lock()
-            aOutput = input
-            checkAndSend()
-        }
-        
-        private func receive(b input: B.Output, downstream: Inner?) {
-            getLock().lock()
-            bOutput = input
-            checkAndSend()
-        }
-        
-        override func checkAndSend() {
-            guard let aOutput = aOutput, let bOutput = bOutput else {
-                getLock().unlock()
-                return
-            }
-            
-            getLock().unlock()
-            
-            _ = receive((aOutput, bOutput))
-        }
-        
-        override var allSubscriptionsHaveTerminated: Bool {
-            aSubscriber.status.isTerminated && bSubscriber.status.isTerminated
-        }
-        
-        override var description: String {
-            "CombineLatest"
-        }
-    }
-}
+extension Publishers.CombineLatest3: Equatable where A: Equatable, B: Equatable, C: Equatable { }
+
+extension Publishers.CombineLatest4: Equatable where A: Equatable, B: Equatable, C: Equatable, D: Equatable { }
+
+extension Publishers.CombineLatest5: Equatable where A: Equatable, B: Equatable, C: Equatable, D: Equatable, E: Equatable { }
