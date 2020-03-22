@@ -40,7 +40,7 @@ extension Publishers {
 extension Publishers.TryCatch {
     
     // MARK: TRY CATCH SINK
-    private final class Inner<Downstream: Subscriber>: Subscription, CustomStringConvertible, CustomReflectable where Downstream.Input == Output, Downstream.Failure == Failure {
+    private final class Inner<Downstream: Subscriber>: Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Downstream.Input == Output, Downstream.Failure == Failure {
         
         private var downstream: Downstream?
         private let handler: (Upstream.Failure) throws -> NewPublisher
@@ -192,6 +192,10 @@ extension Publishers.TryCatch {
             "TryCatch"
         }
         
+        var playgroundDescription: Any {
+            description
+        }
+        
         var customMirror: Mirror {
             lock.lock()
             defer { lock.unlock() }
@@ -204,7 +208,7 @@ extension Publishers.TryCatch {
             return Mirror(self, children: children)
         }
         
-        fileprivate struct UncaughtS: Subscriber, CustomStringConvertible, CustomReflectable {
+        fileprivate struct UncaughtS: Subscriber, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable {
             
             typealias Input = Output
             
@@ -235,12 +239,16 @@ extension Publishers.TryCatch {
                 inner.description
             }
             
+            var playgroundDescription: Any {
+                inner.playgroundDescription
+            }
+            
             var customMirror: Mirror {
                 inner.customMirror
             }
         }
                 
-        fileprivate struct CaughtS: Subscriber, CustomStringConvertible, CustomReflectable {
+        fileprivate struct CaughtS: Subscriber, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable {
             
             typealias Input = Output
             
@@ -273,6 +281,10 @@ extension Publishers.TryCatch {
             
             var description: String {
                 inner.description
+            }
+            
+            var playgroundDescription: Any {
+                inner.playgroundDescription
             }
             
             var customMirror: Mirror {

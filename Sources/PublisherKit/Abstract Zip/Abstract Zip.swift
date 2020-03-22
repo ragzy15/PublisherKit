@@ -126,7 +126,7 @@ final class AbstractZip<Downstream: Subscriber, Output, Failure> where Output ==
     }
 }
 
-extension AbstractZip: Subscription, CustomStringConvertible, CustomReflectable {
+extension AbstractZip: Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable {
     
     func request(_ demand: Subscribers.Demand) {
         lock.lock()
@@ -157,6 +157,10 @@ extension AbstractZip: Subscription, CustomStringConvertible, CustomReflectable 
     
     var description: String {
         "Zip"
+    }
+    
+    var playgroundDescription: Any {
+        description
     }
     
     var customMirror: Mirror {

@@ -49,7 +49,7 @@ extension Optional.PKPublisher: Equatable where Wrapped: Equatable { }
 extension Optional.PKPublisher {
     
     // MARK: OPTIONAL SINK
-    private final class Inner<Downstream: Subscriber>: Subscription, CustomStringConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private let output: Output
         private var downstream: Downstream?
@@ -75,6 +75,10 @@ extension Optional.PKPublisher {
         
         var description: String {
             "Optional"
+        }
+        
+        var playgroundDescription: Any {
+            description
         }
         
         var customMirror: Mirror {

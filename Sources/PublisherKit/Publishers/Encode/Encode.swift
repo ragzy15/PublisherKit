@@ -34,7 +34,7 @@ extension Publishers {
 extension Publishers.Encode {
     
     // MARK: ENCODE SINK
-    private final class Inner<Downstream: Subscriber>: Subscriber, Subscription, CustomStringConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscriber, Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
         
         typealias Input = Upstream.Output
         
@@ -92,6 +92,10 @@ extension Publishers.Encode {
         
         var description: String {
             "Encode"
+        }
+        
+        var playgroundDescription: Any {
+            description
         }
         
         var customMirror: Mirror {

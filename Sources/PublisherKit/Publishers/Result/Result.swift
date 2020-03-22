@@ -65,7 +65,7 @@ extension Result {
 extension Result.PKPublisher {
     
     // MARK: RESULT SINK
-    private final class Inner<Downstream: Subscriber>: Subscription, CustomStringConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private let output: Output
         private var downstream: Downstream?
@@ -91,6 +91,10 @@ extension Result.PKPublisher {
         
         var description: String {
             "Once"
+        }
+        
+        var playgroundDescription: Any {
+            description
         }
         
         var customMirror: Mirror {

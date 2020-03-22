@@ -64,7 +64,7 @@ extension URLSession {
 extension URLSession.DataTaskPKPublisher {
     
     // MARK: DATA TASK SINK
-    private final class Inner<Downstream: Subscriber>: Subscription, CustomStringConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private var task: URLSessionDataTask?
         
@@ -131,6 +131,10 @@ extension URLSession.DataTaskPKPublisher {
         
         var description: String {
             "DataTaskPublisher"
+        }
+        
+        var playgroundDescription: Any {
+            description
         }
         
         var customMirror: Mirror {

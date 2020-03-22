@@ -79,7 +79,7 @@ extension URLSession {
 extension URLSession.UploadTaskPKPublisher {
     
     // MARK: UPLOAD TASK SINK
-    private final class Inner<Downstream: Subscriber>: Subscription, CustomStringConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private var task: URLSessionUploadTask?
         
@@ -151,6 +151,10 @@ extension URLSession.UploadTaskPKPublisher {
         
         var description: String {
             "UploadTaskPublisher"
+        }
+        
+        var playgroundDescription: Any {
+            description
         }
         
         var customMirror: Mirror {

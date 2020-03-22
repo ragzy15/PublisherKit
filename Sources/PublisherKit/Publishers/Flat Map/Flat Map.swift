@@ -41,7 +41,7 @@ extension Publishers.FlatMap {
     
     // Credits - broadwaylamb/OpenCombine
     
-    private final class Inner<Downstream: Subscriber>: Subscriber, Subscription, CustomStringConvertible, CustomReflectable, CustomPlaygroundDisplayConvertible where NewPublisher.Output == Downstream.Input, Upstream.Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscriber, Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where NewPublisher.Output == Downstream.Input, Upstream.Failure == Downstream.Failure {
         
         typealias Input = Upstream.Output
         
@@ -352,7 +352,7 @@ extension Publishers.FlatMap {
         
         // MARK: - Side
         
-        private struct Side: Subscriber, CustomStringConvertible, CustomReflectable, CustomPlaygroundDisplayConvertible {
+        private struct Side: Subscriber, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable {
             
             private let index: Index
             private let inner: Inner

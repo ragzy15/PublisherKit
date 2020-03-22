@@ -44,7 +44,7 @@ extension NSObject {
 extension NSObject: __KeyValueObservingPKPublisher {
     
     // MARK: NSOBJECT SINK
-    private final class KVOSubscription<Subject: NSObject, Output, Failure: Error>: Subscription, CustomStringConvertible, CustomReflectable {
+    private final class KVOSubscription<Subject: NSObject, Output, Failure: Error>: Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable {
         
         private var observer: NSKeyValueObservation?
         
@@ -117,6 +117,10 @@ extension NSObject: __KeyValueObservingPKPublisher {
         
         var description: String {
             "KVOSubscription"
+        }
+        
+        var playgroundDescription: Any {
+            description
         }
         
         var customMirror: Mirror {

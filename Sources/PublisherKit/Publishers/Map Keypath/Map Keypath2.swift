@@ -32,7 +32,7 @@ extension Publishers {
 extension Publishers.MapKeyPath2 {
     
     // MARK: MAPKEYPATH2 SINK
-    private struct Inner<Downstream: Subscriber>: Subscriber, CustomStringConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
+    private struct Inner<Downstream: Subscriber>: Subscriber, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
         
         typealias Input = Upstream.Output
         
@@ -69,6 +69,10 @@ extension Publishers.MapKeyPath2 {
         
         var description: String {
             "MapKeyPath2"
+        }
+        
+        var playgroundDescription: Any {
+            description
         }
         
         var customMirror: Mirror {

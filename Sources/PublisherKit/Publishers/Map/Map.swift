@@ -43,7 +43,7 @@ extension Publishers.Map {
 extension Publishers.Map {
     
     // MARK: MAP SINK
-    private struct Inner<Downstream: Subscriber>: Subscriber, CustomStringConvertible, CustomReflectable where Output == Downstream.Input, Upstream.Failure == Downstream.Failure {
+    private struct Inner<Downstream: Subscriber>: Subscriber, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Output == Downstream.Input, Upstream.Failure == Downstream.Failure {
         
         typealias Input = Upstream.Output
 
@@ -75,6 +75,10 @@ extension Publishers.Map {
 
         var description: String {
             "Map"
+        }
+        
+        var playgroundDescription: Any {
+            description
         }
 
         var customMirror: Mirror {

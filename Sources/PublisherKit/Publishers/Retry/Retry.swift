@@ -53,7 +53,7 @@ extension Publishers.Retry: Equatable where Upstream: Equatable { }
 extension Publishers.Retry {
     
     // MARK: RETRY
-    private final class Inner<Downstream: Subscriber>: Subscriber, Subscription, CustomStringConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscriber, Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private var downstream: Downstream?
         private var status: SubscriptionStatus = .awaiting
@@ -145,6 +145,10 @@ extension Publishers.Retry {
         
         var description: String {
             "ReplaceError"
+        }
+        
+        var playgroundDescription: Any {
+            description
         }
         
         var customMirror: Mirror {

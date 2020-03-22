@@ -39,7 +39,7 @@ extension Publishers {
 
 extension Publishers.SubscribeOn {
     
-    private final class Inner<Downstream: Subscriber>: Subscriber, Subscription, CustomStringConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscriber, Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
         
         typealias Input = Upstream.Output
         
@@ -115,6 +115,10 @@ extension Publishers.SubscribeOn {
         
         var description: String {
             "SubscribeOn"
+        }
+        
+        var playgroundDescription: Any {
+            description
         }
         
         var customMirror: Mirror {

@@ -68,7 +68,7 @@ extension Publishers {
 extension Publishers.Validate {
     
     // MARK: VALIDATE SINK
-    fileprivate final class Inner<Downstream: Subscriber>: Subscriber, Subscription, CustomStringConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
+    fileprivate final class Inner<Downstream: Subscriber>: Subscriber, Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private let acceptableStatusCodes: [Int]
         private let acceptableContentTypes: AcceptableContentTypes?
@@ -138,6 +138,10 @@ extension Publishers.Validate {
         
         var description: String {
             "Validate"
+        }
+        
+        var playgroundDescription: Any {
+            description
         }
         
         var customMirror: Mirror {

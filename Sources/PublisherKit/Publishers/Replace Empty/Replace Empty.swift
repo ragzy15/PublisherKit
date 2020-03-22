@@ -38,7 +38,7 @@ extension Publishers.ReplaceEmpty: Equatable where Upstream : Equatable, Upstrea
 extension Publishers.ReplaceEmpty {
     
     // MARK: REPLACE EMPTY SINK
-    private final class Inner<Downstream: Subscriber>: Subscriber, Subscription, CustomStringConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscriber, Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private var downstream: Downstream?
         private var status: SubscriptionStatus = .awaiting
@@ -129,6 +129,10 @@ extension Publishers.ReplaceEmpty {
         
         var description: String {
             "ReplaceEmpty"
+        }
+        
+        var playgroundDescription: Any {
+            description
         }
         
         var customMirror: Mirror {

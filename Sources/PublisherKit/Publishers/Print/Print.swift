@@ -52,7 +52,7 @@ extension Publishers {
 extension Publishers.Print {
     
     // MARK: PRINT SINK
-    private final class Inner<Downstream: Subscriber>: Subscriber, Subscription, CustomStringConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscriber, Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private let prefix: String
         
@@ -150,6 +150,10 @@ extension Publishers.Print {
         
         var description: String {
             "Print"
+        }
+        
+        var playgroundDescription: Any {
+            description
         }
         
         var customMirror: Mirror {

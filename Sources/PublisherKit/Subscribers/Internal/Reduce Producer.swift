@@ -5,7 +5,7 @@
 //  Created by Raghav Ahuja on 15/03/20.
 //
 
-class ReduceProducer<Downstream: Subscriber, Output, Input, Failure: Error, Operator>: CustomStringConvertible, CustomReflectable where Downstream.Input == Output {
+class ReduceProducer<Downstream: Subscriber, Output, Input, Failure: Error, Operator>: CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Downstream.Input == Output {
     
     private var status: SubscriptionStatus = .awaiting
     private let lock = Lock()
@@ -28,6 +28,10 @@ class ReduceProducer<Downstream: Subscriber, Output, Input, Failure: Error, Oper
     
     var description: String {
         "Inner"
+    }
+    
+    var playgroundDescription: Any {
+        description
     }
     
     var customMirror: Mirror {

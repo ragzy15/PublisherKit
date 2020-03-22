@@ -39,7 +39,7 @@ extension Publishers.SetFailureType: Equatable where Upstream: Equatable { }
 extension Publishers.SetFailureType {
     
     // MARK: SET FAILURE TYPE SINK
-    private struct Inner<Downstream: Subscriber>: Subscriber, CustomStringConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
+    private struct Inner<Downstream: Subscriber>: Subscriber, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private let downstream: Downstream
         let combineIdentifier: CombineIdentifier
@@ -63,6 +63,10 @@ extension Publishers.SetFailureType {
         
         var description: String {
             "SetFailureType"
+        }
+        
+        var playgroundDescription: Any {
+            description
         }
         
         var customMirror: Mirror {

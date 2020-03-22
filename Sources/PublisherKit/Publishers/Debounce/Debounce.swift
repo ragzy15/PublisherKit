@@ -42,7 +42,7 @@ extension Publishers {
 extension Publishers.Debounce {
     
     // MARK: DEBOUNCE SINK
-    private final class Inner<Downstream: Subscriber>: Subscriber, Subscription, CustomStringConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscriber, Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
         
         typealias Input = Upstream.Output
         
@@ -145,6 +145,10 @@ extension Publishers.Debounce {
         
         var description: String {
             "Debounce"
+        }
+        
+        var playgroundDescription: Any {
+            description
         }
         
         var customMirror: Mirror {

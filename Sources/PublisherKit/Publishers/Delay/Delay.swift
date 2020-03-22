@@ -50,7 +50,7 @@ extension Publishers {
 extension Publishers.Delay {
     
     // MARK: DELAY SINK
-    private final class Inner<Downstream: Subscriber, Context: Scheduler>: Subscriber, Subscription, CustomStringConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber, Context: Scheduler>: Subscriber, Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
         
         let interval: Context.PKSchedulerTimeType.Stride
         
@@ -134,6 +134,10 @@ extension Publishers.Delay {
         
         var description: String {
             "Delay"
+        }
+        
+        var playgroundDescription: Any {
+            description
         }
         
         var customMirror: Mirror {

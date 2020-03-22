@@ -32,7 +32,7 @@ public extension Publishers {
 extension Publishers.MapError {
     
     // MARK: MAPERROR SINK
-    private struct Inner<Downstream: Subscriber, NewFailure>: Subscriber, CustomStringConvertible, CustomReflectable where Output == Downstream.Input, NewFailure == Downstream.Failure {
+    private struct Inner<Downstream: Subscriber, NewFailure>: Subscriber, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Output == Downstream.Input, NewFailure == Downstream.Failure {
         
         typealias Input = Upstream.Output
 
@@ -64,6 +64,10 @@ extension Publishers.MapError {
 
         var description: String {
             "MapError"
+        }
+        
+        var playgroundDescription: Any {
+            description
         }
 
         var customMirror: Mirror {

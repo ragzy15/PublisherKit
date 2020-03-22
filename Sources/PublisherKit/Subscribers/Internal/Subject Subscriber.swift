@@ -5,7 +5,7 @@
 //  Created by Raghav Ahuja on 20/03/20.
 //
 
-final class SubjectSubscriber<DownstreamSubject: Subject>: Subscriber, Subscription, CustomStringConvertible, CustomReflectable {
+final class SubjectSubscriber<DownstreamSubject: Subject>: Subscriber, Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable {
     
     typealias Input = DownstreamSubject.Output
     
@@ -68,6 +68,10 @@ final class SubjectSubscriber<DownstreamSubject: Subject>: Subscriber, Subscript
     
     var description: String {
         "Subject"
+    }
+    
+    var playgroundDescription: Any {
+        description
     }
     
     var customMirror: Mirror {

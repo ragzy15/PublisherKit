@@ -74,7 +74,7 @@ extension Publishers {
 extension Publishers.Autoconnect {
     
     // MARK: AUTOCONNECT SINK
-    private struct Inner<Downstream: Subscriber>: Subscriber, CustomStringConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
+    private struct Inner<Downstream: Subscriber>: Subscriber, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
         
         typealias Input = Upstream.Output
         
@@ -106,12 +106,16 @@ extension Publishers.Autoconnect {
             "Autoconnect"
         }
         
+        var playgroundDescription: Any {
+            description
+        }
+        
         var customMirror: Mirror {
             Mirror(self, children: [])
         }
     }
     
-    private struct SideEffectSubscription: Subscription, CustomStringConvertible, CustomReflectable {
+    private struct SideEffectSubscription: Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable {
         
         private let upstreamSubscription: Subscription
         private let parent: Publishers.Autoconnect<Upstream>
@@ -135,6 +139,11 @@ extension Publishers.Autoconnect {
         }
         
         var description: String { "" }
+        
+        var playgroundDescription: Any {
+            description
+        }
+        
         var customMirror: Mirror { Mirror(self, children: []) }
     }
 }

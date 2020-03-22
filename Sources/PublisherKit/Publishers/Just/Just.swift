@@ -34,7 +34,7 @@ extension Publishers.Just: Equatable where Output: Equatable { }
 extension Publishers.Just {
     
     // MARK: JUST SINK
-    private final class Inner<Downstream: Subscriber>: Subscription, CustomStringConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private let output: Output
         private var downstream: Downstream?
@@ -60,6 +60,10 @@ extension Publishers.Just {
         
         var description: String {
             "Just"
+        }
+        
+        var playgroundDescription: Any {
+            description
         }
         
         var customMirror: Mirror {

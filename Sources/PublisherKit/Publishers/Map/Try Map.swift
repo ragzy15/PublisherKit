@@ -43,7 +43,7 @@ extension Publishers.TryMap {
 extension Publishers.TryMap {
     
     // MARK: TRY MAP SINK
-    private final class Inner<Downstream: Subscriber>: Subscriber, Subscription, CustomStringConvertible, CustomReflectable where Output == Downstream.Input, Error == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscriber, Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Output == Downstream.Input, Error == Downstream.Failure {
         
         typealias Input = Upstream.Output
         
@@ -120,6 +120,10 @@ extension Publishers.TryMap {
         
         var description: String {
             "TryMap"
+        }
+        
+        var playgroundDescription: Any {
+            description
         }
         
         var customMirror: Mirror {

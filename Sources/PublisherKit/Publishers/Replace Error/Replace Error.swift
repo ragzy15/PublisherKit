@@ -36,7 +36,7 @@ extension Publishers.ReplaceError: Equatable where Upstream: Equatable, Upstream
 extension Publishers.ReplaceError {
     
     // MARK: REPLACE ERROR SINK
-    private final class Inner<Downstream: Subscriber>: Subscriber, Subscription, CustomStringConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscriber, Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private var downstream: Downstream?
         private var status: SubscriptionStatus = .awaiting
@@ -121,6 +121,10 @@ extension Publishers.ReplaceError {
         
         var description: String {
             "ReplaceError"
+        }
+        
+        var playgroundDescription: Any {
+            description
         }
         
         var customMirror: Mirror {

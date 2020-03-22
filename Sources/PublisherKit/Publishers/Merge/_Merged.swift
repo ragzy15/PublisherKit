@@ -139,7 +139,7 @@ extension Publishers {
     }
 }
 
-extension Publishers._Merged: Subscription, CustomStringConvertible, CustomReflectable {
+extension Publishers._Merged: Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable {
     
     func request(_ demand: Subscribers.Demand) {
         lock.lock()
@@ -166,6 +166,10 @@ extension Publishers._Merged: Subscription, CustomStringConvertible, CustomRefle
     
     var description: String {
         "Merge"
+    }
+    
+    var playgroundDescription: Any {
+        description
     }
     
     var customMirror: Mirror {

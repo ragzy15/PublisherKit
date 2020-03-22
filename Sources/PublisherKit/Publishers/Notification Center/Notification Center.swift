@@ -54,7 +54,7 @@ extension NotificationCenter {
 extension NotificationCenter.PKPublisher {
     
     // MARK: NOTIFICATION CENTER SINK
-    private final class Subscription<Downstream: Subscriber>: PublisherKit.Subscription, CustomStringConvertible, CustomReflectable where Downstream.Failure == Failure, Downstream.Input == Output {
+    private final class Subscription<Downstream: Subscriber>: PublisherKit.Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Downstream.Failure == Failure, Downstream.Input == Output {
         
         private var center: NotificationCenter?
         private let name: Notification.Name
@@ -114,6 +114,10 @@ extension NotificationCenter.PKPublisher {
         
         var description: String {
             "NotificationCenter Observer"
+        }
+        
+        var playgroundDescription: Any {
+            description
         }
         
         var customMirror: Mirror {

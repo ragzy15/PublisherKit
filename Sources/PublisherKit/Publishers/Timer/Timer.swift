@@ -133,7 +133,7 @@ extension Timer.TimerPKPublisher {
         }
     }
     
-    private final class RoutingSubscription: Subscription, CustomStringConvertible, CustomReflectable {
+    private final class RoutingSubscription: Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable {
         
         let downstream: AnySubscriber<Output, Failure>
         let inner: Inner
@@ -177,6 +177,11 @@ extension Timer.TimerPKPublisher {
         }
         
         var description: String { "" }
+        
+        var playgroundDescription: Any {
+            description
+        }
+        
         var customMirror: Mirror { Mirror(self, children: [])}
     }
 }

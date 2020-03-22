@@ -108,7 +108,7 @@ final class AbstractCombineLatest<Downstream: Subscriber, Output, Failure> where
     }
 }
 
-extension AbstractCombineLatest: Subscription, CustomStringConvertible, CustomReflectable {
+extension AbstractCombineLatest: Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable {
     
     func request(_ demand: Subscribers.Demand) {
         lock.lock()
@@ -137,6 +137,10 @@ extension AbstractCombineLatest: Subscription, CustomStringConvertible, CustomRe
     
     var description: String {
         "CombineLatest"
+    }
+    
+    var playgroundDescription: Any {
+        description
     }
     
     var customMirror: Mirror {

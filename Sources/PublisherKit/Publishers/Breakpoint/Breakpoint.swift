@@ -64,7 +64,7 @@ extension Publishers {
 extension Publishers.Breakpoint {
     
     // MARK: BREAKPOINT SINK
-    private struct Inner<Downstream: Subscriber>: Subscriber, CustomStringConvertible, CustomReflectable {
+    private struct Inner<Downstream: Subscriber>: Subscriber, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable {
         
         typealias Input = Downstream.Input
         
@@ -120,6 +120,10 @@ extension Publishers.Breakpoint {
         
         var description: String {
             "Breakpoint"
+        }
+        
+        var playgroundDescription: Any {
+            description
         }
         
         var customMirror: Mirror {
