@@ -8,12 +8,6 @@
 /// A set of `AnyCancellable`s.
 public typealias CancellableBag = Set<AnyCancellable>
 
-@available(*, deprecated, renamed: "AnyCancellable")
-public typealias NKAnyCancellable = AnyCancellable
-
-@available(*, deprecated, renamed: "AnyCancellable")
-public typealias PKAnyCancellable = AnyCancellable
-
 final public class AnyCancellable: Cancellable, Hashable {
     
     private final var _cancel: (() -> Void)?

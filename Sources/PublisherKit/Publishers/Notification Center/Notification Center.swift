@@ -12,11 +12,6 @@ extension NotificationCenter {
     public func pkPublisher(for name: Notification.Name, object: AnyObject? = nil) -> NotificationCenter.PKPublisher {
         PKPublisher(center: self, name: name, object: object)
     }
-    
-    @available(*, deprecated, renamed: "pkPublisher")
-    public func nkPublisher(for name: Notification.Name, object: AnyObject? = nil) -> NotificationCenter.PKPublisher {
-        pkPublisher(for: name, object: object)
-    }
 }
 
 extension NotificationCenter {

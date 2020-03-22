@@ -122,11 +122,6 @@ extension BindableValue {
     public func send(_ newValue: Value) {
         wrappedValue = newValue
     }
-    
-    @available(*, deprecated, renamed: "send")
-    public func set(_ newValue: Value) {
-        send(newValue)
-    }
 }
 
 extension BindableValue where Value == Void {

@@ -5,12 +5,6 @@
 //  Created by Raghav Ahuja on 25/12/19.
 //
 
-@available(*, deprecated, renamed: "AnySubscriber")
-public typealias NKAnySubscriber = AnySubscriber
-
-@available(*, deprecated, renamed: "AnySubscriber")
-public typealias AnyPKSubscriber = AnySubscriber
-
 /// A type-erasing subscriber.
 ///
 /// Use `AnySubscriber` to wrap an existing subscriber whose details you don’t want to expose.
@@ -44,8 +38,8 @@ public struct AnySubscriber<Input, Failure: Error>: Subscriber {
                            receiveCompletion: ((Subscribers.Completion<Failure>) -> Void)? = nil) {
         combineIdentifier = CombineIdentifier()
         box = ClosureBasedAnySubscriber(receiveSubscription: receiveSubscription,
-                                            receiveValue: receiveValue,
-                                            receiveCompletion: receiveCompletion)
+                                        receiveValue: receiveValue,
+                                        receiveCompletion: receiveCompletion)
     }
     
     @inline(__always)

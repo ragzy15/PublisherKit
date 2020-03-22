@@ -24,11 +24,6 @@ extension URLSession {
         UploadTaskPKPublisher(name: name, request: request, from: data, session: self)
     }
     
-    @available(*, deprecated, renamed: "uploadTaskPKPublisher")
-    public func uploadTaskPublisher(for request: URLRequest, from data: Data?, name: String = "") -> UploadTaskPKPublisher {
-        uploadTaskPKPublisher(for: request, from: data, name: name)
-    }
-    
     /// Returns a publisher that wraps a URL session upload task for a given URL request.
     ///
     /// The publisher publishes data when the task completes, or terminates if the task fails with an error.
@@ -38,11 +33,6 @@ extension URLSession {
     /// - Returns: A publisher that wraps a upload task for the URL request.
     public func uploadTaskPKPublisher(for request: URLRequest, from file: URL, name: String = "") -> UploadTaskPKPublisher {
         UploadTaskPKPublisher(name: name, request: request, from: file, session: self)
-    }
-    
-    @available(*, deprecated, renamed: "uploadTaskPKPublisher")
-    public func uploadTaskPublisher(for request: URLRequest, from file: URL, name: String = "") -> UploadTaskPKPublisher {
-        uploadTaskPKPublisher(for: request, from: file, name: name)
     }
 }
 
