@@ -74,7 +74,7 @@ extension Publishers.ReceiveOn {
         
         func receive(_ input: Upstream.Output) -> Subscribers.Demand {
             lock.lock()
-            guard case .subscribed(let parent, let downstream, let subscription) = status else { lock.unlock(); return .none }
+            guard case .subscribed(let parent, let downstream, _) = status else { lock.unlock(); return .none }
             lock.unlock()
             
             parent.scheduler.schedule(options: parent.options) { [weak self] in
