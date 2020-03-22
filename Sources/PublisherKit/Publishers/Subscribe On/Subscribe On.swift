@@ -30,10 +30,8 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            
             scheduler.schedule(options: options) {
-                let subscribeOnSubscriber = Inner(downstream: subscriber, scheduler: self.scheduler, options: self.options)
-                self.upstream.subscribe(subscribeOnSubscriber)
+                self.upstream.subscribe(Inner(downstream: subscriber, parent: self))
             }
         }
     }
@@ -41,82 +39,86 @@ extension Publishers {
 
 extension Publishers.SubscribeOn {
     
-    private final class Inner<Downstream: Subscriber, Context: Scheduler>: Subscribers.Inner<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscriber, Subscription, CustomStringConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        private let scheduler: Context
+        typealias Input = Upstream.Output
         
-        private let options: Context.PKSchedulerOptions?
+        typealias Failure = Upstream.Failure
         
-        fileprivate let upstreamLock = Lock()
+        fileprivate typealias SubscribeOn = Publishers.SubscribeOn<Upstream, Context>
         
-        init(downstream: Downstream, scheduler: Context, options: Context.PKSchedulerOptions?) {
-            self.scheduler = scheduler
-            self.options = options
-            super.init(downstream: downstream)
+        private enum SubscriptionStatus {
+            case awaiting(parent: SubscribeOn, downstream: Downstream)
+            case subscribed(parent: SubscribeOn, downstream: Downstream, subscription: Subscription)
+            case terminated
         }
         
-        override func onSubscription(_ subscription: Subscription) {
-            status = .subscribed(to: subscription)
-            getLock().unlock()
-            downstream?.receive(subscription: self)
+        private var status: SubscriptionStatus
+        
+        private let lock = Lock()
+        private let upstreamLock = Lock()
+        
+        init(downstream: Downstream, parent: SubscribeOn) {
+            status = .awaiting(parent: parent, downstream: downstream)
         }
         
-        override func request(_ demand: Subscribers.Demand) {
-            getLock().lock()
-            guard case let .subscribed(subscription) = status else { getLock().unlock(); return }
-            self.demand = demand
-            getLock().unlock()
+        func receive(subscription: Subscription) {
+            lock.lock()
+            guard case .awaiting(let parent, let downstream) = status else { lock.unlock(); return }
+            status = .subscribed(parent: parent, downstream: downstream, subscription: subscription)
+            lock.unlock()
             
+            downstream.receive(subscription: self)
+        }
+        
+        func receive(_ input: Input) -> Subscribers.Demand {
+            lock.lock()
+            guard case .subscribed(_, let downstream, _) = status else { lock.unlock(); return .none }
+            lock.unlock()
             
-            scheduler.schedule(options: options) { [weak self] in
+            return downstream.receive(input)
+        }
+        
+        func receive(completion: Subscribers.Completion<Failure>) {
+            lock.lock()
+            guard case .subscribed(_, let downstream, _) = status else { lock.unlock(); return }
+            status = .terminated
+            lock.unlock()
+            
+            downstream.receive(completion: completion)
+        }
+        
+        func request(_ demand: Subscribers.Demand) {
+            lock.lock()
+            guard case .subscribed(let parent, _, let subscription) = status else { lock.unlock(); return }
+            lock.unlock()
+            
+            parent.scheduler.schedule(options: parent.options) { [weak self] in
                 self?.upstreamLock.lock()
                 subscription.request(demand)
                 self?.upstreamLock.unlock()
             }
         }
         
-        override func cancel() {
-            getLock().lock()
+        func cancel() {
+            lock.lock()
+            guard case .subscribed(let parent, _, let subscription) = status else { lock.unlock(); return }
+            status = .terminated
+            lock.unlock()
             
-            switch status {
-            case .subscribed(let subscription):
-                status = .terminated
-                getLock().unlock()
-                
-                scheduler.schedule(options: options) { [weak self] in
-                    self?.scheduledCancel(subscription: subscription)
-                }
-                
-            case .multipleSubscription(let subscriptions):
-                status = .terminated
-                getLock().unlock()
-                
-                scheduler.schedule(options: options) { [weak self] in
-                    self?.scheduledCancel(subscriptions: subscriptions)
-                }
-                
-            default: getLock().unlock()
-            }
-            
-            downstream = nil
-        }
-        
-        private func scheduledCancel(subscription: Subscription) {
-            upstreamLock.lock()
-            subscription.cancel()
-            upstreamLock.unlock()
-        }
-        
-        private func scheduledCancel(subscriptions: [Subscription]) {
-            upstreamLock.lock()
-            subscriptions.forEach { (subscription) in
+            parent.scheduler.schedule(options: parent.options) { [weak self] in
+                self?.upstreamLock.lock()
                 subscription.cancel()
+                self?.upstreamLock.unlock()
             }
-            upstreamLock.unlock()
         }
         
-        override var description: String {
+        var description: String {
             "SubscribeOn"
+        }
+        
+        var customMirror: Mirror {
+            Mirror(self, children: [])
         }
     }
 }
