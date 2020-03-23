@@ -9,68 +9,101 @@ final class AbstractZip<Downstream: Subscriber, Output, Failure> where Output ==
     
     private var downstream: Downstream?
     
-    private var buffers: [Int: [Any]] = [:]
+    private var buffers: [[Any]]
     private var upstreamSubscriptions: [Subscription?]
     
     private let upstreamCount: Int
-    private var finishedSubscriptions: Int = 0
     
     private let lock = Lock()
     private let downstreamLock = RecursiveLock()
     
     private var demand: Subscribers.Demand = .none
     
-    private var isCancelled = false
-    private var isFinished = false
+    private var isTerminated = false
     private var isActive = false
     
     init(downstream: Downstream, upstreamCount: Int) {
         self.downstream = downstream
         self.upstreamCount = upstreamCount
         
-        for i in 0 ..< upstreamCount {
-            buffers[i] = []
-        }
-        
+        self.buffers = Array(repeating: [], count: upstreamCount)
         self.upstreamSubscriptions = Array(repeating: nil, count: upstreamCount)
     }
     
     fileprivate final func receive(subscription: Subscription, index: Int) {
         lock.lock()
-        guard !isCancelled && upstreamSubscriptions[index] == nil else {
+        guard !isTerminated && upstreamSubscriptions[index] == nil else {
             lock.unlock()
             subscription.cancel()
             return
         }
+        
         upstreamSubscriptions[index] = subscription
-        lock.unlock()
+        
+        if upstreamSubscriptions.filter ({ $0 != nil }).count == upstreamCount {
+            lock.unlock()
+            downstreamLock.lock()
+            downstream?.receive(subscription: self)
+            downstreamLock.unlock()
+            lock.lock()
+        }
+        
+        resolvePendingDemandAndUnlock()
     }
     
+    /*
+     TODO: Incase a publisher delays subscription then what
+     A publisher makes requests more than once
+     A publisher requests a none demand
+     When does downstream receive subscription
+     */
     private func resolvePendingDemandAndUnlock() {
+        guard demand > .none else {
+            lock.unlock()
+            return
+        }
         
+        upstreamSubscriptions.forEach { (subscription) in
+            subscription?.request(demand)
+        }
+        
+        lock.unlock()
     }
     
     fileprivate final func receive(_ input: Any, index: Int) -> Subscribers.Demand {
         lock.lock()
-        if isCancelled || isFinished { lock.unlock(); return .none }
+        guard !isTerminated else { lock.unlock(); return .none }
         
-        buffers[index]?.append(input)
+        let finishedSubscriptions = upstreamSubscriptions.filter { $0 == nil }.count > 0
         
-        guard !isActive, demand > 0, buffers.allSatisfy ({ $0.value.first != nil }) else { lock.unlock(); return .none }
+        if finishedSubscriptions {
+            let bufferIsEmpty = buffers.filter { $0.isEmpty }.count == upstreamCount
+            if bufferIsEmpty {
+                lockedSendCompletion()
+                return .none
+            }
+        }
+        
+        buffers[index].append(input)
+        
+        guard !isActive, demand > 0, buffers.allSatisfy ({ $0.first != nil }) else {
+            lock.unlock()
+            return .none
+        }
         
         demand -= 1
         isActive = true
+        
+        var values: [Any] = []
+        for (i, _) in buffers.enumerated() {
+            values.append(buffers[i].removeFirst())
+        }
+        
+        let output = values.tuple as! Output
         lock.unlock()
         
         downstreamLock.lock()
-        
-        
-        let keys = buffers.keys.sorted()
-        let values = keys.compactMap { buffers[$0]?.removeFirst() }
-        let output = values.tuple as! Output
-        
         let additionalDemand = downstream?.receive(output) ?? .none
-        
         downstreamLock.unlock()
         
         lock.lock()
@@ -81,38 +114,38 @@ final class AbstractZip<Downstream: Subscriber, Output, Failure> where Output ==
         return demand
     }
     
+    /*
+     SCENARIOS
+     
+     If publisher who sent completion has no pending buffer - finish immediately
+     If publisher who sent completion has pending buffer - wait for buffer to get empty or others to get finished
+     If publisher who sent completion when other publisher have already finished - finish immediately
+     */
+    
     fileprivate final func receive(completion: Subscribers.Completion<Failure>, index: Int) {
-        guard !isFinished else { lock.unlock(); return }
+        lock.lock()
+        guard !isTerminated else { lock.unlock(); return }
         
         switch completion {
         case .finished:
-            lock.lock()
-            
-            finishedSubscriptions += 1
             upstreamSubscriptions[index] = nil
             
-            guard finishedSubscriptions == upstreamCount else { lock.unlock(); return }
+            let finishedSubscriptions = upstreamSubscriptions.filter { $0 == nil }.count == upstreamCount
             
-            isFinished = true
-            for i in 0 ..< upstreamCount {
-                buffers[i] = []
+            if buffers[index].isEmpty || finishedSubscriptions {
+                lockedSendCompletion()
+                return
+            } else {
+                lock.unlock()
             }
-            lock.unlock()
-            
-            downstreamLock.lock()
-            downstream?.receive(completion: .finished)
-            downstreamLock.unlock()
             
         case .failure(let error):
-            lock.lock()
-            isFinished = true
+            isTerminated = true
+            
+            buffers = Array(repeating: [], count: upstreamCount)
             
             let subscriptions = self.upstreamSubscriptions
             self.upstreamSubscriptions = Array(repeating: nil, count: upstreamCount)
-            
-            for i in 0 ..< upstreamCount {
-                buffers[i] = []
-            }
             lock.unlock()
             
             for (i, subscription) in subscriptions.enumerated() where i != index {
@@ -124,30 +157,36 @@ final class AbstractZip<Downstream: Subscriber, Output, Failure> where Output ==
             downstreamLock.unlock()
         }
     }
+    
+    private func lockedSendCompletion() {
+        buffers = Array(repeating: [], count: upstreamCount)
+        isTerminated = true
+        lock.unlock()
+        
+        downstreamLock.lock()
+        downstream?.receive(completion: .finished)
+        downstreamLock.unlock()
+    }
 }
 
 extension AbstractZip: Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable {
     
     func request(_ demand: Subscribers.Demand) {
         lock.lock()
-        guard !isCancelled && !isFinished else { lock.unlock(); return }
+        guard !isTerminated else { lock.unlock(); return }
         self.demand += demand
         lock.unlock()
-        
-        for subscription in upstreamSubscriptions {
-            subscription?.request(demand)
-        }
     }
     
     func cancel() {
         lock.lock()
-        isCancelled = true
+        guard !isTerminated else { lock.unlock(); return }
+        isTerminated = true
+        
+        buffers = Array(repeating: [], count: upstreamCount)
+        
         let upstreamSubscriptions = self.upstreamSubscriptions
         self.upstreamSubscriptions = Array(repeating: nil, count: upstreamCount)
-        
-        for i in 0 ..< upstreamCount {
-            buffers[i] = []
-        }
         lock.unlock()
         
         for subscription in upstreamSubscriptions {

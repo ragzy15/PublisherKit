@@ -29,7 +29,6 @@ extension Publishers {
             let abstractZip = AbstractZip(downstream: subscriber, upstreamCount: 2)
             a.subscribe(AbstractZip.Side(index: 0, abstractZip: abstractZip))
             b.subscribe(AbstractZip.Side(index: 1, abstractZip: abstractZip))
-            subscriber.receive(subscription: abstractZip)
         }
     }
     
@@ -60,7 +59,6 @@ extension Publishers {
             a.subscribe(AbstractZip.Side(index: 0, abstractZip: abstractZip))
             b.subscribe(AbstractZip.Side(index: 1, abstractZip: abstractZip))
             c.subscribe(AbstractZip.Side(index: 2, abstractZip: abstractZip))
-            subscriber.receive(subscription: abstractZip)
         }
     }
     
@@ -96,7 +94,6 @@ extension Publishers {
             b.subscribe(AbstractZip.Side(index: 1, abstractZip: abstractZip))
             c.subscribe(AbstractZip.Side(index: 2, abstractZip: abstractZip))
             d.subscribe(AbstractZip.Side(index: 3, abstractZip: abstractZip))
-            subscriber.receive(subscription: abstractZip)
         }
     }
     
@@ -137,7 +134,6 @@ extension Publishers {
             c.subscribe(AbstractZip.Side(index: 2, abstractZip: abstractZip))
             d.subscribe(AbstractZip.Side(index: 3, abstractZip: abstractZip))
             e.subscribe(AbstractZip.Side(index: 4, abstractZip: abstractZip))
-            subscriber.receive(subscription: abstractZip)
         }
     }
 }
