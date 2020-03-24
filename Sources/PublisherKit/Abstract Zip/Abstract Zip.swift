@@ -21,6 +21,7 @@ final class AbstractZip<Downstream: Subscriber, Output, Failure> where Output ==
     
     private var isTerminated = false
     private var isActive = false
+    private var isSubscriptionActive = false
     
     init(downstream: Downstream, upstreamCount: Int) {
         self.downstream = downstream
@@ -41,22 +42,18 @@ final class AbstractZip<Downstream: Subscriber, Output, Failure> where Output ==
         upstreamSubscriptions[index] = subscription
         
         if upstreamSubscriptions.filter ({ $0 != nil }).count == upstreamCount {
+            isSubscriptionActive = true
             lock.unlock()
             downstreamLock.lock()
             downstream?.receive(subscription: self)
             downstreamLock.unlock()
             lock.lock()
+            isSubscriptionActive = false
         }
         
         resolvePendingDemandAndUnlock()
     }
     
-    /*
-     TODO: Incase a publisher delays subscription then what
-     A publisher makes requests more than once
-     A publisher requests a none demand
-     When does downstream receive subscription
-     */
     private func resolvePendingDemandAndUnlock() {
         guard demand > .none else {
             lock.unlock()
@@ -114,14 +111,6 @@ final class AbstractZip<Downstream: Subscriber, Output, Failure> where Output ==
         return demand
     }
     
-    /*
-     SCENARIOS
-     
-     If publisher who sent completion has no pending buffer - finish immediately
-     If publisher who sent completion has pending buffer - wait for buffer to get empty or others to get finished
-     If publisher who sent completion when other publisher have already finished - finish immediately
-     */
-    
     fileprivate final func receive(completion: Subscribers.Completion<Failure>, index: Int) {
         lock.lock()
         guard !isTerminated else { lock.unlock(); return }
@@ -175,6 +164,16 @@ extension AbstractZip: Subscription, CustomStringConvertible, CustomPlaygroundDi
         lock.lock()
         guard !isTerminated else { lock.unlock(); return }
         self.demand += demand
+        
+        guard !isSubscriptionActive else {
+            lock.unlock()
+            return
+        }
+        
+        upstreamSubscriptions.forEach { (subscription) in
+            subscription?.request(demand)
+        }
+        
         lock.unlock()
     }
     
