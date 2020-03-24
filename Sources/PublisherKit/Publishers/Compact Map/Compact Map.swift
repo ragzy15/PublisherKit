@@ -8,7 +8,7 @@
 extension Publishers {
     
     /// A publisher that republishes all non-`nil` results of calling a closure with each received element.
-    public  struct CompactMap<Upstream: Publisher, Output>: Publisher {
+    public struct CompactMap<Upstream: Publisher, Output>: Publisher {
         
         public typealias Failure = Upstream.Failure
         

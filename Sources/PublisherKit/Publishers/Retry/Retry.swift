@@ -74,10 +74,12 @@ extension Publishers.Retry {
             lock.lock()
             guard status == .awaiting else { lock.unlock(); return }
             status = .subscribed(to: subscription)
-            lock.unlock()
             
             if isRetrying {
+                lock.unlock()
                 subscription.request(downstreamDemand)
+            } else {
+                lock.unlock()
             }
         }
         
@@ -88,6 +90,7 @@ extension Publishers.Retry {
             lock.unlock()
             
             let demand = downstream?.receive(input) ?? .none
+            
             lock.lock()
             downstreamDemand += demand
             lock.unlock()

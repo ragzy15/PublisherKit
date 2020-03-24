@@ -97,7 +97,7 @@ extension Publishers.Decode {
         }
         
         var description: String {
-            "Encode"
+            "Decode"
         }
         
         var playgroundDescription: Any {

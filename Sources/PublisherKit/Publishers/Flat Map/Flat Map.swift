@@ -41,6 +41,7 @@ extension Publishers.FlatMap {
     
     // Credits - broadwaylamb/OpenCombine
     
+    // MARK: FLATMAP SINK
     private final class Inner<Downstream: Subscriber>: Subscriber, Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where NewPublisher.Output == Downstream.Input, Upstream.Failure == Downstream.Failure {
         
         typealias Input = Upstream.Output

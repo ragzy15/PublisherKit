@@ -51,10 +51,10 @@ final class AbstractCombineLatest<Downstream: Subscriber, Output, Failure> where
         
         demand -= 1
         isActive = true
+        let output = buffers.compactMap { $0 }.tuple as! Output
         lock.unlock()
         
         downstreamLock.lock()
-        let output = buffers.compactMap { $0 }.tuple as! Output
         let additionalDemand = downstream?.receive(output) ?? .none
         downstreamLock.unlock()
         
