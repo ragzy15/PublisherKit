@@ -162,21 +162,27 @@ extension RunLoop: Scheduler {
     public var minimumTolerance: PKSchedulerTimeType.Stride { .seconds(0) }
     
     public func schedule(options: PKSchedulerOptions?, _ action: @escaping () -> Void) {
-        let timer = Timer(fireAt: now.date, interval: 0, target: self, selector: #selector(timerFired(arg:)), userInfo: action, repeats: false)
-        
-        add(timer, forMode: .default)
+        let cfRunLoop = getCFRunLoop()
+        CFRunLoopPerformBlock(cfRunLoop, CFRunLoopMode.defaultMode.rawValue, action)
+        CFRunLoopWakeUp(cfRunLoop)
     }
     
     public func schedule(after date: PKSchedulerTimeType, tolerance: PKSchedulerTimeType.Stride, options: PKSchedulerOptions?, _ action: @escaping () -> Void) {
-        let timer = Timer(fireAt: date.date, interval: 0, target: self, selector: #selector(timerFired(arg:)), userInfo: action, repeats: false)
-        
-        timer.tolerance = tolerance.timeInterval
-        
-        add(timer, forMode: .default)
+        perform(#selector(runLoopPKScheduled(action:)), with: _PKCombineRunLoopAction(action: action), afterDelay: date.date.timeIntervalSinceNow)
     }
     
     public func schedule(after date: PKSchedulerTimeType, interval: PKSchedulerTimeType.Stride, tolerance: PKSchedulerTimeType.Stride, options: PKSchedulerOptions?, _ action: @escaping () -> Void) -> Cancellable {
-        let timer = Timer(fireAt: date.date, interval: interval.timeInterval, target: self, selector: #selector(timerFired(arg:)), userInfo: action, repeats: true)
+        
+        let timer: Timer
+        if #available(OSX 10.12, *) {
+            timer = Timer(fire: date.date, interval: interval.timeInterval, repeats: true) { (timer) in
+                if timer.isValid {
+                    action()
+                }
+            }
+        } else {
+            timer = Timer(fireAt: date.date, interval: interval.timeInterval, target: self, selector: #selector(runLoopPKScheduled(timer:)), userInfo: action, repeats: true)
+        }
         
         timer.tolerance = tolerance.timeInterval
         
@@ -185,10 +191,24 @@ extension RunLoop: Scheduler {
         return AnyCancellable(timer.invalidate)
     }
     
-    @objc private func timerFired(arg: Timer) {
-        if arg.isValid {
-            let action = arg.userInfo as? () -> Void
+    @objc private func runLoopPKScheduled(timer: Timer) {
+        if timer.isValid {
+            let action = timer.userInfo as? () -> Void
             action?()
+        }
+    }
+    
+    @objc private func runLoopPKScheduled(action: _PKCombineRunLoopAction) {
+        action.action()
+    }
+    
+    private class _PKCombineRunLoopAction: NSObject {
+        
+        let action: () -> Void
+        
+        init(action: @escaping () -> Void) {
+            self.action = action
+            super.init()
         }
     }
 }
