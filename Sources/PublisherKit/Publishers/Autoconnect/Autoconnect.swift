@@ -17,12 +17,12 @@ extension Publishers {
         /// The publisher from which this publisher receives elements.
         final public let upstream: Upstream
         
-        private enum ConnectionState {
+        private enum State {
             case connected(count: Int, connection: Cancellable)
             case disconnected
         }
         
-        private var state: ConnectionState = .disconnected
+        private var state: State = .disconnected
         private let lock = Lock()
         
         public init(upstream: Upstream) {
@@ -91,7 +91,7 @@ extension Publishers.Autoconnect {
         }
         
         func receive(subscription: Subscription) {
-            downstream.receive(subscription: SideEffectSubscription(upstreamSubscription: subscription, parent: parent))
+            downstream.receive(subscription: SideEffectSubscription(upstreamSubscription: subscription, onCancel: parent.cancel))
         }
         
         func receive(_ input: Input) -> Subscribers.Demand {
@@ -118,11 +118,11 @@ extension Publishers.Autoconnect {
     private struct SideEffectSubscription: Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable {
         
         private let upstreamSubscription: Subscription
-        private let parent: Publishers.Autoconnect<Upstream>
+        private let onCancel: () -> Void
         
-        init(upstreamSubscription: Subscription, parent: Publishers.Autoconnect<Upstream>) {
+        init(upstreamSubscription: Subscription, onCancel: @escaping () -> Void) {
             self.upstreamSubscription = upstreamSubscription
-            self.parent = parent
+            self.onCancel = onCancel
         }
         
         var combineIdentifier: CombineIdentifier {
@@ -134,16 +134,25 @@ extension Publishers.Autoconnect {
         }
         
         func cancel() {
-            parent.cancel()
+            onCancel()
             upstreamSubscription.cancel()
         }
         
-        var description: String { "" }
+        var description: String {
+            String(describing: upstreamSubscription)
+        }
         
         var playgroundDescription: Any {
             description
         }
         
-        var customMirror: Mirror { Mirror(self, children: []) }
+        var customMirror: Mirror {            
+            let children: [Mirror.Child] = [
+                ("onCancel", onCancel),
+                ("upstreamSubscription", upstreamSubscription)
+            ]
+            
+            return Mirror.init(self, children: children, displayStyle: .struct)
+        }
     }
 }

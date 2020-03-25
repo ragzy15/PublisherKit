@@ -17,7 +17,7 @@ final public class AnyCancellable: Cancellable, Hashable {
     /// Initializes the cancellable object with the given cancel-time closure.
     ///
     /// - Parameter cancel: A closure that the `cancel()` method executes.
-    public init(cancel: @escaping () -> Void) {
+    public init(_ cancel: @escaping () -> Void) {
         _cancel = cancel
     }
     

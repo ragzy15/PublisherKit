@@ -162,32 +162,32 @@ extension RunLoop: Scheduler {
     public var minimumTolerance: PKSchedulerTimeType.Stride { .seconds(0) }
     
     public func schedule(options: PKSchedulerOptions?, _ action: @escaping () -> Void) {
-        let timer = Timer(fireAt: now.date, interval: 0, target: self, selector: #selector(scheduledAction(_:)), userInfo: action, repeats: false)
-
+        let timer = Timer(fireAt: now.date, interval: 0, target: self, selector: #selector(timerFired(arg:)), userInfo: action, repeats: false)
+        
         add(timer, forMode: .default)
-    }
-
-    public func schedule(after date: PKSchedulerTimeType, tolerance: PKSchedulerTimeType.Stride, options: PKSchedulerOptions?, _ action: @escaping () -> Void) {
-        let timer = Timer(fireAt: date.date, interval: 0, target: self, selector: #selector(scheduledAction(_:)), userInfo: action, repeats: false)
-
-        timer.tolerance = tolerance.timeInterval
-
-        add(timer, forMode: .default)
-    }
-
-    public func schedule(after date: PKSchedulerTimeType, interval: PKSchedulerTimeType.Stride, tolerance: PKSchedulerTimeType.Stride, options: PKSchedulerOptions?, _ action: @escaping () -> Void) -> Cancellable {
-        let timer = Timer(fireAt: date.date, interval: interval.timeInterval, target: self, selector: #selector(scheduledAction(_:)), userInfo: action, repeats: true)
-
-        timer.tolerance = tolerance.timeInterval
-
-        add(timer, forMode: .default)
-
-        return AnyCancellable(cancel: timer.invalidate)
     }
     
-    @objc private func scheduledAction(_ timer: Timer) {
-        if timer.isValid {
-            let action = timer.userInfo as? () -> Void
+    public func schedule(after date: PKSchedulerTimeType, tolerance: PKSchedulerTimeType.Stride, options: PKSchedulerOptions?, _ action: @escaping () -> Void) {
+        let timer = Timer(fireAt: date.date, interval: 0, target: self, selector: #selector(timerFired(arg:)), userInfo: action, repeats: false)
+        
+        timer.tolerance = tolerance.timeInterval
+        
+        add(timer, forMode: .default)
+    }
+    
+    public func schedule(after date: PKSchedulerTimeType, interval: PKSchedulerTimeType.Stride, tolerance: PKSchedulerTimeType.Stride, options: PKSchedulerOptions?, _ action: @escaping () -> Void) -> Cancellable {
+        let timer = Timer(fireAt: date.date, interval: interval.timeInterval, target: self, selector: #selector(timerFired(arg:)), userInfo: action, repeats: true)
+        
+        timer.tolerance = tolerance.timeInterval
+        
+        add(timer, forMode: .default)
+        
+        return AnyCancellable(timer.invalidate)
+    }
+    
+    @objc private func timerFired(arg: Timer) {
+        if arg.isValid {
+            let action = arg.userInfo as? () -> Void
             action?()
         }
     }
