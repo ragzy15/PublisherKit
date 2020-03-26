@@ -29,10 +29,7 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            
-            let duplicatesSubscriber = Inner(downstream: subscriber, operation: predicate)
-            subscriber.receive(subscription: duplicatesSubscriber)
-            upstream.subscribe(duplicatesSubscriber)
+            upstream.subscribe(Inner(downstream: subscriber, operation: predicate))
         }
     }
 }
@@ -40,21 +37,17 @@ extension Publishers {
 extension Publishers.RemoveDuplicates {
     
     // MARK: REMOVE DUPLICATES SINK
-    private final class Inner<Downstream: Subscriber>: OperatorSubscriber<Downstream, Upstream, (Output, Output) -> Bool> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: FilterProducer<Downstream, Output, Upstream.Output, Upstream.Failure, (Output, Output) -> Bool> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        private var previousValue: Output?
+        private var previousInput: Output?
         
-        override func operate(on input: Upstream.Output) -> Result<Output, Failure>? {
-            if let previousValue = previousValue, operation(previousValue, input) {
+        override func receive(input: Input) -> CompletionResult<Output, Failure>? {
+            if let previousOutput = previousInput, operation(previousOutput, input) {
                 return nil
             }
             
-            previousValue = input
-            return .success(input)
-        }
-        
-        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
-            downstream?.receive(completion: completion)
+            previousInput = input
+            return .send(input)
         }
         
         override var description: String {

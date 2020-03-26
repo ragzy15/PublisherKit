@@ -18,16 +18,8 @@ public extension Publishers {
         /// The key path of a property to publish.
         public let keyPath: KeyPath<Upstream.Output, Output>
         
-        public init(upstream: Upstream, keyPath: KeyPath<Upstream.Output, Output>) {
-            self.upstream = upstream
-            self.keyPath = keyPath
-        }
-        
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            
-            let mapKeypathSubscriber = Inner(downstream: subscriber, keyPath: keyPath)
-            subscriber.receive(subscription: mapKeypathSubscriber)
-            upstream.subscribe(mapKeypathSubscriber)
+            upstream.subscribe(Inner(downstream: subscriber, keyPath: keyPath))
         }
     }
 }
@@ -35,31 +27,46 @@ public extension Publishers {
 extension Publishers.MapKeyPath {
     
     // MARK: MAPKEYPATH SINK
-    private final class Inner<Downstream: Subscriber>: InternalSubscriber<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private struct Inner<Downstream: Subscriber>: Subscriber, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
+        
+        typealias Input = Upstream.Output
+        
+        typealias Failure = Upstream.Failure
+        
+        let combineIdentifier: CombineIdentifier
+        
+        private var downstream: Downstream?
         
         private let keyPath: KeyPath<Upstream.Output, Output>
         
         init(downstream: Downstream, keyPath: KeyPath<Upstream.Output, Output>) {
+            self.downstream = downstream
             self.keyPath = keyPath
-            super.init(downstream: downstream)
+            combineIdentifier = CombineIdentifier()
         }
         
-        override func operate(on input: Upstream.Output) -> Result<Output, Failure>? {
-            .success(input[keyPath: keyPath])
+        func receive(subscription: Subscription) {
+            downstream?.receive(subscription: subscription)
         }
         
-        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
+        func receive(_ input: Input) -> Subscribers.Demand {
+            downstream?.receive(input[keyPath: keyPath]) ?? .none
+        }
+        
+        func receive(completion: Subscribers.Completion<Failure>) {
             downstream?.receive(completion: completion)
         }
         
-        override var description: String {
-            switch status {
-            case .subscribed(let subscription):
-                return "\(subscription)"
-                
-            default:
-                return "MapKeyPath"
-            }
+        var description: String {
+            "MapKeyPath"
+        }
+        
+        var playgroundDescription: Any {
+            description
+        }
+        
+        var customMirror: Mirror {
+            Mirror(self, children: [])
         }
     }
 }

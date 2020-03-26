@@ -26,36 +26,28 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            
-            let containsSubscriber = Inner(downstream: subscriber, output: output)
-            subscriber.receive(subscription: containsSubscriber)
-            upstream.subscribe(containsSubscriber)
+            upstream.subscribe(Inner(downstream: subscriber, output: output))
         }
     }
 }
 
-extension Publishers.Contains: Equatable where Upstream: Equatable {
-    
-}
+extension Publishers.Contains: Equatable where Upstream: Equatable { }
 
 extension Publishers.Contains {
     
     // MARK: CONTAINS SINK
-    private final class Inner<Downstream: Subscriber>: InternalSubscriber<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: ReduceProducer<Downstream, Output, Upstream.Output, Upstream.Failure, Void> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        let output: Upstream.Output
+        private let outputValue: Input
         
-        init(downstream: Downstream, output: Upstream.Output) {
-            self.output = output
-            super.init(downstream: downstream)
+        init(downstream: Downstream, output: Input) {
+            self.outputValue = output
+            super.init(downstream: downstream, initial: false, operation: ())
         }
         
-        override func operate(on input: Upstream.Output) -> Result<Output, Failure>? {
-            .success(input == output)
-        }
-        
-        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
-            downstream?.receive(completion: completion)
+        override func receive(input: Input) -> CompletionResult<Void, Failure> {
+            output = input == outputValue
+            return output == true ? .finished : .send
         }
         
         override var description: String {

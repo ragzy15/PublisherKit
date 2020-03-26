@@ -33,12 +33,14 @@ extension Publishers {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
-            let sequenceSubscriber = Inner(downstream: subscriber, sequence: sequence)
+            var iterator = sequence.makeIterator()
             
-            subscriber.receive(subscription: sequenceSubscriber)
-            sequenceSubscriber.request(.unlimited)
-            
-            sequenceSubscriber.send()
+            if iterator.next() == nil {
+                subscriber.receive(subscription: Subscriptions.empty)
+                subscriber.receive(completion: .finished)
+            } else {
+                subscriber.receive(subscription: Inner(downstream: subscriber, sequence: sequence))
+            }
         }
     }
 }
@@ -46,26 +48,74 @@ extension Publishers {
 extension Publishers.Sequence {
     
     // MARK: SEQUENCE SINK
-    private final class Inner<Downstream: Subscriber>: Subscriptions.Internal<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        private let sequence: Elements
+        private var sequence: Elements?
+        private var iterator: Elements.Iterator
+        private var nextElement: Elements.Element?
+        
+        private var downstream: Downstream?
+        private let lock = Lock()
+        private var downstreamDemand: Subscribers.Demand = .none
+        
+        private var isActive = false
         
         init(downstream: Downstream, sequence: Elements) {
+            self.downstream = downstream
             self.sequence = sequence
-            super.init(downstream: downstream)
+            self.iterator = sequence.makeIterator()
+            nextElement = iterator.next()
         }
         
-        func send() {
-            for element in sequence {
-                if isTerminated { break }
-                receive(input: element)
+        func request(_ demand: Subscribers.Demand) {
+            lock.lock()
+            guard downstream != nil else { lock.unlock(); return }
+            downstreamDemand += demand
+            
+            if isActive { lock.unlock(); return }
+            
+            while let downstream = downstream, downstreamDemand > .none {
+                if let element = nextElement {
+                    downstreamDemand -= 1
+                    isActive = true
+                    lock.unlock()
+                    
+                    let additionalDemand = downstream.receive(element)
+                    
+                    lock.lock()
+                    downstreamDemand += additionalDemand
+                    isActive = false
+                    nextElement = iterator.next()
+                } else if nextElement == nil {
+                    self.downstream = nil
+                    sequence = nil
+                    lock.unlock()
+                    
+                    downstream.receive(completion: .finished)
+                    return
+                }
             }
             
-            receive(completion: .finished)
+            lock.unlock()
         }
         
-        override var description: String {
-            "\(sequence)"
+        func cancel() {
+            lock.lock()
+            downstream = nil
+            sequence = nil
+            lock.unlock()
+        }
+        
+        var description: String {
+            sequence.map { "\($0)" } ?? "Sequence"
+        }
+        
+        var playgroundDescription: Any {
+            description
+        }
+        
+        var customMirror: Mirror {
+            Mirror(self, children: [("sequence", sequence?.map { $0 } ?? [] )])
         }
     }
 }

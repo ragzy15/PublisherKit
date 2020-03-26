@@ -249,7 +249,7 @@ extension DispatchQueue: Scheduler {
         timer.schedule(deadline: date.dispatchTime, repeating: interval.timeInterval, leeway: tolerance.timeInterval)
         timer.resume()
         
-        return AnyCancellable(cancel: timer.cancel)
+        return AnyCancellable(timer.cancel)
     }
 }
 

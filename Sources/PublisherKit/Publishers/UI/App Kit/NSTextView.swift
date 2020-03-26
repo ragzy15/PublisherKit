@@ -11,16 +11,6 @@ import AppKit
 
 extension NSTextView {
     
-    @available(*, deprecated, renamed: "textDidChangePublisher")
-    public var nkTextPublisher: AnyPublisher<String, Never> {
-        textDidChangePublisher
-    }
-    
-    @available(*, deprecated, renamed: "textDidChangePublisher")
-    public var textChangePublisher: AnyPublisher<String, Never> {
-        textDidChangePublisher
-    }
-    
     public var textDidBeginEditingPublisher: AnyPublisher<Void, Never> {
         NotificationCenter.default.pkPublisher(for: NSTextView.didBeginEditingNotification, object: self)
             .map { _ in }

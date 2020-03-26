@@ -18,8 +18,8 @@ extension Timer {
     ///   - mode: The run loop mode in which to run the timer.
     ///   - options: Scheduler options passed to the timer. Defaults to `nil`.
     /// - Returns: A publisher that repeatedly emits the current date on the given interval.
-    public static func pkPublish(every interval: TimeInterval, tolerance: TimeInterval? = nil, on runLoop: RunLoop, in mode: RunLoop.Mode, options: RunLoop.PKSchedulerOptions? = nil) -> Timer.TimerPKPublisher {
-        Timer.TimerPKPublisher(interval: interval, tolerance: tolerance, runLoop: runLoop, mode: mode, options: options)
+    public static func pkPublish(every interval: TimeInterval, tolerance: TimeInterval? = nil, on runLoop: RunLoop, in mode: RunLoop.Mode, options: RunLoop.PKSchedulerOptions? = nil) -> TimerPKPublisher {
+        TimerPKPublisher(interval: interval, tolerance: tolerance, runLoop: runLoop, mode: mode, options: options)
     }
     
     /// A publisher that repeatedly emits the current date on a given interval.
@@ -39,11 +39,7 @@ extension Timer {
         
         final public let options: RunLoop.PKSchedulerOptions?
         
-        private var lock = Lock()
-        
-        private var subscriptions: [Inner] = []
-        
-        private var connection: Cancellable?
+        private let inner: Inner
         
         /// Creates a publisher that repeatedly emits the current date on the given interval.
         ///
@@ -59,68 +55,21 @@ extension Timer {
             self.runLoop = runLoop
             self.mode = mode
             self.options = options
-        }
-        
-        deinit {
-            subscriptions = []
+            
+            inner = Inner(interval: interval, tolerance: tolerance, runLoop: runLoop, mode: mode, options: options)
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+            let routingSubscription = RoutingSubscription(downstream: AnySubscriber(subscriber), inner: inner)
+            subscriber.receive(subscription: routingSubscription)
             
-            let timerSubscription = Inner(downstream: AnySubscriber(subscriber))
-
-            subscriber.receive(subscription: timerSubscription)
-            timerSubscription.request(.unlimited)
-
-            subscriptions.append(timerSubscription)
+            inner.lock.lock()
+            inner.subscriptions.append(routingSubscription)
+            inner.lock.unlock()
         }
         
         final public func connect() -> Cancellable {
-            lock.lock()
-            
-            if let connection = connection {
-                lock.unlock()
-                return connection
-            }
-            
-            lock.unlock()
-            
-            let timer: Timer
-            if #available(OSX 10.12, iOS 10.0, tvOS 10.0, watchOS 3.0, *) {
-                timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] (timer) in
-                    self?.sendOutput()
-                }
-            } else {
-                timer = Timer.scheduledTimer(timeInterval: interval, target: self, selector: #selector(scheduledAction(_:)), userInfo: nil, repeats: true)
-            }
-            
-            if let tolerance = tolerance {
-                timer.tolerance = tolerance
-            }
-            
-            runLoop.add(timer, forMode: mode)
-            
-            let cancellable = AnyCancellable { timer.invalidate() }
-            
-            lock.lock()
-            connection = cancellable
-            lock.unlock()
-            
-            return cancellable
-        }
-        
-        @objc private func scheduledAction(_ timer: Timer) {
-            if timer.isValid {
-                sendOutput()
-            }
-        }
-        
-        @inline(__always)
-        private func sendOutput() {
-            let date = Date()
-            subscriptions.forEach { (subscription) in
-                subscription.receive(input: date)
-            }
+            inner.connect()
         }
     }
 }
@@ -128,10 +77,141 @@ extension Timer {
 extension Timer.TimerPKPublisher {
     
     // MARK: TIMER SINK
-    private final class Inner: Subscriptions.Internal<AnySubscriber<Output, Failure>, Output, Failure> {
+    private final class Inner: CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable {
         
-        override var description: String {
+        fileprivate var subscriptions: [RoutingSubscription] = []
+        
+        fileprivate let lock = Lock()
+        
+        private var demand: Subscribers.Demand = .none
+        
+        private var isTerminated = false
+        
+        private var connection: Cancellable?
+        
+        private let interval: TimeInterval
+        
+        private let tolerance: TimeInterval?
+        
+        private let runLoop: RunLoop
+        
+        private let mode: RunLoop.Mode
+        
+        private let options: RunLoop.PKSchedulerOptions?
+        
+        init(interval: TimeInterval, tolerance: TimeInterval? = nil, runLoop: RunLoop, mode: RunLoop.Mode, options: RunLoop.PKSchedulerOptions? = nil) {
+            self.interval = interval
+            self.tolerance = tolerance
+            self.runLoop = runLoop
+            self.mode = mode
+            self.options = options
+        }
+        
+        func connect() -> Cancellable {
+            lock.lock()
+            if let connection = connection {
+                lock.unlock()
+                return connection
+            }
+            
+            guard !isTerminated else { lock.unlock(); return Subscriptions.empty }
+            
+            let timer = Timer(fireAt: Date().addingTimeInterval(interval), interval: interval, target: self, selector: #selector(timerFired(args:)), userInfo: nil, repeats: true)
+            
+            if let tolerance = tolerance {
+                timer.tolerance = tolerance
+            }
+            
+            let connection = AnyCancellable { timer.invalidate() }
+            self.connection = connection
+            runLoop.add(timer, forMode: mode)
+            lock.unlock()
+            
+            return connection
+        }
+        
+        @objc private func timerFired(args: Timer) {
+            lock.lock()
+            guard demand > .none, !isTerminated else { lock.unlock(); return }
+            demand -= 1
+            lock.unlock()
+            
+            let date = Date()
+            
+            var additionalDemand: Subscribers.Demand = .none
+            
+            subscriptions.forEach { (subscription) in
+                additionalDemand += subscription.receive(date)
+            }
+            
+            lock.lock()
+            demand += additionalDemand
+            lock.unlock()
+        }
+        
+        func request(_ demand: Subscribers.Demand) {
+            lock.lock()
+            guard demand > .none else { lock.unlock(); return }
+            self.demand += demand
+            lock.unlock()
+        }
+        
+        func cancel() {
+            lock.lock()
+            guard !isTerminated else { lock.unlock(); return }
+            isTerminated = true
+            connection?.cancel()
+            subscriptions = []
+            lock.unlock()
+        }
+        
+        var description: String {
             "Timer"
+        }
+        
+        var playgroundDescription: Any {
+            description
+        }
+        
+        var customMirror: Mirror {
+            Mirror(self, children: [])
+        }
+    }
+    
+    private struct RoutingSubscription: Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable {
+        
+        private let downstream: AnySubscriber<Output, Failure>
+        private let inner: Inner
+        let combineIdentifier: CombineIdentifier
+        
+        init(downstream: AnySubscriber<Output, Failure>, inner: Inner) {
+            self.downstream = downstream
+            self.inner = inner
+            combineIdentifier = CombineIdentifier()
+        }
+        
+        func receive(_ input: Output) -> Subscribers.Demand {
+            downstream.receive(input)
+        }
+        
+        func request(_ demand: Subscribers.Demand) {
+            inner.request(demand)
+        }
+        
+        func cancel() {
+            inner.cancel()
+        }
+        
+        var description: String {
+            inner.description
+        }
+        
+        var playgroundDescription: Any {
+            inner.playgroundDescription
+        }
+        
+        var customMirror: Mirror {
+            inner.customMirror
         }
     }
 }

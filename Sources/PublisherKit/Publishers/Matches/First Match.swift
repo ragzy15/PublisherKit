@@ -53,10 +53,7 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            
-            let firstMatchSubscriber = Inner(downstream: subscriber, result: result, matchOptions: matchOptions)
-            subscriber.receive(subscription: firstMatchSubscriber)
-            upstream.subscribe(firstMatchSubscriber)
+            upstream.subscribe(Inner(downstream: subscriber, result: result, matchOptions: matchOptions))
         }
     }
 }
@@ -64,7 +61,15 @@ extension Publishers {
 extension Publishers.FirstMatch {
     
     // MARK: FIRST MATCH SINK
-    private final class Inner<Downstream: Subscriber>: InternalSubscriber<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscriber, Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
+        
+        typealias Input = Upstream.Output
+        
+        typealias Failure = Upstream.Failure
+        
+        private let lock = Lock()
+        private var status: SubscriptionStatus = .awaiting
+        private var downstream: Downstream?
         
         private let result: Result<NSRegularExpression, Error>
         private let matchOptions: NSRegularExpression.MatchingOptions
@@ -72,23 +77,73 @@ extension Publishers.FirstMatch {
         init(downstream: Downstream, result: Result<NSRegularExpression, Error>, matchOptions: NSRegularExpression.MatchingOptions) {
             self.matchOptions = matchOptions
             self.result = result
-            super.init(downstream: downstream)
+            self.downstream = downstream
         }
         
-        override func operate(on input: Upstream.Output) -> Result<Output, Downstream.Failure>? {
-            result.map { (expression) -> Downstream.Input in
-                let match = expression.firstMatch(in: input, options: matchOptions, range: NSRange(location: 0, length: input.count))
-                return match != nil
+        func receive(subscription: Subscription) {
+            lock.lock()
+            guard status == .awaiting else { lock.unlock(); return }
+            status = .subscribed(to: subscription)
+            lock.unlock()
+        }
+        
+        func receive(_ input: String) -> Subscribers.Demand {
+            lock.lock()
+            guard case .subscribed(let subscription) = status else { lock.unlock(); return .none }
+            lock.unlock()
+            
+            switch result {
+            case .success(let regularExpression):
+                let match = regularExpression.firstMatch(in: input, options: matchOptions, range: NSRange(location: 0, length: input.count))
+                return downstream?.receive(match != nil) ?? .none
+                
+            case .failure(let error):
+                lock.lock()
+                status = .terminated
+                lock.unlock()
+                
+                subscription.cancel()
+                downstream?.receive(completion: .failure(error))
+                
+                return .none
             }
         }
         
-        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
-            let completion = completion.mapError { $0 as Downstream.Failure }
-            downstream?.receive(completion: completion)
+        func receive(completion: Subscribers.Completion<Failure>) {
+            lock.lock()
+            guard status.isSubscribed else { lock.unlock(); return }
+            status = .terminated
+            lock.unlock()
+            downstream?.receive(completion: completion.mapError { $0 as Error })
         }
         
-        override var description: String {
+        func request(_ demand: Subscribers.Demand) {
+            lock.lock()
+            guard case .subscribed(let subscription) = status else { lock.unlock(); return }
+            lock.unlock()
+            
+            subscription.request(demand)
+        }
+        
+        func cancel() {
+            lock.lock()
+            guard case .subscribed(let subscription) = status else { lock.unlock(); return }
+            status = .terminated
+            lock.unlock()
+            
+            subscription.cancel()
+        }
+        
+        var description: String {
             "FirstMatch"
+        }
+        
+        var playgroundDescription: Any {
+            description
+        }
+        
+        var customMirror: Mirror {
+            Mirror(self, children: [])
         }
     }
 }

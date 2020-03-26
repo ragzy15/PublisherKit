@@ -46,7 +46,7 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            subject.subscribe(Inner(downstream: subscriber))
+            subject.subscribe(Inner(downstream: subscriber, upstream: upstream))
         }
         
         final public func connect() -> Cancellable {
@@ -58,10 +58,84 @@ extension Publishers {
 extension Publishers.Multicast {
     
     // MARK: MULTICAST SINK
-    private final class Inner<Downstream: Subscriber>: Subscribers.Inner<Downstream, Upstream.Output, Upstream.Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscriber, Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        override var description: String {
+        typealias Input = Upstream.Output
+        
+        typealias Failure = Upstream.Failure
+        
+        private enum SubscriptionStatus {
+            case awaiting(upstream: Upstream, downstream: Downstream)
+            case subscribed(upstream: Upstream, downstream: Downstream, subscription: Subscription)
+            case terminated
+        }
+        
+        private var status: SubscriptionStatus
+        
+        private let lock = Lock()
+        
+        init(downstream: Downstream, upstream: Upstream) {
+            status = .awaiting(upstream: upstream, downstream: downstream)
+        }
+        
+        func receive(subscription: Subscription) {
+            lock.lock()
+            guard case .awaiting(let upstream, let downstream) = status else { lock.unlock(); return }
+            status = .subscribed(upstream: upstream, downstream: downstream, subscription: subscription)
+            lock.unlock()
+            
+            downstream.receive(subscription: self)
+        }
+        
+        func receive(_ input: Input) -> Subscribers.Demand {
+            lock.lock()
+            guard case .subscribed(_, let downstream, let subscription) = status else { lock.unlock(); return .none }
+            lock.unlock()
+            
+            let newDemand = downstream.receive(input)
+            if newDemand > 0 {
+                subscription.request(newDemand)
+            }
+            
+            return newDemand
+        }
+        
+        func receive(completion: Subscribers.Completion<Failure>) {
+            lock.lock()
+            guard case .subscribed(_, let downstream, _) = status else { lock.unlock(); return }
+            status = .terminated
+            lock.unlock()
+            
+            downstream.receive(completion: completion)
+        }
+        
+        func request(_ demand: Subscribers.Demand) {
+            lock.lock()
+            guard case .subscribed(_, _, let subscription) = status else { lock.unlock(); return }
+            lock.unlock()
+            
+            subscription.request(demand)
+        }
+        
+        func cancel() {
+            lock.lock()
+            guard case .subscribed(_, _, let subscription) = status else { lock.unlock(); return }
+            status = .terminated
+            lock.unlock()
+            
+            subscription.cancel()
+        }
+        
+        var description: String {
             "Multicast"
+        }
+        
+        var playgroundDescription: Any {
+            description
+        }
+        
+        var customMirror: Mirror {
+            Mirror(self, children: [])
         }
     }
 }

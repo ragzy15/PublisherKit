@@ -26,10 +26,7 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            
-            let filterSubscriber = Inner(downstream: subscriber, operation: isIncluded)
-            subscriber.receive(subscription: filterSubscriber)
-            upstream.subscribe(filterSubscriber)
+            upstream.subscribe(Inner(downstream: subscriber, operation: isIncluded))
         }
     }
 }
@@ -37,43 +34,21 @@ extension Publishers {
 extension Publishers.Filter {
     
     public func filter(_ isIncluded: @escaping (Output) -> Bool) -> Publishers.Filter<Upstream> {
-        
-        let newIsIncluded: (Upstream.Output) -> Bool = { output in
-            if self.isIncluded(output) {
-                return isIncluded(output)
-            } else {
-                return false
-            }
-        }
-        
-        return Publishers.Filter(upstream: upstream, isIncluded: newIsIncluded)
+        Publishers.Filter(upstream: upstream, isIncluded: { self.isIncluded($0) && isIncluded($0) })
     }
     
     public func tryFilter(_ isIncluded: @escaping (Output) throws -> Bool) -> Publishers.TryFilter<Upstream> {
-        
-        let newIsIncluded: (Upstream.Output) throws -> Bool = { output in
-            if self.isIncluded(output) {
-                return try isIncluded(output)
-            } else {
-                return false
-            }
-        }
-        
-        return Publishers.TryFilter(upstream: upstream, isIncluded: newIsIncluded)
+        Publishers.TryFilter(upstream: upstream, isIncluded: { try self.isIncluded($0) && isIncluded($0) })
     }
 }
 
 extension Publishers.Filter {
 
     // MARK: FILTER SINK
-    private final class Inner<Downstream: Subscriber>: OperatorSubscriber<Downstream, Upstream, (Upstream.Output) -> Bool> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: FilterProducer<Downstream, Output, Upstream.Output, Upstream.Failure, (Upstream.Output) -> Bool> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        override func operate(on input: Upstream.Output) -> Result<Output, Failure>? {
-            operation(input) ? .success(input) : nil
-        }
-        
-        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
-            downstream?.receive(completion: completion)
+        override func receive(input: Input) -> CompletionResult<Output, Failure>? {
+            operation(input) ? .send(input) : nil
         }
         
         override var description: String {

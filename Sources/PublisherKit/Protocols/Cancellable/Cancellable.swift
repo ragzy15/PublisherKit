@@ -5,12 +5,6 @@
 //  Created by Raghav Ahuja on 18/11/19.
 //
 
-@available(*, deprecated, renamed: "Cancellable")
-public typealias NKCancellable = Cancellable
-
-@available(*, deprecated, renamed: "Cancellable")
-public typealias PKCancellable = Cancellable
- 
 public protocol Cancellable {
     
     /// Cancel the activity.

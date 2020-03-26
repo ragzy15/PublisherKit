@@ -5,12 +5,6 @@
 //  Created by Raghav Ahuja on 18/11/19.
 //
 
-@available(*, deprecated, renamed: "TopLevelDecoder")
-public typealias NKDecoder = TopLevelDecoder
-
-@available(*, deprecated, renamed: "TopLevelDecoder")
-public typealias PKDecoder = TopLevelDecoder
-
 public protocol TopLevelDecoder {
     
     associatedtype Input

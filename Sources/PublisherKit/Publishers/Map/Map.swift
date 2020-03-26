@@ -24,10 +24,7 @@ public extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            
-            let mapSubscriber = Inner(downstream: subscriber, operation: transform)
-            subscriber.receive(subscription: mapSubscriber)
-            upstream.subscribe(mapSubscriber)
+            upstream.subscribe(Inner(downstream: subscriber, transform: transform))
         }
     }
 }
@@ -35,41 +32,57 @@ public extension Publishers {
 extension Publishers.Map {
     
     public func map<T>(_ transform: @escaping (Output) -> T) -> Publishers.Map<Upstream, T> {
-        
-        let newTransform: (Upstream.Output) -> T = { output in
-            let newOutput = self.transform(output)
-            return transform(newOutput)
-        }
-        
-        return Publishers.Map<Upstream, T>(upstream: upstream, transform: newTransform)
+        Publishers.Map(upstream: upstream, transform: { transform(self.transform($0)) })
     }
     
     public func tryMap<T>(_ transform: @escaping (Output) throws -> T) -> Publishers.TryMap<Upstream, T> {
-        
-        let newTransform: (Upstream.Output) throws -> T = { output in
-            let newOutput = self.transform(output)
-            return try transform(newOutput)
-        }
-        
-        return Publishers.TryMap<Upstream, T>(upstream: upstream, transform: newTransform)
+        Publishers.TryMap(upstream: upstream, transform: { try transform(self.transform($0)) })
     }
 }
 
 extension Publishers.Map {
     
     // MARK: MAP SINK
-    private final class Inner<Downstream: Subscriber>: OperatorSubscriber<Downstream, Upstream, (Upstream.Output) -> Output> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private struct Inner<Downstream: Subscriber>: Subscriber, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Output == Downstream.Input, Upstream.Failure == Downstream.Failure {
         
-        override func operate(on input: Upstream.Output) -> Result<Output, Failure>? {
-            .success(operation(input))
+        typealias Input = Upstream.Output
+
+        typealias Failure = Upstream.Failure
+
+        private var downstream: Downstream?
+
+        private let transform: (Input) -> Output
+
+        let combineIdentifier: CombineIdentifier
+
+        fileprivate init(downstream: Downstream, transform: @escaping (Input) -> Output) {
+            self.downstream = downstream
+            self.transform = transform
+            combineIdentifier = CombineIdentifier()
         }
-        
-        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
+
+        func receive(subscription: Subscription) {
+            downstream?.receive(subscription: subscription)
+        }
+
+        func receive(_ input: Input) -> Subscribers.Demand {
+            downstream?.receive(transform(input)) ?? .none
+        }
+
+        func receive(completion: Subscribers.Completion<Failure>) {
             downstream?.receive(completion: completion)
         }
-        
-        override var description: String {
+
+        var description: String {
             "Map"
+        }
+        
+        var playgroundDescription: Any {
+            description
+        }
+
+        var customMirror: Mirror {
+            Mirror(self, children: [])
         }
     }
 }

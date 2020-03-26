@@ -36,15 +36,7 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            
-            let throttleSubscriber = Inner(downstream: subscriber, interval: interval,
-                                           scheduler: scheduler, latest: latest)
-            
-            throttleSubscriber.downstreamLock.lock()
-            subscriber.receive(subscription: throttleSubscriber)
-            throttleSubscriber.downstreamLock.unlock()
-            
-            upstream.subscribe(throttleSubscriber)
+            upstream.subscribe(Inner(downstream: subscriber, parent: self))
         }
     }
 }
@@ -52,115 +44,183 @@ extension Publishers {
 extension Publishers.Throttle {
     
     // MARK: THROTTLE SINK
-    private final class Inner<Downstream: Subscriber, Context: Scheduler>: InternalSubscriber<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscriber, Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        public let interval: Context.PKSchedulerTimeType.Stride
+        typealias Input = Upstream.Output
         
-        public let scheduler: Context
+        typealias Failure = Upstream.Failure
         
-        public let latest: Bool
+        fileprivate typealias Throttle = Publishers.Throttle<Upstream, Context>
         
-        fileprivate let downstreamLock = RecursiveLock()
-        
-        private var lastSendTime: Context.PKSchedulerTimeType? = nil
-        private var sent = false
-        
-        private var inputs: [Input] = []
-        
-        init(downstream: Downstream, interval: Context.PKSchedulerTimeType.Stride, scheduler: Context, latest: Bool) {
-            self.interval = interval
-            self.scheduler = scheduler
-            self.latest = latest
-            super.init(downstream: downstream)
+        private enum SubscriptionStatus {
+            case awaiting(parent: Throttle, downstream: Downstream)
+            case subscribed(parent: Throttle, downstream: Downstream, subscription: Subscription)
+            case terminated
         }
         
-        override func receive(_ input: Input) -> Subscribers.Demand {
-            getLock().lock()
-            guard status.isSubscribed else { getLock().unlock(); return .none }
-            
-            inputs.append(input)
-            
-            handleInput()
-                        
-            return demand
+        private var status: SubscriptionStatus
+        private var downstreamDemand: Subscribers.Demand = .none
+        
+        private let downstreamLock = RecursiveLock()
+        private let lock = Lock()
+        
+        private var lastSentTime: Context.PKSchedulerTimeType? = nil
+        private var sendCompletion = false
+        
+        private var lastestUnsentInput: Input?
+        
+        init(downstream: Downstream, parent: Throttle) {
+            status = .awaiting(parent: parent, downstream: downstream)
         }
         
-        private func handleInput() {
-            let delay: Context.PKSchedulerTimeType.Stride
-            
-            if let lastSendTime = lastSendTime {
-                delay = lastSendTime.distance(to: scheduler.now) > interval ? 0 : interval
-            } else {
-                delay = 0
-            }
-                        
-            guard !sent else {
-                getLock().unlock()
-                return
-            }
-            
-            sent = true
-            
-            getLock().unlock()
-            
-            scheduler.schedule(after: scheduler.now.advanced(by: delay)) { [weak self] in
-                self?.scheduledReceive()
-            }
-        }
-        
-        private func scheduledReceive() {
-            getLock().lock()
-            
-            sent = false
-            
-            lastSendTime = scheduler.now
-            
-            guard !inputs.isEmpty else {
-                getLock().unlock()
-                return
-            }
-            
-            let _input: Input?
-            
-            if latest {
-                _input = inputs.removeLast()
-               inputs = inputs.suffix(1)
-            } else {
-                _input = inputs.removeFirst()
-                inputs = []
-            }
-            
-            getLock().unlock()
+        func receive(subscription: Subscription) {
+            lock.lock()
+            guard case .awaiting(let parent, let downstream) = status else { lock.unlock(); return }
+            status = .subscribed(parent: parent, downstream: downstream, subscription: subscription)
+            lock.unlock()
             
             downstreamLock.lock()
-            guard let input = _input else { return }
-            _ = downstream?.receive(input)
+            downstream.receive(subscription: self)
             downstreamLock.unlock()
+            
+            subscription.request(downstreamDemand)
         }
         
-        override func receive(completion: Subscribers.Completion<Failure>) {
-            getLock().lock()
-            guard status.isSubscribed else { getLock().unlock(); return }
+        func receive(_ input: Input) -> Subscribers.Demand {
+            lock.lock()
+            guard case .subscribed(let parent, _, _) = status else { lock.unlock(); return .none }
             
+            let now = parent.scheduler.now
+            
+            let timeIntervalSinceLast: Context.PKSchedulerTimeType.Stride
+            
+            if let lastSendingTime = self.lastSentTime {
+                timeIntervalSinceLast = now.distance(to: lastSendingTime)
+            } else {
+                timeIntervalSinceLast = parent.interval
+            }
+            
+            let sendNow = timeIntervalSinceLast >= parent.interval
+            
+            if sendNow {
+                lastestUnsentInput = input
+                lock.unlock()
+                parent.scheduler.schedule { [weak self] in
+                    guard let `self` = self else { return }
+                    
+                    self.lock.lock()
+                    self.lastSentTime = parent.scheduler.now
+                    self.emitToDownstream()
+                }
+                
+                return downstreamDemand
+            }
+            
+            if !parent.latest {
+                lock.unlock()
+                return .none
+            }
+            
+            let sendingInProgress = lastestUnsentInput != nil
+            
+            self.lastestUnsentInput = input
+            lock.unlock()
+            
+            if sendingInProgress {
+                return .none
+            }
+            
+            parent.scheduler.schedule(after: parent.scheduler.now.advanced(by: parent.interval - timeIntervalSinceLast)) { [weak self] in
+                
+                guard let `self` = self else { return }
+                self.lock.lock()
+                self.emitToDownstream()
+            }
+            
+            return .none
+        }
+        
+        private func emitToDownstream() {
+            guard case .subscribed(_, let downstream, _) = status else { lock.unlock(); return }
+            let _lastestUnsentInput = lastestUnsentInput
+            lastestUnsentInput = nil
+            let sendCompletion = self.sendCompletion
+            lock.unlock()
+            
+            if let input = _lastestUnsentInput {
+                downstreamLock.lock()
+                _ = downstream.receive(input)
+                downstreamLock.unlock()
+            }
+            
+            if sendCompletion {
+                downstreamLock.lock()
+                downstream.receive(completion: .finished)
+                downstreamLock.unlock()
+            }
+        }
+        
+        func receive(completion: Subscribers.Completion<Failure>) {
+            lock.lock()
+            guard case .subscribed(let parent, let downstream, _) = status else { lock.unlock(); return }
             status = .terminated
-            getLock().unlock()
             
-            scheduler.schedule { [weak self] in
-                self?.end {
-                    self?.downstream?.receive(completion: completion)
+            switch completion {
+            case .finished:
+                if lastestUnsentInput != nil {
+                    sendCompletion = true
+                    lock.unlock()
+                } else {
+                    lock.unlock()
+                    parent.scheduler.schedule { [weak self] in
+                        guard let `self` = self else { return }
+                        
+                        self.downstreamLock.lock()
+                        downstream.receive(completion: .finished)
+                        self.downstreamLock.unlock()
+                    }
+                }
+                
+            case .failure(let error):
+                lastestUnsentInput = nil
+                lock.unlock()
+                
+                parent.scheduler.schedule { [weak self] in
+                    guard let `self` = self else { return }
+                    
+                    self.downstreamLock.lock()
+                    downstream.receive(completion: .failure(error))
+                    self.downstreamLock.unlock()
                 }
             }
         }
         
-        override func end(completion: () -> Void) {
-            downstreamLock.lock()
-            completion()
-            downstreamLock.unlock()
-            downstream = nil
+        func request(_ demand: Subscribers.Demand) {
+            lock.lock()
+            guard case .subscribed(_, _, _) = status else { lock.unlock(); return }
+            downstreamDemand += demand
+            lock.unlock()
         }
         
-        override var description: String {
+        func cancel() {
+            lock.lock()
+            guard case .subscribed(_, _, let subscription) = status else { lock.unlock(); return }
+            status = .terminated
+            lock.unlock()
+            
+            subscription.cancel()
+        }
+        
+        var description: String {
             "Throttle"
+        }
+        
+        var playgroundDescription: Any {
+            description
+        }
+        
+        var customMirror: Mirror {
+            Mirror(self, children: [])
         }
     }
 }

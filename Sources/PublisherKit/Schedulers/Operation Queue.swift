@@ -187,6 +187,6 @@ extension OperationQueue: Scheduler {
     public func schedule(after date: PKSchedulerTimeType, interval: PKSchedulerTimeType.Stride, tolerance: PKSchedulerTimeType.Stride, options: PKSchedulerOptions?, _ action: @escaping () -> Void) -> Cancellable {
         let op = AsynchronousBlockOperation(after: date, interval: interval, tolerance: tolerance, repeats: true, action)
         addOperation(op)
-        return AnyCancellable(cancel: op.cancel)
+        return AnyCancellable(op.cancel)
     }
 }
