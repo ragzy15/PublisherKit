@@ -31,60 +31,107 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            
-            let outputSubscription = Inner(downstream: subscriber, range: range)
-            
-            subscriber.receive(subscription: outputSubscription)
-            upstream.subscribe(outputSubscription)
+            upstream.subscribe(Inner(downstream: subscriber, range: range))
         }
     }
 }
 
-extension Publishers.Output: Equatable where Upstream: Equatable {
-}
+extension Publishers.Output: Equatable where Upstream: Equatable { }
 
 extension Publishers.Output {
     
     // MARK: OUTPUT SINK
-    private final class Inner<Downstream: Subscriber>: InternalSubscriber<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscriber, Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
+        
+        typealias Input = Upstream.Output
+        
+        typealias Failure = Upstream.Failure
         
         private let range: CountableRange<Int>
-        private var start: Int
-        private var counter: Int
+        private var startOffset: Int
+        private var remainingCount: Int
+        
+        private var downstream: Downstream?
+        private var status: SubscriptionStatus = .awaiting
+        private let lock = Lock()
         
         init(downstream: Downstream, range: CountableRange<Int>) {
+            self.downstream = downstream
             self.range = range
-            start = range.lowerBound
-            counter = range.count
-            super.init(downstream: downstream)
+            startOffset = range.lowerBound
+            remainingCount = range.count
         }
         
-        override func receive(_ input: Input) -> Subscribers.Demand {
-            getLock().lock()
-            guard status.isSubscribed else { getLock().unlock(); return .none }
-            getLock().unlock()
+        func receive(subscription: Subscription) {
+            lock.lock()
+            guard status == .awaiting else { lock.unlock(); return }
+            status = .subscribed(to: subscription)
+            lock.unlock()
             
-            if start > 0 {
-                start -= 1
-                demand = .max(1)
+            downstream?.receive(subscription: self)
+        }
+        
+        func receive(_ input: Input) -> Subscribers.Demand {
+            lock.lock()
+            guard case .subscribed(let subscription) = status else { lock.unlock(); return .none }
+            lock.unlock()
+            
+            if startOffset > 0 {
+                startOffset -= 1
+                return .max(1)
             }
             
-            if counter > 0 {
-                counter -= 1                
-                demand = downstream?.receive(input) ?? .none
+            if remainingCount > 0 {
+                remainingCount -= 1
+                return downstream?.receive(input) ?? .none
             } else {
-                demand = .none
+                lock.lock()
+                status = .terminated
+                lock.unlock()
+                
+                subscription.cancel()
+                downstream?.receive(completion: .finished)
+                
+                return .none
             }
-            
-            return demand
         }
         
-        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
+        func receive(completion: Subscribers.Completion<Failure>) {
+            lock.lock()
+            guard status.isSubscribed else { lock.unlock(); return }
+            status = .terminated
+            lock.unlock()
+            
             downstream?.receive(completion: completion)
         }
         
-        override var description: String {
+        func request(_ demand: Subscribers.Demand) {
+            lock.lock()
+            guard case .subscribed(let subscription) = status else { lock.unlock(); return }
+            lock.unlock()
+            
+            subscription.request(demand)
+        }
+        
+        func cancel() {
+            lock.lock()
+            guard case .subscribed(let subscription) = status else { lock.unlock(); return }
+            status = .terminated
+            lock.unlock()
+            
+            subscription.cancel()
+        }
+        
+        var description: String {
             "Output"
+        }
+        
+        var playgroundDescription: Any {
+            description
+        }
+        
+        var customMirror: Mirror {
+            Mirror(self, children: [])
         }
     }
 }

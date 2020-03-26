@@ -382,7 +382,7 @@ extension Publisher {
 
 // MARK: DROP
 extension Publisher {
-
+    
     /// Omits the specified number of elements before republishing subsequent elements.
     ///
     /// - Parameter count: The number of elements to omit.
@@ -415,7 +415,6 @@ extension Publisher {
         Publishers.TryDropWhile(upstream: self, predicate: predicate)
     }
 }
-
 
 // MARK: ENCODE
 extension Publisher where Output: Encodable {
@@ -545,7 +544,7 @@ extension Publisher where Output == String {
 
 // MARK: MAKE CONNECTABLE
 extension Publisher where Failure == Never {
-
+    
     /// Creates a connectable wrapper around the publisher.
     ///
     /// - Returns: A `ConnectablePublisher` wrapping this publisher.
@@ -761,7 +760,7 @@ extension Publisher {
 
 // MARK: MULTICAST
 extension Publisher {
-
+    
     /// Applies a closure to create a subject that delivers elements to subscribers.
     ///
     /// Use a multicast publisher when you have multiple downstream subscribers, but you want upstream publishers to only process one `receive(_:)` call per event.
@@ -771,7 +770,7 @@ extension Publisher {
     public func multicast<S: Subject>(_ createSubject: @escaping () -> S) -> Publishers.Multicast<Self, S> where Output == S.Output, Failure == S.Failure {
         Publishers.Multicast(upstream: self, createSubject: createSubject)
     }
-
+    
     /// Provides a subject to deliver elements to multiple subscribers.
     ///
     /// Use a multicast publisher when you have multiple downstream subscribers, but you want upstream publishers to only process one `receive(_:)` call per event.
@@ -785,7 +784,7 @@ extension Publisher {
 
 // MARK: PREFIX
 extension Publisher {
-
+    
     /// Republishes elements up to the specified maximum count.
     ///
     /// - Parameter maxLength: The maximum number of elements to republish.
@@ -833,7 +832,7 @@ extension Publisher {
 
 // MARK: OUTPUT
 extension Publisher {
-
+    
     /// Publishes a specific element, indicated by its index in the sequence of published elements.
     ///
     /// If the publisher completes normally or with an error before publishing the specified element, then the publisher doesn’t produce any elements.
@@ -842,7 +841,7 @@ extension Publisher {
     public func output(at index: Int) -> Publishers.Output<Self> {
         output(in: index ... index)
     }
-
+    
     /// Publishes elements specified by their range in the sequence of published elements.
     ///
     /// After all elements are published, the publisher finishes normally.

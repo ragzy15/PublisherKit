@@ -174,7 +174,7 @@ extension RunLoop: Scheduler {
     public func schedule(after date: PKSchedulerTimeType, interval: PKSchedulerTimeType.Stride, tolerance: PKSchedulerTimeType.Stride, options: PKSchedulerOptions?, _ action: @escaping () -> Void) -> Cancellable {
         
         let timer: Timer
-        if #available(OSX 10.12, *) {
+        if #available(macOS 10.12, iOS 10.0, tvOS 10.0, watchOS 3.0, *) {
             timer = Timer(fire: date.date, interval: interval.timeInterval, repeats: true) { (timer) in
                 if timer.isValid {
                     action()

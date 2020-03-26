@@ -67,30 +67,41 @@ public struct AnySubscriber<Input, Failure: Error>: Subscriber {
     @usableFromInline func receive(completion: Subscribers.Completion<Failure>) { }
 }
 
-@usableFromInline final class AnySubscriberBox<BaseSubscriber: Subscriber>: AnySubscriberBase<BaseSubscriber.Input, BaseSubscriber.Failure> {
+@usableFromInline final class AnySubscriberBox<BaseSubscriber: Subscriber>: AnySubscriberBase<BaseSubscriber.Input, BaseSubscriber.Failure>, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable {
     
-    @usableFromInline var subscriber: BaseSubscriber?
+    @usableFromInline let subscriber: BaseSubscriber
     
     @usableFromInline init(subscriber: BaseSubscriber) {
         self.subscriber = subscriber
     }
     
     @usableFromInline override func receive(subscription: Subscription) {
-        subscriber?.receive(subscription: subscription)
+        subscriber.receive(subscription: subscription)
         subscription.request(.unlimited)
     }
     
     @usableFromInline override func receive(_ input: BaseSubscriber.Input) -> Subscribers.Demand {
-        subscriber?.receive(input) ?? .none
+        subscriber.receive(input)
     }
     
     @usableFromInline override func receive(completion: Subscribers.Completion<BaseSubscriber.Failure>) {
-        subscriber?.receive(completion: completion)
-        subscriber = nil
+        subscriber.receive(completion: completion)
+    }
+    
+    @usableFromInline var description: String {
+        String(describing: subscriber)
+    }
+    
+    @usableFromInline var playgroundDescription: Any {
+        (subscriber as? CustomPlaygroundDisplayConvertible)?.playgroundDescription ?? String(describing: subscriber)
+    }
+    
+    @usableFromInline var customMirror: Mirror {
+        (subscriber as? CustomReflectable)?.customMirror ?? Mirror(self, children: [])
     }
 }
 
-@usableFromInline final class ClosureBasedAnySubscriber<Input, Failure: Error>: AnySubscriberBase<Input, Failure> {
+@usableFromInline final class ClosureBasedAnySubscriber<Input, Failure: Error>: AnySubscriberBase<Input, Failure>, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable {
     
     @usableFromInline var receiveSubscription: ((Subscription) -> Void)?
     @usableFromInline var receiveValue: ((Input) -> Subscribers.Demand)?
@@ -115,5 +126,17 @@ public struct AnySubscriber<Input, Failure: Error>: Subscriber {
     
     @usableFromInline override func receive(completion: Subscribers.Completion<Failure>) {
         receiveCompletion?(completion)
+    }
+    
+    @usableFromInline var description: String {
+        "Anonymous AnySubscriber"
+    }
+    
+    @usableFromInline var playgroundDescription: Any {
+        description
+    }
+    
+    @usableFromInline var customMirror: Mirror {
+        Mirror(reflecting: "Anonymous AnySubscriber")
     }
 }

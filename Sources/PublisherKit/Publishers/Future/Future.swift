@@ -7,95 +7,126 @@
 
 /// A publisher that eventually produces one value and then finishes or fails.
 final public class Future<Output, Failure>: Publisher where Failure : Error {
-    
+
     private var result: Result<Output, Failure>?
     
     private let lock = Lock()
-    
-    private var subscriptions: [Inner] = []
+    private let downstreamLock = RecursiveLock()
+
+    private var subscriptions: [Conduit] = []
 
     public typealias Promise = (Result<Output, Failure>) -> Void
 
     public init(_ attemptToFulfill: @escaping (@escaping Promise) -> Void) {
         attemptToFulfill { [weak self] result in
-            self?.lock.do {
-                guard self?.result == nil else { return }
-                self?.result = result
-                self?.publish()
-            }
+            self?.promise(result)
         }
     }
     
     public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        lock.lock()
+        let conduit = Conduit(parent: self, downstream: AnySubscriber(subscriber))
+        subscriptions.append(conduit)
+        conduit.index = subscriptions.count - 1
+        lock.unlock()
         
-        let futureSubscription = Inner(downstream: AnySubscriber(subscriber))
-        
-        subscriber.receive(subscription: futureSubscription)
-        
-        subscriptions.append(futureSubscription)
-        
-        lock.do(publish)
+        subscriber.receive(subscription: conduit)
     }
     
-    private func publish() {
-        switch result {
-        case .success(let output):
-            publish(output: output)
-            
-        case .failure(let error):
-            publish(failure: error)
-            
-        case .none:
-            return
+    private func promise(_ newResult: Result<Output, Failure>) {
+        lock.lock()
+        guard result == nil else { lock.unlock(); return }
+        result = newResult
+        let subscriptions = self.subscriptions
+        lock.unlock()
+        
+        subscriptions.forEach { (subscription) in
+            subscription.fullfill(newResult)
         }
     }
     
-    @inline(__always)
-    private func publish(output: Output) {
-        subscriptions.removeAll { $0.isTerminated }
-        
-        for subscription in subscriptions where subscription.demand > 0 {
-            subscription.receive(input: output)
-            subscription.receive(completion: .finished)
-        }
-    }
-    
-    @inline(__always)
-    private func publish(failure: Failure) {
-        subscriptions.removeAll { $0.isTerminated }
-        
-        for subscription in subscriptions {
-            subscription.receive(completion: .failure(failure))
-        }
+    fileprivate func disassociate(_ index: Int) {
+        subscriptions.remove(at: index)
     }
 }
 
 extension Future {
-    
+
     // MARK: FUTURE SINK
-    private final class Inner: Subscriptions.Internal<AnySubscriber<Output, Failure>, Output, Failure> {
+    private final class Conduit: Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable {
         
-        override func receive(input: Output) {
-            guard !isTerminated else { return }
-            _ = downstream?.receive(input)
+        private let parent: Future<Output, Failure>
+        private let downstream: AnySubscriber<Output, Failure>
+        
+        fileprivate var index: Int = 0
+        
+        fileprivate var hasAnyDemand = false
+        
+        init(parent: Future<Output, Failure>, downstream: AnySubscriber<Output, Failure>) {
+            self.parent = parent
+            self.downstream = downstream
         }
         
-        override func receive(completion: Subscribers.Completion<Failure>) {
-            guard !isTerminated else { return }
+        func fullfill(_ result: Result<Output, Failure>) {
+            parent.downstreamLock.lock()
+            guard hasAnyDemand else { parent.downstreamLock.unlock(); return }
             
-            end {
-                onCompletion(completion)
+            switch result {
+            case .success(let output):
+                _ = downstream.receive(output)
+                downstream.receive(completion: .finished)
+                
+            case .failure(let error):
+                downstream.receive(completion: .failure(error))
             }
+            
+            parent.disassociate(index)
+            parent.downstreamLock.unlock()
         }
         
-        override func end(completion: () -> Void) {
-            terminate()
-            completion()
-            downstream = nil
+        func request(_ demand: Subscribers.Demand) {
+            precondition(demand > .none, "demand must not be negative.")
+            hasAnyDemand = true
+            parent.lock.lock()
+            guard let result = parent.result else { parent.lock.unlock(); return }
+            parent.lock.unlock()
+            
+            parent.downstreamLock.lock()
+            switch result {
+            case .success(let output):
+                _ = downstream.receive(output)
+                downstream.receive(completion: .finished)
+                
+            case .failure(let error):
+                downstream.receive(completion: .failure(error))
+            }
+            
+            parent.disassociate(index)
+            parent.downstreamLock.unlock()
         }
         
-        override var description: String {
+        func cancel() {
+            parent.lock.lock()
+            parent.disassociate(index)
+            parent.lock.unlock()
+        }
+
+        var description: String {
             "Future"
+        }
+        
+        var playgroundDescription: Any {
+            description
+        }
+        
+        var customMirror: Mirror {
+            let children: [Mirror.Child] = [
+                ("parent", parent),
+                ("downstream", downstream.box),
+                ("hasAnyDemand", hasAnyDemand)
+            ]
+            
+            return Mirror(self, children: children)
         }
     }
 }

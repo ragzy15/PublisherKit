@@ -29,7 +29,7 @@ extension Publishers {
             
             let tryPrefixWhileSubscription = Inner(downstream: subscriber, operation: predicate)
             
-            subscriber.receive(subscription: tryPrefixWhileSubscription)
+//            subscriber.receive(subscription: tryPrefixWhileSubscription)
             upstream.subscribe(tryPrefixWhileSubscription)
         }
     }
@@ -38,20 +38,14 @@ extension Publishers {
 extension Publishers.TryPrefixWhile {
     
     // MARK: TRY PREFIX WHILE SINK
-    private final class Inner<Downstream: Subscriber>: OperatorSubscriber<Downstream, Upstream, (Output) throws -> Bool> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: FilterProducer<Downstream, Output, Upstream.Output, Upstream.Failure, (Output) throws -> Bool> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        override func operate(on input: Upstream.Output) -> Result<Output, Downstream.Failure>? {
+        override func receive(input: Input) -> CompletionResult<Output, Downstream.Failure>? {
             do {
-                guard try operation(input) else { return nil }
-                return .success(input)
+                return try operation(input) ? .send(input) : .finished
             } catch {
                 return .failure(error)
             }
-        }
-        
-        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
-            let completion = completion.mapError { $0 as Downstream.Failure }
-            downstream?.receive(completion: completion)
         }
         
         override var description: String {

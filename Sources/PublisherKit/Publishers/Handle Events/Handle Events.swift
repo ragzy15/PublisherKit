@@ -66,7 +66,7 @@ extension Publishers {
 extension Publishers.HandleEvents {
     
     // MARK: HANDLE EVENTS SINK
-    private final class Inner<Downstream: Subscriber, Upstream: Publisher>: Subscriber, Subscription where Downstream.Input == Upstream.Output, Downstream.Failure == Upstream.Failure {
+    private final class Inner<Downstream: Subscriber, Upstream: Publisher>: Subscriber, Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Downstream.Input == Upstream.Output, Downstream.Failure == Upstream.Failure {
         
         typealias Input = Upstream.Output
         
@@ -163,6 +163,10 @@ extension Publishers.HandleEvents {
         
         var description: String {
             "HandleEvents"
+        }
+        
+        var playgroundDescription: Any {
+            description
         }
         
         var customMirror: Mirror {

@@ -26,11 +26,7 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            
-            let dropWhileSubscription = Inner(downstream: subscriber, operation: predicate)
-            
-            subscriber.receive(subscription: dropWhileSubscription)
-            upstream.subscribe(dropWhileSubscription)
+            upstream.subscribe(Inner(downstream: subscriber, predicate: predicate))
         }
     }
 }
@@ -38,23 +34,94 @@ extension Publishers {
 extension Publishers.DropWhile {
     
     // MARK: DROP WHILE SINK
-    private final class Inner<Downstream: Subscriber>: OperatorSubscriber<Downstream, Upstream, (Output) -> Bool> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscriber, Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        override func operate(on input: Upstream.Output) -> Result<Output, Failure>? {
-            
-            if operation(input) {
-                return nil
-            } else {
-                return .success(input)
-            }
+        typealias Input = Upstream.Output
+        
+        typealias Failure = Upstream.Failure
+        
+        private var downstream: Downstream?
+        private var status: SubscriptionStatus = .awaiting
+        
+        private var predicate: ((Output) -> Bool)?
+        
+        private let lock = Lock()
+        
+        private var isDropping = true
+        
+        init(downstream: Downstream, predicate: @escaping (Output) -> Bool) {
+            self.downstream = downstream
+            self.predicate = predicate
         }
         
-        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
+        func receive(subscription: Subscription) {
+            lock.lock()
+            guard status == .awaiting else { lock.unlock(); return }
+            status = .subscribed(to: subscription)
+            lock.unlock()
+            
+            downstream?.receive(subscription: self)
+        }
+        
+        func receive(_ input: Input) -> Subscribers.Demand {
+            lock.lock()
+            guard status.isSubscribed else { lock.unlock(); return .none }
+            let predicate = self.predicate
+            lock.unlock()
+            
+            if isDropping {
+                if predicate?(input) ?? true {
+                    return .max(1)
+                }
+                
+                lock.lock()
+                isDropping = false
+                lock.unlock()
+            }
+            
+            return downstream?.receive(input) ?? .none
+        }
+        
+        func receive(completion: Subscribers.Completion<Failure>) {
+            lock.lock()
+            guard status.isSubscribed else { lock.unlock(); return }
+            status = .terminated
+            predicate = nil
+            lock.unlock()
+            
             downstream?.receive(completion: completion)
         }
         
-        override var description: String {
+        func request(_ demand: Subscribers.Demand) {
+            precondition(demand > .none, "demand must not be negative.")
+            
+            lock.lock()
+            guard case .subscribed(let subscription) = status else { lock.unlock(); return }
+            lock.unlock()
+            
+            subscription.request(demand)
+        }
+        
+        func cancel() {
+            lock.lock()
+            guard case .subscribed(let subscription) = status else { lock.unlock(); return }
+            status = .terminated
+            predicate = nil
+            lock.unlock()
+            
+            subscription.cancel()
+        }
+        
+        var description: String {
             "DropWhile"
+        }
+        
+        var playgroundDescription: Any {
+            description
+        }
+        
+        var customMirror: Mirror {
+            Mirror(self, children: [])
         }
     }
 }

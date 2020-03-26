@@ -29,26 +29,9 @@ public struct Fail<Output, Failure: Error>: Publisher {
     }
     
     public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-        
-        let failSubscription = Inner(downstream: subscriber)
-        
-        subscriber.receive(subscription: failSubscription)
-        failSubscription.request(.max(1))
-        
-        failSubscription.receive(completion: .failure(error))
+        subscriber.receive(subscription: Subscriptions.empty)
+        subscriber.receive(completion: .failure(error))
     }
 }
 
-extension Fail: Equatable where Failure: Equatable {
-}
-
-extension Fail {
-    
-    // MARK: FAIL SINK
-    private final class Inner<Downstream: Subscriber>: Subscriptions.Internal<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
-        
-        override var description: String {
-            "Fail"
-        }
-    }
-}
+extension Fail: Equatable where Failure: Equatable { }

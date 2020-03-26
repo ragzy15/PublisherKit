@@ -24,16 +24,6 @@ class FilterProducer<Downstream: Subscriber, Output, Input, Failure: Error, Oper
         fatalError("receive(_:) not overrided.")
     }
     
-    func onCompletion(_ completion: Subscribers.Completion<Failure>) {
-        switch completion {
-        case .finished:
-            downstream?.receive(completion: .finished)
-            
-        case .failure(let error):
-            downstream?.receive(completion: .failure(error as! Downstream.Failure))
-        }
-    }
-    
     var description: String {
         "Inner"
     }
@@ -48,14 +38,9 @@ class FilterProducer<Downstream: Subscriber, Output, Input, Failure: Error, Oper
         
         let children: [Mirror.Child] = [
             ("downstream", downstream as Any),
-            ("status", status)
         ]
         
         return Mirror(self, children: children)
-    }
-    
-    func await() {
-        status = .awaiting
     }
 }
 
@@ -108,7 +93,14 @@ extension FilterProducer: Subscriber {
         guard status.isSubscribed else { lock.unlock(); return }
         status = .terminated
         lock.unlock()
-        onCompletion(completion)
+        
+        switch completion {
+        case .finished:
+            downstream?.receive(completion: .finished)
+            
+        case .failure(let error):
+            downstream?.receive(completion: .failure(error as! Downstream.Failure))
+        }
     }
 }
 
@@ -132,15 +124,5 @@ extension FilterProducer: Subscription {
         status = .terminated
         lock.unlock()
         subscription.cancel()
-        downstream = nil
-    }
-
-    func end(completion: () -> Void) {
-        lock.lock()
-        guard status.isSubscribed else { lock.unlock(); return }
-        status = .terminated
-        lock.unlock()
-        completion()
-        downstream = nil
     }
 }
