@@ -5,10 +5,10 @@
 //  Created by Raghav Ahuja on 18/11/19.
 //
 
-public extension Publishers {
+extension Publishers {
     
     /// A publisher that decodes elements received from an upstream publisher into the specified type.
-    struct Decode<Upstream: Publisher, Output: Decodable, Decoder: TopLevelDecoder>: Publisher where Upstream.Output == Decoder.Input {
+    public struct Decode<Upstream: Publisher, Output: Decodable, Decoder: TopLevelDecoder>: Publisher where Upstream.Output == Decoder.Input {
         
         public typealias Failure = Error
         
@@ -27,11 +27,7 @@ public extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            
-            let decodeSubscriber = Inner(downstream: subscriber, decoder: decoder)
-            decodeSubscriber.logOutput = logOutput
-            subscriber.receive(subscription: decodeSubscriber)
-            upstream.subscribe(decodeSubscriber)
+            upstream.subscribe(Inner(downstream: subscriber, decoder: decoder, logOutput: logOutput))
         }
     }
 }
@@ -39,32 +35,83 @@ public extension Publishers {
 extension Publishers.Decode {
     
     // MARK: DECODE SINK
-    private final class Inner<Downstream: Subscriber, Output: Decodable, Decoder: TopLevelDecoder>: InternalSubscriber<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure, Upstream.Output == Decoder.Input {
+    private final class Inner<Downstream: Subscriber>: Subscriber, Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
+        
+        typealias Input = Upstream.Output
+        
+        typealias Failure = Upstream.Failure
+        
+        private var downstream: Downstream?
+        private var subscription: Subscription?
+        private var finished = false
         
         private let decoder: Decoder
         
-        var logOutput = false
+        let logOutput: Bool
         
-        init(downstream: Downstream, decoder: Decoder) {
+        init(downstream: Downstream, decoder: Decoder, logOutput: Bool) {
             self.decoder = decoder
-            super.init(downstream: downstream)
+            self.logOutput = logOutput
+            self.downstream = downstream
         }
         
-        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
-            if logOutput {
-                decoder.log(from: input)
-            }
+        func receive(_ input: Input) -> Subscribers.Demand {
+            guard !finished else { return .none }
             
-            return Result { try decoder.decode(Output.self, from: input) }
+            if logOutput { decoder.log(from: input) }
+            
+            do {
+                let output = try decoder.decode(Output.self, from: input)
+                return downstream?.receive(output) ?? .none
+            } catch {
+                finished = true
+                subscription?.cancel()
+                subscription = nil
+                downstream?.receive(completion: .failure(error))
+                return .none
+            }
         }
         
-        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
-            let completion = completion.mapError { $0 as Downstream.Failure }
-            downstream?.receive(completion: completion)
+        func receive(completion: Subscribers.Completion<Upstream.Failure>) {
+            guard !finished else { return }
+            finished = true
+            subscription = nil
+            downstream?.receive(completion: completion.mapError { $0 as Error })
         }
         
-        override var description: String {
+        func receive(subscription: Subscription) {
+            guard self.subscription == nil, !finished else { return }
+            self.subscription = subscription
+            downstream?.receive(subscription: self)
+        }
+        
+        func request(_ demand: Subscribers.Demand) {
+            subscription?.request(demand)
+        }
+        
+        func cancel() {
+            guard !finished else { return }
+            finished = true
+            subscription?.cancel()
+            subscription = nil
+        }
+        
+        var description: String {
             "Decode"
+        }
+        
+        var playgroundDescription: Any {
+            description
+        }
+        
+        var customMirror: Mirror {
+            let children: [Mirror.Child] = [
+                ("downstream", downstream as Any),
+                ("finished", finished),
+                ("upstreamSubscription", subscription as Any)
+            ]
+            
+            return Mirror(self, children: children)
         }
     }
 }

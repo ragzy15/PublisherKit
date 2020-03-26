@@ -30,14 +30,7 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            
-            let receiveOnSubscriber = Inner(downstream: subscriber, scheduler: scheduler, options: options)
-                        
-            receiveOnSubscriber.downstreamLock.lock()
-            subscriber.receive(subscription: receiveOnSubscriber)
-            receiveOnSubscriber.downstreamLock.unlock()
-            
-            upstream.subscribe(receiveOnSubscriber)
+            upstream.subscribe(Inner(downstream: subscriber, parent: self))
         }
     }
 }
@@ -45,58 +38,98 @@ extension Publishers {
 extension Publishers.ReceiveOn {
     
     // MARK: RECEIVEON SINK
-    private final class Inner<Downstream: Subscriber, Context: Scheduler>: InternalSubscriber<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscriber, Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        private let scheduler: Context
+        typealias Input = Upstream.Output
         
-        private let options: Context.PKSchedulerOptions?
+        typealias Failure = Upstream.Failure
         
-        fileprivate let downstreamLock = RecursiveLock()
+        fileprivate typealias ReceiveOn = Publishers.ReceiveOn<Upstream, Context>
         
-        init(downstream: Downstream, scheduler: Context, options: Context.PKSchedulerOptions?) {
-            self.scheduler = scheduler
-            self.options = options
-            super.init(downstream: downstream)
+        private enum SubscriptionStatus {
+            case awaiting(parent: ReceiveOn, downstream: Downstream)
+            case subscribed(parent: ReceiveOn, downstream: Downstream, subscription: Subscription)
+            case terminated
         }
         
-        override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
-            getLock().lock()
-            guard status.isSubscribed else { getLock().unlock(); return .none }
-            
-            getLock().unlock()
-            
-            scheduler.schedule(options: options) { [weak self] in
-                self?.downstreamLock.lock()
-                _ = self?.downstream?.receive(input)
-                self?.downstreamLock.unlock()
-            }
-            
-            return demand
+        private var status: SubscriptionStatus
+        
+        private let downstreamLock = RecursiveLock()
+        private let lock = Lock()
+        
+        init(downstream: Downstream, parent: ReceiveOn) {
+            status = .awaiting(parent: parent, downstream: downstream)
         }
         
-        override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
-            getLock().lock()
-            guard status.isSubscribed else { getLock().unlock(); return }
+        func receive(subscription: Subscription) {
+            lock.lock()
+            guard case .awaiting(let parent, let downstream) = status else { lock.unlock(); return }
+            status = .subscribed(parent: parent, downstream: downstream, subscription: subscription)
+            lock.unlock()
             
-            status = .terminated
-            getLock().unlock()
-            
-            scheduler.schedule(options: options) { [weak self] in
-                self?.end {
-                    self?.downstream?.receive(completion: completion)
-                }
-            }
-        }
-        
-        override func end(completion: () -> Void) {
             downstreamLock.lock()
-            completion()
+            downstream.receive(subscription: self)
             downstreamLock.unlock()
-            downstream = nil
         }
         
-        override var description: String {
+        func receive(_ input: Upstream.Output) -> Subscribers.Demand {
+            lock.lock()
+            guard case .subscribed(let parent, let downstream, _) = status else { lock.unlock(); return .none }
+            lock.unlock()
+            
+            parent.scheduler.schedule(options: parent.options) { [weak self] in
+                guard let `self` = self else { return }
+                
+                self.downstreamLock.lock()
+                _ = downstream.receive(input)
+                self.downstreamLock.unlock()
+            }
+            
+            return .none
+        }
+        
+        func receive(completion: Subscribers.Completion<Upstream.Failure>) {
+            lock.lock()
+            guard case .subscribed(let parent, let downstream, _) = status else { lock.unlock(); return }
+            status = .terminated
+            lock.unlock()
+            
+            parent.scheduler.schedule(options: parent.options) { [weak self] in
+                guard let `self` = self else { return }
+                
+                self.downstreamLock.lock()
+                downstream.receive(completion: completion)
+                self.downstreamLock.unlock()
+            }
+        }
+        
+        func request(_ demand: Subscribers.Demand) {
+            lock.lock()
+            guard case .subscribed(_, _, let subscription) = status else { lock.unlock(); return }
+            lock.unlock()
+            
+            subscription.request(demand)
+        }
+        
+        func cancel() {
+            lock.lock()
+            guard case .subscribed(_, _, let subscription) = status else { lock.unlock(); return }
+            status = .terminated
+            lock.unlock()
+            
+            subscription.cancel()
+        }
+        
+        var description: String {
             "ReceiveOn"
+        }
+        
+        var playgroundDescription: Any {
+            description
+        }
+        
+        var customMirror: Mirror {
+            Mirror(self, children: [])
         }
     }
 }

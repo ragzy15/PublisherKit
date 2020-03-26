@@ -30,206 +30,365 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            
-            let flatMapSubscriber = Inner(downstream: subscriber, maxPublishers: maxPublishers, operation: transform)
-            
-            flatMapSubscriber.downstreamLock.lock()
-            subscriber.receive(subscription: flatMapSubscriber)
-            flatMapSubscriber.downstreamLock.unlock()
-            
-            upstream.subscribe(flatMapSubscriber)
+            let inner = Inner(downstream: subscriber, maxPublishers: maxPublishers, transform: transform)
+            subscriber.receive(subscription: inner)
+            upstream.subscribe(inner)
         }
     }
 }
 
 extension Publishers.FlatMap {
     
+    // Credits - broadwaylamb/OpenCombine
+    
     // MARK: FLATMAP SINK
-    private final class Inner<Downstream: Subscriber, NewPublisher: Publisher>: OperatorSubscriber<Downstream, Upstream, (Upstream.Output) -> NewPublisher> where NewPublisher.Output == Downstream.Input, Failure == Downstream.Failure, NewPublisher.Failure == Failure {
+    private final class Inner<Downstream: Subscriber>: Subscriber, Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where NewPublisher.Output == Downstream.Input, Upstream.Failure == Downstream.Failure {
         
-        private let maxPublishers: Subscribers.Demand
+        typealias Input = Upstream.Output
         
-        private var innerStatus: SubscriptionStatus = .awaiting
-        private var innerSubscriptions: [Int: Subscription] = [:]
+        typealias Failure = Upstream.Failure
         
-        private var currentIndex = 0
+        private typealias Index = Int
+        
+        /// All requests to this subscription should be made with the `outerLock`
+        /// acquired.
+        private var outerSubscription: Subscription?
+        
+        // Must be recursive lock. Probably a bug in Combine.
+        /// The lock for requesting from `outerSubscription`.
+        private let outerLock = Lock()
+        
+        /// The lock for modifying the state. All mutable state here should be
+        /// read and modified with this lock acquired.
+        /// The only exception is the `downstreamRecursive` field, which is guarded
+        /// by the `downstreamLock`.
+        private let lock = Lock()
+        
+        /// All the calls to the downstream subscriber should be made with this lock
+        /// acquired.
+        private let downstreamLock = RecursiveLock()
+        
+        private let downstream: Downstream
+        
+        private var downstreamDemand = Subscribers.Demand.none
+        
+        /// This variable is set to `true` whenever we call `downstream.receive(_:)`,
+        /// and then set back to `false`.
+        private var downstreamRecursive = false
+        
+        private var innerRecursive = false
+        
+        private var subscriptions = [Index : Subscription]()
+        private var nextInnerIndex: Index = 0
         private var pendingSubscriptions = 0
         
-        fileprivate let downstreamLock = RecursiveLock()
+        private var buffer = [(Index, NewPublisher.Output)]()
+        private let maxPublishers: Subscribers.Demand
         
-        init(downstream: Downstream, maxPublishers: Subscribers.Demand, operation: @escaping (Upstream.Output) -> NewPublisher) {
+        private let transform: (Input) -> NewPublisher
+        
+        private var cancelledOrCompleted = false
+        private var outerFinished = false
+        
+        init(downstream: Downstream, maxPublishers: Subscribers.Demand, transform: @escaping (Input) -> NewPublisher) {
+            self.downstream = downstream
             self.maxPublishers = maxPublishers
-            super.init(downstream: downstream, operation: operation)
-            requiredDemand = maxPublishers
+            self.transform = transform
         }
         
-        override final func onSubscription(_ subscription: Subscription) {
-            status = .subscribed(to: subscription)
-            getLock().unlock()
-            
+        // MARK: - Subscriber
+        
+        fileprivate func receive(subscription: Subscription) {
+            lock.lock()
+            guard outerSubscription == nil, !cancelledOrCompleted else {
+                lock.unlock()
+                subscription.cancel()
+                return
+            }
+            outerSubscription = subscription
+            lock.unlock()
             subscription.request(maxPublishers)
         }
         
-        override func request(_ demand: Subscribers.Demand) {
-            super.request(self.demand + demand)
-        }
-        
-        override final func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
-            let publisher = operation(input)
-            
-            getLock().lock()
-            currentIndex += 1
+        fileprivate func receive(_ input: Upstream.Output) -> Subscribers.Demand {
+            lock.lock()
+            let cancelledOrCompleted = self.cancelledOrCompleted
+            lock.unlock()
+            if cancelledOrCompleted {
+                return .none
+            }
+            let NewPublisher = transform(input)
+            lock.lock()
+            let innerIndex = nextInnerIndex
+            nextInnerIndex += 1
             pendingSubscriptions += 1
-            getLock().unlock()
-            
-            let subscriber = MapInner(outer: self, index: currentIndex)
-            publisher.subscribe(subscriber)
-            
-            return nil
+            lock.unlock()
+            NewPublisher.subscribe(Side(index: innerIndex, inner: self))
+            return .none
         }
         
-        override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
-            getLock().lock()
-            guard status.isSubscribed else { getLock().unlock(); return }
-            status = .terminated
-            
+        fileprivate func receive(completion: Subscribers.Completion<NewPublisher.Failure>) {
+            outerSubscription = nil
+            lock.lock()
+            outerFinished = true
             switch completion {
             case .finished:
-                sendCompletionIfPossible()
-                
-            case .failure(let error):
-                cancelInnerSubscriptions()
-                end {
-                    downstreamLock.lock()
-                    downstream?.receive(completion: .failure(error))
-                    downstreamLock.unlock()
+                releaseLockThenSendCompletionDownstreamIfNeeded(outerFinished: true)
+                return
+            case .failure:
+                let wasAlreadyCancelledOrCompleted = cancelledOrCompleted
+                cancelledOrCompleted = true
+                for (_, subscription) in subscriptions {
+                    subscription.cancel()
                 }
-            }
-        }
-        
-        override func cancel() {
-            switch status {
-            case .subscribed(let subscription):
-                status = .terminated
-                cancelInnerSubscriptions()
-                subscription.cancel()
-                
-            default: break
-            }
-            
-            super.cancel()
-        }
-        
-        func receiveInner(subscription: Subscription, for index: Int) {
-            getLock().lock()
-            
-            pendingSubscriptions -= 1
-            innerSubscriptions[index] = subscription
-            
-            getLock().unlock()
-            
-            subscription.request(demand == .unlimited ? .unlimited : .max(1))
-        }
-        
-        func receiveInner(input: NewPublisher.Output, for index: Int) -> Subscribers.Demand {
-            getLock().lock()
-            
-            guard demand != .unlimited else {
-                getLock().unlock()
+                subscriptions = [:]
+                lock.unlock()
+                if wasAlreadyCancelledOrCompleted {
+                    return
+                }
                 downstreamLock.lock()
-                _ = downstream?.receive(input)
+                downstream.receive(completion: completion)
                 downstreamLock.unlock()
-                return .unlimited
-            }
-            
-            guard demand != .none else { getLock().unlock(); return .none }
-            
-            demand -= 1
-            
-            getLock().unlock()
-            
-            downstreamLock.lock()
-            let newDemand = downstream?.receive(input) ?? .none
-            downstreamLock.unlock()
-            
-            if newDemand > .none {
-                getLock().lock()
-                demand += newDemand
-                getLock().unlock()
-            }
-            
-            return .max(1)
-        }
-        
-        func receiveInner(completion: Subscribers.Completion<NewPublisher.Failure>, for index: Int) {
-            getLock().lock()
-            innerSubscriptions.removeValue(forKey: index)
-            
-            switch completion {
-            case .finished:
-                sendCompletionIfPossible()
-                
-            case .failure(let error):
-                cancelInnerSubscriptions()
-                
-                end {
-                    downstreamLock.lock()
-                    downstream?.receive(completion: .failure(error))
-                    downstreamLock.unlock()
-                }
             }
         }
         
-        func cancelInnerSubscriptions() {
-            innerSubscriptions.forEach { (_, innerSubscription) in
-                innerSubscription.cancel()
-            }
-            
-            innerSubscriptions = [:]
-        }
+        // MARK: - Subscription
         
-        func sendCompletionIfPossible() {
-            guard status.isTerminated, innerSubscriptions.count + pendingSubscriptions == 0 else {
-                getLock().unlock()
+        fileprivate func request(_ demand: Subscribers.Demand) {
+            if downstreamRecursive {
+                // downstreamRecursive being true means that downstreamLock
+                // is already acquired.
+                downstreamDemand += demand
                 return
             }
-            
-            end {
-                downstreamLock.lock()
-                downstream?.receive(completion: .finished)
-                downstreamLock.unlock()
+            lock.lock()
+            if cancelledOrCompleted {
+                lock.unlock()
+                return
             }
+            if demand == .unlimited {
+                downstreamDemand = .unlimited
+                let buffer = self.buffer
+                self.buffer = []
+                let subscriptions = self.subscriptions
+                lock.unlock()
+                downstreamLock.lock()
+                downstreamRecursive = true
+                for (_, NewPublisherOutput) in buffer {
+                    _ = downstream.receive(NewPublisherOutput)
+                }
+                downstreamRecursive = false
+                downstreamLock.unlock()
+                for (_, subscription) in subscriptions {
+                    subscription.request(.unlimited)
+                }
+                lock.lock()
+            } else {
+                downstreamDemand += demand
+                while !buffer.isEmpty && downstreamDemand > 0 {
+                    // FIXME: This has quadratic complexity.
+                    // This is what Combine does.
+                    // Can we improve perfomance by using e. g. Deque instead of Array?
+                    // Or array's cache locality makes this solution more efficient?
+                    // Must benchmark before optimizing!
+                    //
+                    // https://www.cocoawithlove.com/blog/2016/09/22/deque.html
+                    let (index, value) = buffer.removeFirst()
+                    downstreamDemand -= 1
+                    let subscription = subscriptions[index]
+                    lock.unlock()
+                    downstreamLock.lock()
+                    downstreamRecursive = true
+                    let additionalDemand = downstream.receive(value)
+                    downstreamRecursive = false
+                    downstreamLock.unlock()
+                    if additionalDemand != .none {
+                        lock.lock()
+                        downstreamDemand += additionalDemand
+                        lock.unlock()
+                    }
+                    if let subscription = subscription {
+                        innerRecursive = true
+                        subscription.request(.max(1))
+                        innerRecursive = false
+                    }
+                    lock.lock()
+                }
+            }
+            releaseLockThenSendCompletionDownstreamIfNeeded(outerFinished: outerFinished)
         }
         
-        override var description: String {
+        fileprivate func cancel() {
+            lock.lock()
+            cancelledOrCompleted = true
+            let subscriptions = self.subscriptions
+            self.subscriptions = [:]
+            lock.unlock()
+            for (_, subscription) in subscriptions {
+                subscription.cancel()
+            }
+            // Combine doesn't acquire the lock here. Weird.
+            outerSubscription?.cancel()
+            outerSubscription = nil
+        }
+        
+        // MARK: - Reflection
+        
+        fileprivate var description: String {
             "FlatMap"
         }
         
-        private final class MapInner: Subscriber {
+        fileprivate var customMirror: Mirror {
+            Mirror(self, children: [])
+        }
+        
+        fileprivate var playgroundDescription: Any { return description }
+        
+        // MARK: - Private
+        
+        private func receiveInner(subscription: Subscription, _ index: Index) {
+            lock.lock()
+            pendingSubscriptions -= 1
+            subscriptions[index] = subscription
             
-            typealias Input = NewPublisher.Output
+            let demand = downstreamDemand == .unlimited
+                ? Subscribers.Demand.unlimited
+                : .max(1)
             
-            typealias Failure = NewPublisher.Failure
-            
-            private let outer: Inner
-            private let index: Int
-            
-            init(outer: Inner, index: Int) {
-                self.outer = outer
-                self.index = index
+            lock.unlock()
+            subscription.request(demand)
+        }
+        
+        private func receiveInner(_ input: NewPublisher.Output, _ index: Index) -> Subscribers.Demand {
+            lock.lock()
+            if downstreamDemand == .unlimited {
+                lock.unlock()
+                downstreamLock.lock()
+                downstreamRecursive = true
+                _ = downstream.receive(input)
+                downstreamRecursive = false
+                downstreamLock.unlock()
+                return .none
             }
-            
-            func receive(subscription: Subscription) {
-                outer.receiveInner(subscription: subscription, for: index)
+            if downstreamDemand == .none || innerRecursive {
+                buffer.append((index, input))
+                lock.unlock()
+                return .none
             }
-            
-            func receive(_ input: NewPublisher.Output) -> Subscribers.Demand {
-                outer.receiveInner(input: input, for: index)
+            downstreamDemand -= 1
+            lock.unlock()
+            downstreamLock.lock()
+            downstreamRecursive = true
+            let newDemand = downstream.receive(input)
+            downstreamRecursive = false
+            downstreamLock.unlock()
+            if newDemand > 0 {
+                lock.lock()
+                downstreamDemand += newDemand
+                lock.unlock()
             }
-            
-            func receive(completion: Subscribers.Completion<NewPublisher.Failure>) {
-                outer.receiveInner(completion: completion, for: index)
+            return .max(1)
+        }
+        
+        private func receiveInner(completion: Subscribers.Completion<NewPublisher.Failure>, _ index: Index) {
+            switch completion {
+            case .finished:
+                lock.lock()
+                subscriptions.removeValue(forKey: index)
+                let downstreamCompleted = releaseLockThenSendCompletionDownstreamIfNeeded(
+                    outerFinished: outerFinished
+                )
+                if !downstreamCompleted {
+                    requestOneMorePublisher()
+                }
+            case .failure:
+                lock.lock()
+                if cancelledOrCompleted {
+                    lock.unlock()
+                    return
+                }
+                cancelledOrCompleted = true
+                let subscriptions = self.subscriptions
+                self.subscriptions = [:]
+                lock.unlock()
+                for (i, subscription) in subscriptions where i != index {
+                    subscription.cancel()
+                }
+                downstreamLock.lock()
+                downstream.receive(completion: completion)
+                downstreamLock.unlock()
             }
         }
+        
+        private func requestOneMorePublisher() {
+            if maxPublishers != .unlimited {
+                outerLock.lock()
+                outerSubscription?.request(.max(1))
+                outerLock.unlock()
+            }
+        }
+        
+        /// - Precondition: `lock` is acquired
+        /// - Postcondition: `lock` is released
+        ///
+        /// - Returns: `true` if a completion was sent downstream
+        @discardableResult
+        private func releaseLockThenSendCompletionDownstreamIfNeeded(outerFinished: Bool) -> Bool {
+            #if DEBUG
+            lock.assertOwner() // Sanity check
+            #endif
+            if !cancelledOrCompleted && outerFinished && buffer.isEmpty &&
+                subscriptions.count + pendingSubscriptions == 0 {
+                cancelledOrCompleted = true
+                lock.unlock()
+                downstreamLock.lock()
+                downstream.receive(completion: .finished)
+                downstreamLock.unlock()
+                return true
+            }
+            
+            lock.unlock()
+            return false
+        }
+        
+        // MARK: - Side
+        
+        private struct Side: Subscriber, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable {
+            
+            private let index: Index
+            private let inner: Inner
+            
+            fileprivate let combineIdentifier = CombineIdentifier()
+            
+            fileprivate init(index: Index, inner: Inner) {
+                self.index = index
+                self.inner = inner
+            }
+            
+            fileprivate func receive(subscription: Subscription) {
+                inner.receiveInner(subscription: subscription, index)
+            }
+            
+            fileprivate func receive(_ input: NewPublisher.Output) -> Subscribers.Demand {
+                return inner.receiveInner(input, index)
+            }
+            
+            fileprivate func receive(completion: Subscribers.Completion<NewPublisher.Failure>) {
+                inner.receiveInner(completion: completion, index)
+            }
+            
+            fileprivate var description: String {
+                inner.description
+            }
+            
+            fileprivate var customMirror: Mirror {
+                inner.customMirror
+            }
+            
+            fileprivate var playgroundDescription: Any {
+                inner.playgroundDescription
+            }
+        }
+        
     }
 }

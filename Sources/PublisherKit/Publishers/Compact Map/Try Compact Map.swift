@@ -5,10 +5,10 @@
 //  Created by Raghav Ahuja on 26/11/19.
 //
 
-public extension Publishers {
+extension Publishers {
     
     /// A publisher that republishes all non-`nil` results of calling an error-throwing closure with each received element.
-    struct TryCompactMap<Upstream: Publisher, Output>: Publisher {
+    public struct TryCompactMap<Upstream: Publisher, Output>: Publisher {
         
         public typealias Failure = Error
         
@@ -24,10 +24,7 @@ public extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            
-            let tryCompactMapSubscriber = Inner(downstream: subscriber, operation: transform)
-            subscriber.receive(subscription: tryCompactMapSubscriber)
-            upstream.receive(subscriber: tryCompactMapSubscriber)
+            upstream.receive(subscriber: Inner(downstream: subscriber, operation: transform))
         }
     }
 }
@@ -35,39 +32,25 @@ public extension Publishers {
 extension Publishers.TryCompactMap {
     
     public func compactMap<T>(_ transform: @escaping (Output) throws -> T?) -> Publishers.TryCompactMap<Upstream, T> {
-        
-        let newTransform: (Upstream.Output) throws -> T? = { output in
-            if let newOutput = try self.transform(output) {
-                return try transform(newOutput)
-            } else {
-                return nil
-            }
-        }
-        
-        return Publishers.TryCompactMap<Upstream, T>(upstream: upstream, transform: newTransform)
+        Publishers.TryCompactMap(upstream: upstream, transform: { try self.transform($0).flatMap(transform) })
     }
 }
 
 extension Publishers.TryCompactMap {
     
     // MARK: TRY COMPACTMAP SINK
-    private final class Inner<Downstream: Subscriber>: OperatorSubscriber<Downstream, Upstream, (Upstream.Output) throws -> Output?> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: FilterProducer<Downstream, Output, Upstream.Output, Upstream.Failure, (Upstream.Output) throws -> Output?> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
+        override func receive(input: Input) -> CompletionResult<Output, Downstream.Failure>? {
             do {
                 if let output = try operation(input) {
-                    return .success(output)
+                    return .send(output)
                 } else {
                     return nil
                 }
             } catch {
                 return .failure(error)
             }
-        }
-        
-        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
-            let completion = completion.mapError { $0 as Downstream.Failure }
-            downstream?.receive(completion: completion)
         }
         
         override var description: String {

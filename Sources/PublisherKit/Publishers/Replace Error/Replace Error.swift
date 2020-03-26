@@ -26,55 +26,109 @@ public extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            
-            let replaceErrorSubscriber = Inner(downstream: subscriber)
-            subscriber.receive(subscription: replaceErrorSubscriber)
-            
-            replaceErrorSubscriber.onError = { (downstream) in
-                _ = downstream?.receive(self.output)
-            }
-            
-            upstream.subscribe(replaceErrorSubscriber)
+            upstream.subscribe(Inner(downstream: subscriber, output: output))
         }
     }
 }
 
-extension Publishers.ReplaceError: Equatable where Upstream: Equatable, Upstream.Output: Equatable {
-    
-}
+extension Publishers.ReplaceError: Equatable where Upstream: Equatable, Upstream.Output: Equatable { }
 
 extension Publishers.ReplaceError {
     
     // MARK: REPLACE ERROR SINK
-    private final class Inner<Downstream: Subscriber>: InternalSubscriber<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscriber, Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        var onError: ((Downstream?) -> Void)?
+        private var downstream: Downstream?
+        private var status: SubscriptionStatus = .awaiting
+        private let lock = Lock()
+        private var pendingDemand: Subscribers.Demand = .none
+        private var terminated = false
         
-        override func operate(on input: Input) -> Result<Downstream.Input, Downstream.Failure>? {
-            .success(input)
+        private let output: Output
+        
+        init(downstream: Downstream, output: Output) {
+            self.downstream = downstream
+            self.output = output
         }
         
-        override func onCompletion(_ completion: Subscribers.Completion<Failure>) {
-            if let error = completion.getError() {
-                Logger.default.log(error: error)
-                onError?(downstream)
+        func receive(subscription: Subscription) {
+            lock.lock()
+            guard status == .awaiting else { lock.unlock(); return }
+            status = .subscribed(to: subscription)
+            lock.unlock()
+            
+            downstream?.receive(subscription: self)
+        }
+        
+        func receive(_ input: Upstream.Output) -> Subscribers.Demand {
+            lock.lock()
+            guard status.isSubscribed else { lock.unlock(); return .none }
+            lock.unlock()
+            
+            return downstream?.receive(input) ?? .none
+        }
+        
+        func receive(completion: Subscribers.Completion<Upstream.Failure>) {
+            lock.lock()
+            guard status.isSubscribed else { lock.unlock(); return }
+            status = .terminated
+            
+            switch completion {
+            case .finished:
+                lock.unlock()
+                downstream?.receive(completion: .finished)
+                
+            case .failure:
+                guard pendingDemand > .none else {
+                    terminated = true
+                    lock.unlock()
+                    return
+                }
+                lock.unlock()
+                
+                _ = downstream?.receive(output)
+                downstream?.receive(completion: .finished)
+            }
+        }
+        
+        func request(_ demand: Subscribers.Demand) {
+            lock.lock()
+            
+            if terminated {
+                terminated = false
+                lock.unlock()
+                
+                _ = downstream?.receive(output)
+                downstream?.receive(completion: .finished)
+                return
             }
             
-            downstream?.receive(completion: .finished)
+            guard case .subscribed(let subscription) = status else { lock.unlock(); return }
+            pendingDemand += demand
+            lock.unlock()
+            
+            subscription.request(demand)
         }
         
-        override func cancel() {
-            super.cancel()
-            onError = nil
+        func cancel() {
+            lock.lock()
+            guard case .subscribed(let subscription) = status else { lock.unlock(); return }
+            status = .terminated
+            lock.unlock()
+            
+            subscription.cancel()
         }
         
-        override func end(completion: () -> Void) {
-            super.end(completion: completion)
-            onError = nil
-        }
-        
-        override var description: String {
+        var description: String {
             "ReplaceError"
+        }
+        
+        var playgroundDescription: Any {
+            description
+        }
+        
+        var customMirror: Mirror {
+            Mirror(self, children: [])
         }
     }
 }

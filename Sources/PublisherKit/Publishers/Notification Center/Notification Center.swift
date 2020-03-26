@@ -12,11 +12,6 @@ extension NotificationCenter {
     public func pkPublisher(for name: Notification.Name, object: AnyObject? = nil) -> NotificationCenter.PKPublisher {
         PKPublisher(center: self, name: name, object: object)
     }
-    
-    @available(*, deprecated, renamed: "pkPublisher")
-    public func nkPublisher(for name: Notification.Name, object: AnyObject? = nil) -> NotificationCenter.PKPublisher {
-        pkPublisher(for: name, object: object)
-    }
 }
 
 extension NotificationCenter {
@@ -51,13 +46,7 @@ extension NotificationCenter {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            
-            let notificationSubscriber = Inner(downstream: subscriber, center: center, name: name, object: object)
-            
-            subscriber.receive(subscription: notificationSubscriber)
-            notificationSubscriber.request(.unlimited)
-            
-            notificationSubscriber.observe()
+            subscriber.receive(subscription: Subscription(downstream: subscriber, center: center, name: name, object: object))
         }
     }
 }
@@ -65,7 +54,7 @@ extension NotificationCenter {
 extension NotificationCenter.PKPublisher {
     
     // MARK: NOTIFICATION CENTER SINK
-    private final class Inner<Downstream: Subscriber>: Subscriptions.Internal<Downstream, Output, Failure> where Downstream.Failure == Failure, Downstream.Input == Output {
+    private final class Subscription<Downstream: Subscriber>: PublisherKit.Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Downstream.Failure == Failure, Downstream.Input == Output {
         
         private var center: NotificationCenter?
         private let name: Notification.Name
@@ -73,37 +62,76 @@ extension NotificationCenter.PKPublisher {
         
         private var observer: NSObjectProtocol?
         
+        private let lock = Lock()
+        private let downstreamLock = RecursiveLock()
+        
+        private var demand: Subscribers.Demand = .none
+        
         init(downstream: Downstream, center: NotificationCenter, name: Notification.Name, object: AnyObject?) {
             self.center = center
             self.name = name
             self.object = object
-            super.init(downstream: downstream)
-        }
-        
-        func observe() {
-            observer = center?.addObserver(forName: name, object: object, queue: nil) { [weak self] (notification) in
-                self?.receive(input: notification)
+            
+            observer = center.addObserver(forName: name, object: object, queue: nil) { [weak self] (notification) in
+                
+                guard let `self` = self else { return }
+                
+                self.lock.lock()
+                guard self.demand > .none else { self.lock.unlock(); return }
+                self.demand -= 1
+                self.lock.unlock()
+                
+                self.downstreamLock.lock()
+                let additionalDemand = downstream.receive(notification)
+                self.downstreamLock.unlock()
+                
+                self.lock.lock()
+                self.demand += additionalDemand
+                self.lock.unlock()
             }
         }
         
-        override func cancel() {
-            super.cancel()
-            
-            if let observer = observer {
-                center?.removeObserver(observer, name: name, object: object)
-            }
-            
-            observer = nil
-            object = nil
-            center = nil
+        func request(_ demand: Subscribers.Demand) {
+            lock.lock()
+            self.demand += demand
+            lock.unlock()
         }
         
-        override var description: String {
+        func cancel() {
+            lock.lock()
+            guard let center = center, let observer = observer else {
+                lock.unlock()
+                return
+            }
+            
+            self.observer = nil
+            self.center = nil
+            let object = self.object
+            self.object = nil
+            lock.unlock()
+            center.removeObserver(observer, name: name, object: object)
+        }
+        
+        var description: String {
             "NotificationCenter Observer"
         }
         
-        override var customMirror: Mirror {
-            Mirror(self, children: [])
+        var playgroundDescription: Any {
+            description
+        }
+        
+        var customMirror: Mirror {
+            lock.lock()
+            defer { lock.unlock() }
+            
+            let children: [Mirror.Child] = [
+                ("center", center as Any),
+                ("name", name),
+                ("object", object as Any),
+                ("demand", demand)
+            ]
+            
+            return Mirror(self, children: children)
         }
     }
 }

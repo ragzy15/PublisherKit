@@ -24,10 +24,7 @@ public extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            
-            let tryMapSubscriber = Inner(downstream: subscriber, operation: transform)
-            subscriber.receive(subscription: tryMapSubscriber)
-            upstream.receive(subscriber: tryMapSubscriber)
+            upstream.receive(subscriber: Inner(downstream: subscriber, transform: transform))
         }
     }
 }
@@ -35,42 +32,102 @@ public extension Publishers {
 extension Publishers.TryMap {
     
     public func map<T>(_ transform: @escaping (Output) -> T) -> Publishers.TryMap<Upstream, T> {
-        
-        let newTransform: (Upstream.Output) throws -> T = { output in
-            let newOutput = try self.transform(output)
-            return transform(newOutput)
-        }
-        
-        return Publishers.TryMap<Upstream, T>(upstream: upstream, transform: newTransform)
+        Publishers.TryMap(upstream: upstream, transform: { try transform(self.transform($0)) })
     }
     
     public func tryMap<T>(_ transform: @escaping (Output) throws -> T) -> Publishers.TryMap<Upstream, T> {
-        
-        let newTransform: (Upstream.Output) throws -> T = { output in
-            let newOutput = try self.transform(output)
-            return try transform(newOutput)
-        }
-        
-        return Publishers.TryMap<Upstream, T>(upstream: upstream, transform: newTransform)
+        Publishers.TryMap(upstream: upstream, transform: { try transform(self.transform($0)) })
     }
 }
 
 extension Publishers.TryMap {
     
     // MARK: TRY MAP SINK
-    private final class Inner<Downstream: Subscriber>: OperatorSubscriber<Downstream, Upstream, (Upstream.Output) throws -> Output> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscriber, Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Output == Downstream.Input, Error == Downstream.Failure {
         
-        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
-            Result { try operation(input) }
+        typealias Input = Upstream.Output
+        
+        typealias Failure = Upstream.Failure
+        
+        private var downstream: Downstream?
+        private let transform: (Input) throws -> Output
+        
+        private var status: SubscriptionStatus = .awaiting
+        private let lock = Lock()
+        
+        init(downstream: Downstream, transform: @escaping (Input) throws -> Output) {
+            self.downstream = downstream
+            self.transform = transform
         }
         
-        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
-            let completion = completion.mapError { $0 as Downstream.Failure }
-            downstream?.receive(completion: completion)
+        func receive(subscription: Subscription) {
+            lock.lock()
+            guard status == .awaiting else { lock.unlock(); return }
+            status = .subscribed(to: subscription)
+            lock.unlock()
+            
+            downstream?.receive(subscription: self)
         }
         
-        override var description: String {
+        func receive(_ input: Input) -> Subscribers.Demand {
+            lock.lock()
+            guard case .subscribed(let subscription) = status else { lock.unlock(); return .none }
+            lock.unlock()
+            
+            do {
+                return downstream?.receive(try transform(input)) ?? .none
+            } catch {
+                lock.lock()
+                status = .terminated
+                lock.unlock()
+                
+                subscription.cancel()
+                
+                downstream?.receive(completion: .failure(error))
+                downstream = nil
+                
+                return .none
+            }
+        }
+        
+        func receive(completion: Subscribers.Completion<Failure>) {
+            lock.lock()
+            guard status.isSubscribed else { lock.unlock(); return }
+            status = .terminated
+            lock.unlock()
+            
+            downstream?.receive(completion: completion.mapError { $0 as Downstream.Failure })
+            downstream = nil
+        }
+        
+        func request(_ demand: Subscribers.Demand) {
+            lock.lock()
+            guard case .subscribed(let subscription) = status else { lock.unlock(); return }
+            lock.unlock()
+            
+            subscription.request(demand)
+        }
+        
+        func cancel() {
+            lock.lock()
+            guard case .subscribed(let subscription) = status else { lock.unlock(); return }
+            status = .terminated
+            lock.unlock()
+            
+            downstream = nil
+            subscription.cancel()
+        }
+        
+        var description: String {
             "TryMap"
+        }
+        
+        var playgroundDescription: Any {
+            description
+        }
+        
+        var customMirror: Mirror {
+            Mirror(reflecting: self)
         }
     }
 }

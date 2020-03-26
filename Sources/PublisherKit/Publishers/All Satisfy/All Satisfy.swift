@@ -28,10 +28,7 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            
-            let allSatisfySubscriber = Inner(downstream: subscriber, operation: predicate)
-            subscriber.receive(subscription: allSatisfySubscriber)
-            upstream.subscribe(allSatisfySubscriber)
+            upstream.subscribe(Inner(downstream: subscriber, operation: predicate))
         }
     }
 }
@@ -39,14 +36,11 @@ extension Publishers {
 extension Publishers.AllSatisfy {
     
     // MARK: ALL SATISFY SINK
-    private final class Inner<Downstream: Subscriber>: OperatorSubscriber<Downstream, Upstream, (Upstream.Output) -> Bool> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: ReduceProducer<Downstream, Output, Upstream.Output, Upstream.Failure, (Upstream.Output) -> Bool> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
-            .success(operation(input))
-        }
-        
-        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
-            downstream?.receive(completion: completion)
+        override func receive(input: Input) -> CompletionResult<Void, Failure> {
+            output = operation(input)
+            return output == true ? .send : .finished
         }
         
         override var description: String {

@@ -24,11 +24,6 @@ extension URLSession {
         return DataTaskPKPublisher(name: name, request: request, session: self)
     }
     
-    @available(*, deprecated, renamed: "nkDataTaskPublisher")
-    public func nkTaskPublisher(for url: URL, name: String = "") -> DataTaskPKPublisher {
-        dataTaskPKPublisher(for: url, name: name)
-    }
-    
     /// Returns a publisher that wraps a URL session data task for a given URL request.
     ///
     /// The publisher publishes data when the task completes, or terminates if the task fails with an error.
@@ -38,17 +33,9 @@ extension URLSession {
     public func dataTaskPKPublisher(for request: URLRequest, name: String = "") -> DataTaskPKPublisher {
         DataTaskPKPublisher(name: name, request: request, session: self)
     }
-    
-    @available(*, deprecated, renamed: "nkDataTaskPublisher")
-    public func nkTaskPublisher(for request: URLRequest, name: String = "") -> DataTaskPKPublisher {
-        dataTaskPKPublisher(for: request, name: name)
-    }
 }
 
 extension URLSession {
-    
-    @available(*, deprecated, renamed: "DataTaskPKPublisher")
-    public typealias NKDataTaskPublisher = DataTaskPKPublisher
     
     public struct DataTaskPKPublisher: PublisherKit.Publisher {
         
@@ -60,7 +47,7 @@ extension URLSession {
         
         public let session: URLSession
         
-        public var name: String
+        public let name: String
         
         public init(name: String = "", request: URLRequest, session: URLSession) {
             self.name = name
@@ -69,15 +56,7 @@ extension URLSession {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            
-            let dataTaskSubscriber = Inner(downstream: subscriber)
-            
-            subscriber.receive(subscription: dataTaskSubscriber)
-            dataTaskSubscriber.request(.max(1))
-            
-            dataTaskSubscriber.resume(with: request, in: session)
-            
-            Logger.default.logAPIRequest(request: request, name: name)
+            subscriber.receive(subscription: Inner(downstream: subscriber, parent: self))
         }
     }
 }
@@ -85,35 +64,88 @@ extension URLSession {
 extension URLSession.DataTaskPKPublisher {
     
     // MARK: DATA TASK SINK
-    private final class Inner<Downstream: Subscriber>: Subscriptions.Internal<Downstream, Output, Failure>, URLSessionTaskPublisherDelegate where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private var task: URLSessionDataTask?
         
-        func resume(with request: URLRequest, in session: URLSession) {
-            getLock().lock()
-            guard task == nil else { getLock().unlock(); return }
+        private let lock = Lock()
+        private var downstream: Downstream?
+        private var demand: Subscribers.Demand = .none
+        
+        private var parent: URLSession.DataTaskPKPublisher?
+        
+        init(downstream: Downstream, parent: URLSession.DataTaskPKPublisher) {
+            self.downstream = downstream
+            self.parent = parent
+        }
+        
+        func request(_ demand: Subscribers.Demand) {
+            lock.lock()
+            guard let parent = parent, task == nil else { lock.unlock(); return }
             
-            let completion = handleCompletion(subscriber: self)
-            task = session.dataTask(with: request, completionHandler: completion)
+            task = parent.session.dataTask(with: parent.request) { [weak self] in
+                self?.handleResponse(data: $0, response: $1, error: $2)
+            }
             
-            getLock().unlock()
+            self.demand += demand
+            
+            lock.unlock()
+            
+            Logger.default.logAPIRequest(request: parent.request, name: parent.name)
             
             task?.resume()
         }
         
-        override func end(completion: () -> Void) {
-            super.end(completion: completion)
-            task = nil
+        private func handleResponse(data: Data?, response: URLResponse?, error: Error?) {
+            lock.lock()
+            guard demand > .none, let downstream = downstream else { lock.unlock(); return }
+            terminate()
+            lock.unlock()
+            
+            if let error = error {
+                downstream.receive(completion: .failure(error))
+            } else if let response = response as? HTTPURLResponse, let data = data {
+                _ = downstream.receive((data, response))
+                downstream.receive(completion: .finished)
+            } else {
+                downstream.receive(completion: .failure(URLError(.unknown)))
+            }
         }
         
-        override func cancel() {
-            super.cancel()
+        func cancel() {
+            lock.lock()
+            guard downstream != nil else { lock.unlock(); return }
+            let task = self.task
+            terminate()
+            lock.unlock()
+            
             task?.cancel()
+        }
+        
+        private func terminate() {
+            downstream = nil
+            demand = .none
+            parent = nil
             task = nil
         }
         
-        override var description: String {
-            "Data Task Publisher"
+        var description: String {
+            "DataTaskPublisher"
+        }
+        
+        var playgroundDescription: Any {
+            description
+        }
+        
+        var customMirror: Mirror {
+            let children: [Mirror.Child] = [
+                ("task", task as Any),
+                ("downstream", downstream as Any),
+                ("parent", parent as Any),
+                ("demand", demand)
+            ]
+            
+            return Mirror(self, children: children)
         }
     }
 }

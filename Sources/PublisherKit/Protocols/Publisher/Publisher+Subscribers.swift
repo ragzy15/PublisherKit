@@ -27,7 +27,7 @@ extension Publisher {
     /// - Parameter subject: The subject to attach to this publisher.
     /// - Returns: A cancellable instance; used when you end assignment of the received value. Deallocation of the result will tear down the subscription stream.
     public func subscribe<S: Subject>(_ subject: S) -> AnyCancellable where Output == S.Output, Failure == S.Failure {
-        let subscriber = Subscribers.InternalSubject(subject: subject)
+        let subscriber = SubjectSubscriber(subject: subject)
         subscribe(subscriber)
         return AnyCancellable(subscriber)
     }

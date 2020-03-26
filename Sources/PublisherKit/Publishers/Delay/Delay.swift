@@ -40,16 +40,7 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            
-            let delaySubscriber = Inner(downstream: subscriber, interval: interval,
-                                        tolerance: tolerance, scheduler: scheduler,
-                                        options: options)
-            
-            delaySubscriber.downstreamLock.lock()
-            subscriber.receive(subscription: delaySubscriber)
-            delaySubscriber.downstreamLock.unlock()
-            
-            upstream.subscribe(delaySubscriber)
+            upstream.subscribe(Inner(downstream: subscriber, parent: self))
         }
     }
 }
@@ -57,67 +48,98 @@ extension Publishers {
 extension Publishers.Delay {
     
     // MARK: DELAY SINK
-    private final class Inner<Downstream: Subscriber, Context: Scheduler>: InternalSubscriber<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscriber, Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        let interval: Context.PKSchedulerTimeType.Stride
+        typealias Input = Upstream.Output
         
-        let tolerance: Context.PKSchedulerTimeType.Stride
+        typealias Failure = Upstream.Failure
         
-        let scheduler: Context
+        fileprivate typealias Delay = Publishers.Delay<Upstream, Context>
         
-        let options: Context.PKSchedulerOptions?
-        
-        fileprivate let downstreamLock = RecursiveLock()
-        
-        init(downstream: Downstream, interval: Context.PKSchedulerTimeType.Stride,
-             tolerance: Context.PKSchedulerTimeType.Stride, scheduler: Context,
-             options: Context.PKSchedulerOptions?) {
-            
-            self.interval = interval
-            self.tolerance = tolerance
-            self.scheduler = scheduler
-            self.options = options
-            super.init(downstream: downstream)
+        private enum SubscriptionStatus {
+            case awaiting(parent: Delay, downstream: Downstream)
+            case subscribed(parent: Delay, downstream: Downstream, subscription: Subscription)
+            case terminated
         }
         
-        override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
-            getLock().lock()
-            guard status.isSubscribed else { getLock().unlock(); return .none }
-            
-            getLock().unlock()
-            
-            scheduler.schedule(after: scheduler.now.advanced(by: interval), tolerance: tolerance, options: options) { [weak self] in
-                self?.downstreamLock.lock()
-                _ = self?.downstream?.receive(input)
-                self?.downstreamLock.unlock()
-            }
-            
-            return demand
+        private var status: SubscriptionStatus
+        
+        private let downstreamLock = RecursiveLock()
+        private let lock = Lock()
+        
+        init(downstream: Downstream, parent: Delay) {
+            status = .awaiting(parent: parent, downstream: downstream)
         }
         
-        override func receive(completion: Subscribers.Completion<Upstream.Failure>) {
-            getLock().lock()
-            guard status.isSubscribed else { getLock().unlock(); return }
+        func receive(subscription: Subscription) {
+            lock.lock()
+            guard case .awaiting(let parent, let downstream) = status else { lock.unlock(); return }
+            status = .subscribed(parent: parent, downstream: downstream, subscription: subscription)
+            lock.unlock()
             
-            status = .terminated
-            getLock().unlock()
-            
-            scheduler.schedule(after: scheduler.now.advanced(by: interval), tolerance: tolerance, options: options) { [weak self] in
-                self?.end {
-                    self?.downstream?.receive(completion: completion)
-                }
-            }
-        }
-        
-        override func end(completion: () -> Void) {
             downstreamLock.lock()
-            completion()
+            downstream.receive(subscription: self)
             downstreamLock.unlock()
-            downstream = nil
         }
         
-        override var description: String {
+        func receive(_ input: Upstream.Output) -> Subscribers.Demand {
+            lock.lock()
+            guard case .subscribed(let parent, let downstream, _) = status else { lock.unlock(); return .none }
+            lock.unlock()
+            
+            parent.scheduler.schedule(after: parent.scheduler.now.advanced(by: parent.interval), tolerance: parent.tolerance, options: parent.options) { [weak self] in
+                guard let `self` = self else { return }
+                
+                self.downstreamLock.lock()
+                _ = downstream.receive(input)
+                self.downstreamLock.unlock()
+            }
+            
+            return .none
+        }
+        
+        func receive(completion: Subscribers.Completion<Upstream.Failure>) {
+            lock.lock()
+            guard case .subscribed(let parent, let downstream, _) = status else { lock.unlock(); return }
+            status = .terminated
+            lock.unlock()
+            
+            parent.scheduler.schedule(after: parent.scheduler.now.advanced(by: parent.interval), tolerance: parent.tolerance, options: parent.options) { [weak self] in
+                guard let `self` = self else { return }
+                
+                self.downstreamLock.lock()
+                downstream.receive(completion: completion)
+                self.downstreamLock.unlock()
+            }
+        }
+        
+        func request(_ demand: Subscribers.Demand) {
+            lock.lock()
+            guard case .subscribed(_, _, let subscription) = status else { lock.unlock(); return }
+            lock.unlock()
+            
+            subscription.request(demand)
+        }
+        
+        func cancel() {
+            lock.lock()
+            guard case .subscribed(_, _, let subscription) = status else { lock.unlock(); return }
+            status = .terminated
+            lock.unlock()
+            
+            subscription.cancel()
+        }
+        
+        var description: String {
             "Delay"
+        }
+        
+        var playgroundDescription: Any {
+            description
+        }
+        
+        var customMirror: Mirror {
+            Mirror(self, children: [])
         }
     }
 }
