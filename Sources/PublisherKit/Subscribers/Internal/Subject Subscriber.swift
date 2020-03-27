@@ -1,6 +1,6 @@
 //
 //  Subject Subscriber.swift
-//  
+//  PublisherKit
 //
 //  Created by Raghav Ahuja on 20/03/20.
 //

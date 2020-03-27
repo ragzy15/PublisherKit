@@ -7,14 +7,14 @@
 
 import Foundation
 
-public class AsynchronousOperation: Operation {
+open class AsynchronousOperation: Operation {
     
-    override public var isAsynchronous: Bool {
+    override open var isAsynchronous: Bool {
         return true
     }
 
     private var _isFinished: Bool = false
-    override public var isFinished: Bool {
+    override open var isFinished: Bool {
         get {
             return _isFinished
         } set {
@@ -25,7 +25,7 @@ public class AsynchronousOperation: Operation {
     }
 
     private var _isExecuting: Bool = false
-    override public var isExecuting: Bool {
+    override open var isExecuting: Bool {
         get {
             return _isExecuting
         } set {
@@ -35,7 +35,7 @@ public class AsynchronousOperation: Operation {
         }
     }
 
-    override public func start() {
+    override open func start() {
         guard !isCancelled else {
             return
         }
@@ -43,11 +43,11 @@ public class AsynchronousOperation: Operation {
         main()
     }
 
-    override public func main() {
+    override open func main() {
         fatalError("Implement in sublcass to perform task")
     }
 
-    public func finish() {
+    open func finish() {
         isExecuting = false
         isFinished = true
     }

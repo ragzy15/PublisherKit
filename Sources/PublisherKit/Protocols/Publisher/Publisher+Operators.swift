@@ -278,6 +278,28 @@ extension Publisher where Output : Equatable {
     }
 }
 
+// MARK: CONTAINS WHERE
+extension Publisher {
+    
+    /// Publishes a Boolean value upon receiving an element that satisfies the predicate closure.
+    ///
+    /// This operator consumes elements produced from the upstream publisher until the upstream publisher produces a matching element.
+    /// - Parameter predicate: A closure that takes an element as its parameter and returns a Boolean value indicating whether the element satisfies the closure’s comparison logic.
+    /// - Returns: A publisher that emits the Boolean value `true` when the upstream  publisher emits a matching value.
+    public func contains(where predicate: @escaping (Output) -> Bool) -> Publishers.ContainsWhere<Self> {
+        Publishers.ContainsWhere(upstream: self, predicate: predicate)
+    }
+    
+    /// Publishes a Boolean value upon receiving an element that satisfies the throwing predicate closure.
+    ///
+    /// This operator consumes elements produced from the upstream publisher until the upstream publisher produces a matching element. If the closure throws, the stream fails with an error.
+    /// - Parameter predicate: A closure that takes an element as its parameter and returns a Boolean value indicating whether the element satisfies the closure’s comparison logic.
+    /// - Returns: A publisher that emits the Boolean value `true` when the upstream publisher emits a matching value.
+    public func tryContains(where predicate: @escaping (Output) throws -> Bool) -> Publishers.TryContainsWhere<Self> {
+        Publishers.TryContainsWhere(upstream: self, predicate: predicate)
+    }
+}
+
 // MARK: COUNT
 extension Publisher {
     
@@ -630,7 +652,7 @@ extension Publisher {
 
 // MARK: MEASURE INTERVAL
 extension Publisher {
-
+    
     /// Measures and emits the time interval between events received from an upstream publisher.
     ///
     /// The output type of the returned scheduler is the time interval of the provided scheduler.
