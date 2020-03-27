@@ -114,6 +114,45 @@ extension Publisher {
     }
 }
 
+// MARK: COLLECT
+extension Publisher {
+    
+    /// Collects all received elements, and emits a single array of the collection when the upstream publisher finishes.
+    ///
+    /// If the upstream publisher fails with an error, this publisher forwards the error to the downstream receiver instead of sending its output.
+    /// This publisher requests an unlimited number of elements from the upstream publisher. It only sends the collected array to its downstream after a request whose demand is greater than 0 items.
+    /// Note: This publisher uses an unbounded amount of memory to store the received values.
+    ///
+    /// - Returns: A publisher that collects all received items and returns them as an array upon completion.
+    public func collect() -> Publishers.Collect<Self> {
+        Publishers.Collect(upstream: self)
+    }
+    
+    /// Collects up to the specified number of elements, and then emits a single array of the collection.
+    ///
+    /// If the upstream publisher finishes before filling the buffer, this publisher sends an array of all the items it has received. This may be fewer than `count` elements.
+    /// If the upstream publisher fails with an error, this publisher forwards the error to the downstream receiver instead of sending its output.
+    /// Note: When this publisher receives a request for `.max(n)` elements, it requests `.max(count * n)` from the upstream publisher.
+    /// - Parameter count: The maximum number of received elements to buffer before publishing.
+    /// - Returns: A publisher that collects up to the specified number of elements, and then publishes them as an array.
+    public func collect(_ count: Int) -> Publishers.CollectByCount<Self> {
+        Publishers.CollectByCount(upstream: self, count: count)
+    }
+    
+    /// Collects elements by a given strategy, and emits a single array of the collection.
+    ///
+    /// If the upstream publisher finishes before filling the buffer, this publisher sends an array of all the items it has received. This may be fewer than `count` elements.
+    /// If the upstream publisher fails with an error, this publisher forwards the error to the downstream receiver instead of sending its output.
+    /// Note: When this publisher receives a request for `.max(n)` elements, it requests `.max(count * n)` from the upstream publisher.
+    /// - Parameters:
+    ///   - strategy: The strategy with which to collect and publish elements.
+    ///   - options: `Scheduler` options to use for the strategy.
+    /// - Returns: A publisher that collects elements by a given strategy, and emits a single array of the collection.
+    public func collect<S: Scheduler>(_ strategy: Publishers.TimeGroupingStrategy<S>, options: S.PKSchedulerOptions? = nil) -> Publishers.CollectByTime<Self, S> {
+        Publishers.CollectByTime(upstream: self, strategy: strategy, options: options)
+    }
+}
+
 // MARK: COMBINE LATEST
 extension Publisher {
     
