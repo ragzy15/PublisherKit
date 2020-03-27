@@ -628,6 +628,21 @@ extension Publisher {
     }
 }
 
+// MARK: MEASURE INTERVAL
+extension Publisher {
+
+    /// Measures and emits the time interval between events received from an upstream publisher.
+    ///
+    /// The output type of the returned scheduler is the time interval of the provided scheduler.
+    /// - Parameters:
+    ///   - scheduler: The scheduler on which to deliver elements.
+    ///   - options: Options that customize the delivery of elements.
+    /// - Returns: A publisher that emits elements representing the time interval between the elements it receives.
+    public func measureInterval<S: Scheduler>(using scheduler: S, options: S.PKSchedulerOptions? = nil) -> Publishers.MeasureInterval<Self, S> {
+        Publishers.MeasureInterval(upstream: self, scheduler: scheduler)
+    }
+}
+
 // MARK: MERGE
 extension Publisher {
     
