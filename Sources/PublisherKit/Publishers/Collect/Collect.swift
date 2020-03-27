@@ -90,6 +90,10 @@ extension Publishers {
     }
 }
 
+extension Publishers.Collect: Equatable where Upstream: Equatable { }
+
+extension Publishers.CollectByCount: Equatable where Upstream: Equatable { }
+
 extension Publishers.CollectByTime {
     
     // MARK: COLLECT BY TIME SINK

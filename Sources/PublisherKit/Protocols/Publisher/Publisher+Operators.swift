@@ -532,6 +532,36 @@ extension Publisher {
     }
 }
 
+// MARK: FIRST
+extension Publisher {
+    
+    /// Publishes the first element of a stream, then finishes.
+    ///
+    /// If this publisher doesn’t receive any elements, it finishes without publishing.
+    /// - Returns: A publisher that only publishes the first element of a stream.
+    public func first() -> Publishers.First<Self> {
+        Publishers.First(upstream: self)
+    }
+    
+    /// Publishes the first element of a stream to satisfy a predicate closure, then finishes.
+    ///
+    /// The publisher ignores all elements after the first. If this publisher doesn’t receive any elements, it finishes without publishing.
+    /// - Parameter predicate: A closure that takes an element as a parameter and returns a Boolean value that indicates whether to publish the element.
+    /// - Returns: A publisher that only publishes the first element of a stream that satifies the predicate.
+    public func first(where predicate: @escaping (Output) -> Bool) -> Publishers.FirstWhere<Self> {
+        Publishers.FirstWhere(upstream: self, predicate: predicate)
+    }
+    
+    /// Publishes the first element of a stream to satisfy a throwing predicate closure, then finishes.
+    ///
+    /// The publisher ignores all elements after the first. If this publisher doesn’t receive any elements, it finishes without publishing. If the predicate closure throws, the publisher fails with an error.
+    /// - Parameter predicate: A closure that takes an element as a parameter and returns a Boolean value that indicates whether to publish the element.
+    /// - Returns: A publisher that only publishes the first element of a stream that satifies the predicate.
+    public func tryFirst(where predicate: @escaping (Output) throws -> Bool) -> Publishers.TryFirstWhere<Self> {
+        Publishers.TryFirstWhere(upstream: self, predicate: predicate)
+    }
+}
+
 // MARK: FLAT MAP
 extension Publisher {
     
@@ -894,7 +924,7 @@ extension Publisher {
 
 // MARK: PREFIX
 extension Publisher {
-
+    
     /// Republishes elements until another publisher emits an element.
     ///
     /// After the second publisher publishes an element, the publisher returned by this method finishes.
@@ -978,7 +1008,7 @@ extension Publisher {
     ///   - nextPartialResult: A closure that takes the previously-accumulated value and the next element from the upstream publisher to produce a new value.
     ///
     /// - Returns: A publisher that applies the closure to all received elements and produces an accumulated value when the upstream publisher finishes.
-    public func reduce<T>(_ initialResult: T, _ nextPartialResult: @escaping (T, Self.Output) -> T) -> Publishers.Reduce<Self, T> {
+    public func reduce<T>(_ initialResult: T, _ nextPartialResult: @escaping (T, Output) -> T) -> Publishers.Reduce<Self, T> {
         Publishers.Reduce(upstream: self, initial: initialResult, nextPartialResult: nextPartialResult)
     }
     
@@ -991,7 +1021,7 @@ extension Publisher {
     ///   - nextPartialResult: An error-throwing closure that takes the previously-accumulated value and the next element from the upstream publisher to produce a new value.
     ///
     /// - Returns: A publisher that applies the closure to all received elements and produces an accumulated value when the upstream publisher finishes.
-    public func tryReduce<T>(_ initialResult: T, _ nextPartialResult: @escaping (T, Self.Output) throws -> T) -> Publishers.TryReduce<Self, T> {
+    public func tryReduce<T>(_ initialResult: T, _ nextPartialResult: @escaping (T, Output) throws -> T) -> Publishers.TryReduce<Self, T> {
         Publishers.TryReduce(upstream: self, initial: initialResult, nextPartialResult: nextPartialResult)
     }
 }
