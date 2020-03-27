@@ -73,6 +73,8 @@ extension Publishers {
     }
 }
 
+extension Publishers.First: Equatable where Upstream: Equatable { }
+
 extension Publishers.First {
     
     // MARK: FIRST SINK
