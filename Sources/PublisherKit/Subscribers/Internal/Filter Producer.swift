@@ -20,7 +20,7 @@ class FilterProducer<Downstream: Subscriber, Output, Input, Failure: Error, Oper
         self.operation = operation
     }
     
-    func receive(input: Input) -> CompletionResult<Output, Downstream.Failure>? {
+    func receive(input: Input) -> PartialCompletion<Output, Downstream.Failure>? {
         fatalError("receive(_:) not overrided.")
     }
     
@@ -62,7 +62,7 @@ extension FilterProducer: Subscriber {
         
         switch receive(input: input) {
             
-        case .send(let output):
+        case .continue(let output):
             return downstream?.receive(output) ?? .none
             
         case .finished:

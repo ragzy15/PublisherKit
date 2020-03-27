@@ -47,8 +47,8 @@ extension Publishers.Filter {
     // MARK: FILTER SINK
     private final class Inner<Downstream: Subscriber>: FilterProducer<Downstream, Output, Upstream.Output, Upstream.Failure, (Upstream.Output) -> Bool> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        override func receive(input: Input) -> CompletionResult<Output, Failure>? {
-            operation(input) ? .send(input) : nil
+        override func receive(input: Input) -> PartialCompletion<Output, Failure>? {
+            operation(input) ? .continue(input) : nil
         }
         
         override var description: String {

@@ -36,8 +36,8 @@ extension Publishers.PrefixWhile {
     // MARK: PREFIX WHILE SINK
     private final class Inner<Downstream: Subscriber>: FilterProducer<Downstream, Output, Upstream.Output, Upstream.Failure, (Output) -> Bool> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        override func receive(input: Input) -> CompletionResult<Output, Failure>? {
-            operation(input) ? .send(input) : .finished
+        override func receive(input: Input) -> PartialCompletion<Output, Failure>? {
+            operation(input) ? .continue(input) : .finished
         }
         
         override var description: String {

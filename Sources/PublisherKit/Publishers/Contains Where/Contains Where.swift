@@ -26,7 +26,7 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            upstream.subscribe(Inner(downstream: subscriber, operation: predicate))
+            upstream.subscribe(Inner(downstream: subscriber, reduce: predicate))
         }
     }
     
@@ -49,7 +49,7 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            upstream.subscribe(Inner(downstream: subscriber, operation: predicate))
+            upstream.subscribe(Inner(downstream: subscriber, reduce: predicate))
         }
     }
 }
@@ -59,9 +59,9 @@ extension Publishers.ContainsWhere {
     // MARK: CONTAINS WHERE SINK
     private final class Inner<Downstream: Subscriber>: ReduceProducer<Downstream, Output, Upstream.Output, Upstream.Failure, (Upstream.Output) -> Bool> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        override func receive(input: Input) -> CompletionResult<Void, Downstream.Failure> {
-            output = operation(input)
-            return output == true ? .send : .finished
+        override func receive(newValue: Input) -> PartialCompletion<Void, Downstream.Failure> {
+            result = reduce(newValue)
+            return result == true ? .continue : .finished
         }
         
         override var description: String {
@@ -75,10 +75,10 @@ extension Publishers.TryContainsWhere {
     // MARK: TRY CONTAINS WHERE SINK
     private final class Inner<Downstream: Subscriber>: ReduceProducer<Downstream, Output, Upstream.Output, Upstream.Failure, (Upstream.Output) throws -> Bool> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        override func receive(input: Input) -> CompletionResult<Void, Downstream.Failure> {
+        override func receive(newValue: Input) -> PartialCompletion<Void, Downstream.Failure> {
             do {
-                output = try operation(input)
-                return output == true ? .send : .finished
+                result = try reduce(newValue)
+                return result == true ? .continue : .finished
             } catch {
                 return .failure(error)
             }

@@ -28,7 +28,7 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            upstream.subscribe(Inner(downstream: subscriber, initial: initial, operation: nextPartialResult))
+            upstream.subscribe(Inner(downstream: subscriber, initial: initial, reduce: nextPartialResult))
         }
     }
 }
@@ -38,9 +38,9 @@ extension Publishers.Reduce {
     // MARK: REDUCE SINK
     private final class Inner<Downstream: Subscriber>: ReduceProducer<Downstream, Output, Upstream.Output, Upstream.Failure, (Output, Upstream.Output) -> Output> where Downstream.Input == Output, Downstream.Failure == Failure {
         
-        override func receive(input: Input) -> CompletionResult<Void, Failure> {
-            output = operation(output!, input)
-            return .send
+        override func receive(newValue: Input) -> PartialCompletion<Void, Failure> {
+            result = reduce(result!, newValue)
+            return .continue
         }
         override var description: String {
             "Reduce"

@@ -41,13 +41,13 @@ extension Publishers.RemoveDuplicates {
         
         private var previousInput: Output?
         
-        override func receive(input: Input) -> CompletionResult<Output, Failure>? {
+        override func receive(input: Input) -> PartialCompletion<Output, Failure>? {
             if let previousOutput = previousInput, operation(previousOutput, input) {
                 return nil
             }
             
             previousInput = input
-            return .send(input)
+            return .continue(input)
         }
         
         override var description: String {

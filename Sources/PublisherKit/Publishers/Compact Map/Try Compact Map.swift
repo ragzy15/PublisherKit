@@ -41,10 +41,10 @@ extension Publishers.TryCompactMap {
     // MARK: TRY COMPACTMAP SINK
     private final class Inner<Downstream: Subscriber>: FilterProducer<Downstream, Output, Upstream.Output, Upstream.Failure, (Upstream.Output) throws -> Output?> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        override func receive(input: Input) -> CompletionResult<Output, Downstream.Failure>? {
+        override func receive(input: Input) -> PartialCompletion<Output, Downstream.Failure>? {
             do {
                 if let output = try operation(input) {
-                    return .send(output)
+                    return .continue(output)
                 } else {
                     return nil
                 }

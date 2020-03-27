@@ -40,9 +40,9 @@ extension Publishers.TryPrefixWhile {
     // MARK: TRY PREFIX WHILE SINK
     private final class Inner<Downstream: Subscriber>: FilterProducer<Downstream, Output, Upstream.Output, Upstream.Failure, (Output) throws -> Bool> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        override func receive(input: Input) -> CompletionResult<Output, Downstream.Failure>? {
+        override func receive(input: Input) -> PartialCompletion<Output, Downstream.Failure>? {
             do {
-                return try operation(input) ? .send(input) : .finished
+                return try operation(input) ? .continue(input) : .finished
             } catch {
                 return .failure(error)
             }

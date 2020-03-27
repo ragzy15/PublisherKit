@@ -47,9 +47,9 @@ extension Publishers.CompactMap {
     // MARK: COMPACTMAP SINK
     private final class Inner<Downstream: Subscriber>: FilterProducer<Downstream, Output, Upstream.Output, Upstream.Failure, (Upstream.Output) -> Output?> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        override func receive(input: Input) -> CompletionResult<Output, Failure>? {
+        override func receive(input: Input) -> PartialCompletion<Output, Failure>? {
             if let value = operation(input) {
-                return .send(value)
+                return .continue(value)
             } else {
                 return nil
             }
