@@ -858,7 +858,29 @@ extension Publisher {
     }
 }
 
-// MARK: PREFIX
+// MARK: OUTPUT
+extension Publisher {
+    
+    /// Publishes a specific element, indicated by its index in the sequence of published elements.
+    ///
+    /// If the publisher completes normally or with an error before publishing the specified element, then the publisher doesn’t produce any elements.
+    /// - Parameter index: The index that indicates the element to publish.
+    /// - Returns: A publisher that publishes a specific indexed element.
+    public func output(at index: Int) -> Publishers.Output<Self> {
+        output(in: index ... index)
+    }
+    
+    /// Publishes elements specified by their range in the sequence of published elements.
+    ///
+    /// After all elements are published, the publisher finishes normally.
+    /// If the publisher completes normally or with an error before producing all the elements in the range, it doesn’t publish the remaining elements.
+    /// - Parameter range: A range that indicates which elements to publish.
+    /// - Returns: A publisher that publishes elements specified by a range.
+    public func output<R: RangeExpression>(in range: R) -> Publishers.Output<Self> where R.Bound == Int {
+        Publishers.Output(upstream: self, range: range.relative(to: 0 ..< .max))
+    }
+}
+
 extension Publisher {
     
     /// Republishes elements up to the specified maximum count.
@@ -867,6 +889,20 @@ extension Publisher {
     /// - Returns: A publisher that publishes up to the specified number of elements before completing.
     public func prefix(_ maxLength: Int) -> Publishers.Output<Self> {
         output(in: ..<maxLength)
+    }
+}
+
+// MARK: PREFIX
+extension Publisher {
+
+    /// Republishes elements until another publisher emits an element.
+    ///
+    /// After the second publisher publishes an element, the publisher returned by this method finishes.
+    ///
+    /// - Parameter publisher: A second publisher.
+    /// - Returns: A publisher that republishes elements until the second publisher publishes an element.
+    public func prefix<P: Publisher>(untilOutputFrom publisher: P) -> Publishers.PrefixUntilOutput<Self, P> {
+        Publishers.PrefixUntilOutput(upstream: self, other: publisher)
     }
 }
 
@@ -903,29 +939,6 @@ extension Publisher {
     /// - Returns: A publisher that prints log messages for all publishing events.
     public func print(_ prefix: String = "", to stream: TextOutputStream? = nil) -> Publishers.Print<Self> {
         Publishers.Print(upstream: self, prefix: prefix, to: stream)
-    }
-}
-
-// MARK: OUTPUT
-extension Publisher {
-    
-    /// Publishes a specific element, indicated by its index in the sequence of published elements.
-    ///
-    /// If the publisher completes normally or with an error before publishing the specified element, then the publisher doesn’t produce any elements.
-    /// - Parameter index: The index that indicates the element to publish.
-    /// - Returns: A publisher that publishes a specific indexed element.
-    public func output(at index: Int) -> Publishers.Output<Self> {
-        output(in: index ... index)
-    }
-    
-    /// Publishes elements specified by their range in the sequence of published elements.
-    ///
-    /// After all elements are published, the publisher finishes normally.
-    /// If the publisher completes normally or with an error before producing all the elements in the range, it doesn’t publish the remaining elements.
-    /// - Parameter range: A range that indicates which elements to publish.
-    /// - Returns: A publisher that publishes elements specified by a range.
-    public func output<R: RangeExpression>(in range: R) -> Publishers.Output<Self> where R.Bound == Int {
-        Publishers.Output(upstream: self, range: range.relative(to: 0 ..< .max))
     }
 }
 
