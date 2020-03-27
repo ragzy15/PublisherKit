@@ -621,6 +621,35 @@ extension Publisher {
     }
 }
 
+// MARK: LAST
+extension Publisher {
+    
+    /// Only publishes the last element of a stream, after the stream finishes.
+    /// - Returns: A publisher that only publishes the last element of a stream.
+    public func last() -> Publishers.Last<Self> {
+        Publishers.Last(upstream: self)
+    }
+}
+
+extension Publisher {
+    
+    /// Only publishes the last element of a stream that satisfies a predicate closure, after the stream finishes.
+    /// - Parameter predicate: A closure that takes an element as its parameter and returns a Boolean value indicating whether to publish the element.
+    /// - Returns: A publisher that only publishes the last element satisfying the given predicate.
+    public func last(where predicate: @escaping (Output) -> Bool) -> Publishers.LastWhere<Self> {
+        Publishers.LastWhere(upstream: self, predicate: predicate)
+    }
+    
+    /// Only publishes the last element of a stream that satisfies a error-throwing predicate closure, after the stream finishes.
+    ///
+    /// If the predicate closure throws, the publisher fails with the thrown error.
+    /// - Parameter predicate: A closure that takes an element as its parameter and returns a Boolean value indicating whether to publish the element.
+    /// - Returns: A publisher that only publishes the last element satisfying the given predicate.
+    public func tryLast(where predicate: @escaping (Output) throws -> Bool) -> Publishers.TryLastWhere<Self> {
+        Publishers.TryLastWhere(upstream: self, predicate: predicate)
+    }
+}
+
 // MARK: MATCHES
 extension Publisher where Output == String {
     
