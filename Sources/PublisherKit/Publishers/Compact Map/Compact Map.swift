@@ -24,9 +24,7 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            
-            let compactMapSubscriber = Inner(downstream: subscriber, operation: transform)
-            upstream.subscribe(compactMapSubscriber)
+            upstream.subscribe(Inner(downstream: subscriber, operation: transform))
         }
     }
 }
