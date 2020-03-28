@@ -1147,6 +1147,38 @@ extension Publisher {
     }
 }
 
+// MARK: SCAN
+extension Publisher {
+    
+    /// Transforms elements from the upstream publisher by providing the current element to a closure along with the last value returned by the closure.
+    ///
+    ///     let pub = (0...5)
+    ///         .publisher
+    ///         .scan(0, { return $0 + $1 })
+    ///         .sink(receiveValue: { print ("\($0)", terminator: " ") })
+    ///      // Prints "0 1 3 6 10 15 ".
+    ///
+    ///
+    /// - Parameters:
+    ///   - initialResult: The previous result returned by the `nextPartialResult` closure.
+    ///   - nextPartialResult: A closure that takes as its arguments the previous value returned by the closure and the next element emitted from the upstream publisher.
+    /// - Returns: A publisher that transforms elements by applying a closure that receives its previous return value and the next element from the upstream publisher.
+    public func scan<T>(_ initialResult: T, _ nextPartialResult: @escaping (T, Output) -> T) -> Publishers.Scan<Self, T> {
+        Publishers.Scan(upstream: self, initialResult: initialResult, nextPartialResult: nextPartialResult)
+    }
+    
+    /// Transforms elements from the upstream publisher by providing the current element to an error-throwing closure along with the last value returned by the closure.
+    ///
+    /// If the closure throws an error, the publisher fails with the error.
+    /// - Parameters:
+    ///   - initialResult: The previous result returned by the `nextPartialResult` closure.
+    ///   - nextPartialResult: An error-throwing closure that takes as its arguments the previous value returned by the closure and the next element emitted from the upstream publisher.
+    /// - Returns: A publisher that transforms elements by applying a closure that receives its previous return value and the next element from the upstream publisher.
+    public func tryScan<T>(_ initialResult: T, _ nextPartialResult: @escaping (T, Output) throws -> T) -> Publishers.TryScan<Self, T> {
+        Publishers.TryScan(upstream: self, initialResult: initialResult, nextPartialResult: nextPartialResult)
+    }
+}
+
 // MARK: SET FAILURE TYPE
 extension Publisher where Failure == Never {
     
