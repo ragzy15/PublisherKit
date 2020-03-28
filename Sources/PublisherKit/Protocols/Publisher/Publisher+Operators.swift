@@ -1231,6 +1231,18 @@ extension Publisher {
     }
 }
 
+// MARK: SWITCH TO LATEST
+extension Publisher where Output: Publisher, Failure == Output.Failure {
+    
+    /// Flattens the stream of events from multiple upstream publishers to appear as if they were coming from a single stream of events.
+    ///
+    /// This operator switches the inner publisher as new ones arrive but keeps the outer one constant for downstream subscribers.
+    /// For example, given the type `Publisher<Publisher<Data, NSError>, Never>`, calling `switchToLatest()` will result in the type `Publisher<Data, NSError>`. The downstream subscriber sees a continuous stream of values even though they may be coming from different upstream publishers.
+    public func switchToLatest() -> Publishers.SwitchToLatest<Output, Self> {
+        Publishers.SwitchToLatest(upstream: self)
+    }
+}
+
 // MARK: THROTTLE
 extension Publisher {
     
