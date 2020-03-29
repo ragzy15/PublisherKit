@@ -72,8 +72,8 @@ extension Publishers {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             let inner = Inner(downstream: subscriber, suffix: suffix)
-            prefix.subscribe(inner)
             subscriber.receive(subscription: inner)
+            prefix.subscribe(inner)
         }
     }
 }
