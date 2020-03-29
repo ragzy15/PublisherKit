@@ -5,6 +5,17 @@
 //  Created by Raghav Ahuja on 29/03/20.
 //
 
+extension Publisher {
+    
+    /// Buffers elements received from an upstream publisher.
+    /// - Parameter size: The maximum number of elements to store.
+    /// - Parameter prefetch: The strategy for initially populating the buffer.
+    /// - Parameter whenFull: The action to take when the buffer becomes full.
+    public func buffer(size: Int, prefetch: Publishers.PrefetchStrategy, whenFull: Publishers.BufferingStrategy<Failure>) -> Publishers.Buffer<Self> {
+        Publishers.Buffer(upstream: self, size: size, prefetch: prefetch, whenFull: whenFull)
+    }
+}
+
 extension Publishers {
     
     /// A strategy for filling a buffer.
