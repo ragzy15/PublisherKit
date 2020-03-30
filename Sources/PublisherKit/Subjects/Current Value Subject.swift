@@ -66,6 +66,8 @@ final public class CurrentValueSubject<Output, Failure: Error>: Subject {
         _lock.do {
             guard _completion == nil else { return }    // if subject has been completed, do not send or save any more inputs.
             
+            _value = input
+            
             for subscription in downstreamSubscriptions where !subscription.isCompleted {
                 if subscription._demand > 0 {
                     subscription.offer(input)
