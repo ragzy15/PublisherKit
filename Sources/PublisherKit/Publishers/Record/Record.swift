@@ -35,7 +35,6 @@ public struct Record<Output, Failure> : Publisher where Failure : Error {
         } else {
             subscriber.receive(subscription: Inner(downstream: subscriber, sequence: recording.output, completion: recording.completion))
         }
-        
     }
     
     /// A recorded set of `Output` and a `Subscribers.Completion`.
@@ -74,9 +73,7 @@ public struct Record<Output, Failure> : Publisher where Failure : Error {
         ///
         /// A `fatalError` will be raised if output is added after adding completion.
         public mutating func receive(_ input: Record<Output, Failure>.Recording.Input) {
-            guard !receivedCompletion else {
-                fatalError()
-            }
+            precondition(!receivedCompletion, "Cannot receive input after receiving completion.")
             
             _output.append(input)
         }
@@ -85,10 +82,9 @@ public struct Record<Output, Failure> : Publisher where Failure : Error {
         ///
         /// A `fatalError` will be raised if more than one completion is added.
         public mutating func receive(completion: Subscribers.Completion<Failure>) {
-            guard !receivedCompletion else {
-                fatalError()
-            }
+            precondition(!receivedCompletion, "Cannot receive more than one completion.")
             
+            receivedCompletion = true
             _completion = completion
         }
         
