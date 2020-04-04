@@ -114,7 +114,7 @@ extension Publishers.Matches {
             guard status.isSubscribed else { lock.unlock(); return }
             status = .terminated
             lock.unlock()
-            downstream?.receive(completion: completion.mapError { $0 as Error })
+            downstream?.receive(completion: completion.eraseError())
         }
         
         func request(_ demand: Subscribers.Demand) {

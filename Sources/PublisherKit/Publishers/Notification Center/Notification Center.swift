@@ -46,7 +46,7 @@ extension NotificationCenter {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            subscriber.receive(subscription: Subscription(downstream: subscriber, center: center, name: name, object: object))
+            subscriber.receive(subscription: Subscription(subscriber, center, name, object))
         }
     }
 }
@@ -67,7 +67,7 @@ extension NotificationCenter.PKPublisher {
         
         private var demand: Subscribers.Demand = .none
         
-        init(downstream: Downstream, center: NotificationCenter, name: Notification.Name, object: AnyObject?) {
+        init(_ downstream: Downstream, _ center: NotificationCenter, _ name: Notification.Name, _ object: AnyObject?) {
             self.center = center
             self.name = name
             self.object = object

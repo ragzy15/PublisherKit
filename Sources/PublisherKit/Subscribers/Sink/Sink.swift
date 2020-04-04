@@ -34,7 +34,7 @@ public extension Subscribers {
         final public func receive(_ value: Input) -> Subscribers.Demand {
             guard !isCancelled else { return .none }
             receiveValue(value)
-            return .unlimited
+            return .none
         }
 
         final public func receive(completion: Subscribers.Completion<Failure>) {

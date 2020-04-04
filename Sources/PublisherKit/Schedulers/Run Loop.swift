@@ -84,7 +84,7 @@ extension RunLoop: Scheduler {
             ///
             /// If `exactly` cannot convert to an `Int`, the resulting time interval is `nil`.
             /// - Parameter exactly: A binary integer representing a time interval.
-            public init?<T>(exactly source: T) where T : BinaryInteger {
+            public init?<T: BinaryInteger>(exactly source: T) {
                 guard let value = TimeInterval(exactly: source) else { return nil }
                 magnitude = value
             }
@@ -174,7 +174,7 @@ extension RunLoop: Scheduler {
     public func schedule(after date: PKSchedulerTimeType, interval: PKSchedulerTimeType.Stride, tolerance: PKSchedulerTimeType.Stride, options: PKSchedulerOptions?, _ action: @escaping () -> Void) -> Cancellable {
         
         let timer: Timer
-        if #available(OSX 10.12, *) {
+        if #available(macOS 10.12, iOS 10.0, tvOS 10.0, watchOS 3.0, *) {
             timer = Timer(fire: date.date, interval: interval.timeInterval, repeats: true) { (timer) in
                 if timer.isValid {
                     action()

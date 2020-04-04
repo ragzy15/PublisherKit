@@ -36,12 +36,12 @@ extension Publishers.Count {
     private final class Inner<Downstream: Subscriber>: ReduceProducer<Downstream, Output, Upstream.Output, Upstream.Failure, Void> where Output == Downstream.Input, Failure == Downstream.Failure {
         
         init(downstream: Downstream) {
-            super.init(downstream: downstream, initial: 0, operation: ())
+            super.init(downstream: downstream, initial: 0, reduce: ())
         }
         
-        override func receive(input: Input) -> CompletionResult<Void, Failure> {
-            output = (output ?? 0) + 1
-            return .send
+        override func receive(newValue: Input) -> PartialCompletion<Void, Failure> {
+            result = (result ?? 0) + 1
+            return .continue
         }
         
         override var description: String {

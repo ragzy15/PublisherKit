@@ -42,12 +42,12 @@ extension Publishers.Contains {
         
         init(downstream: Downstream, output: Input) {
             self.outputValue = output
-            super.init(downstream: downstream, initial: false, operation: ())
+            super.init(downstream: downstream, initial: false, reduce: ())
         }
         
-        override func receive(input: Input) -> CompletionResult<Void, Failure> {
-            output = input == outputValue
-            return output == true ? .finished : .send
+        override func receive(newValue: Input) -> PartialCompletion<Void, Failure> {
+            result = newValue == outputValue
+            return result == true ? .finished : .continue
         }
         
         override var description: String {

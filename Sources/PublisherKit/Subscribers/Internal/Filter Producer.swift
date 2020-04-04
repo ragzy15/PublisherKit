@@ -5,33 +5,28 @@
 //  Created by Raghav Ahuja on 15/03/20.
 //
 
-class FilterProducer<Downstream: Subscriber, Output, Input, Failure: Error, Operator>: CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Downstream.Input == Output {
+class FilterProducer<Downstream: Subscriber, Output, Input, Failure: Error, Filter>: CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Downstream.Input == Output {
     
-    private var status: SubscriptionStatus = .awaiting
+    private enum State {
+        case awaitingSubscription
+        case subscribed(to: Subscription)
+        case terminated
+    }
+    
+    private var state: State = .awaitingSubscription
     private let lock = Lock()
     
-    var downstream: Downstream?
-    private var requestReceived = false
+    private let downstream: Downstream
     
-    let operation: Operator
+    let filter: Filter
     
-    init(downstream: Downstream, operation: Operator) {
+    init(downstream: Downstream, filter: Filter) {
         self.downstream = downstream
-        self.operation = operation
+        self.filter = filter
     }
     
-    func receive(input: Input) -> CompletionResult<Output, Downstream.Failure>? {
+    func receive(newValue: Input) -> PartialCompletion<Output?, Downstream.Failure> {
         fatalError("receive(_:) not overrided.")
-    }
-    
-    func onCompletion(_ completion: Subscribers.Completion<Failure>) {
-        switch completion {
-        case .finished:
-            downstream?.receive(completion: .finished)
-            
-        case .failure(let error):
-            downstream?.receive(completion: .failure(error as! Downstream.Failure))
-        }
     }
     
     var description: String {
@@ -47,15 +42,10 @@ class FilterProducer<Downstream: Subscriber, Output, Input, Failure: Error, Oper
         defer { lock.unlock() }
         
         let children: [Mirror.Child] = [
-            ("downstream", downstream as Any),
-            ("status", status)
+            ("downstream", downstream),
         ]
         
         return Mirror(self, children: children)
-    }
-    
-    func await() {
-        status = .awaiting
     }
 }
 
@@ -63,41 +53,47 @@ extension FilterProducer: Subscriber {
     
     func receive(subscription: Subscription) {
         lock.lock()
-        guard status == .awaiting else { lock.unlock(); return }
-        status = .subscribed(to: subscription)
+        guard case .awaitingSubscription = state else {
+            lock.unlock()
+            subscription.cancel()
+            return
+        }
+        
+        state = .subscribed(to: subscription)
         lock.unlock()
         
-        downstream?.receive(subscription: self)
+        downstream.receive(subscription: self)
     }
     
     func receive(_ input: Input) -> Subscribers.Demand {
         lock.lock()
-        guard case .subscribed(let subscription) = status else { lock.unlock(); return .none }
+        guard case .subscribed(let subscription) = state else { lock.unlock(); return .none }
         lock.unlock()
         
-        switch receive(input: input) {
+        switch receive(newValue: input) {
             
-        case .send(let output):
-            return downstream?.receive(output) ?? .none
+        case .continue(let output):
+            if let output = output {
+                return downstream.receive(output)
+            } else {
+                return .max(1)
+            }
             
         case .finished:
             lock.lock()
-            status = .terminated
+            state = .terminated
             lock.unlock()
             
             subscription.cancel()
-            downstream?.receive(completion: .finished)
+            downstream.receive(completion: .finished)
             
         case .failure(let error):
             lock.lock()
-            status = .terminated
+            state = .terminated
             lock.unlock()
             
             subscription.cancel()
-            downstream?.receive(completion: .failure(error))
-            
-        case .none:
-            return .max(1)
+            downstream.receive(completion: .failure(error))
         }
         
         return .none
@@ -105,10 +101,17 @@ extension FilterProducer: Subscriber {
     
     func receive(completion: Subscribers.Completion<Failure>) {
         lock.lock()
-        guard status.isSubscribed else { lock.unlock(); return }
-        status = .terminated
+        guard case .subscribed = state else { lock.unlock(); return }
+        state = .terminated
         lock.unlock()
-        onCompletion(completion)
+        
+        switch completion {
+        case .finished:
+            downstream.receive(completion: .finished)
+            
+        case .failure(let error):
+            downstream.receive(completion: .failure(error as! Downstream.Failure))
+        }
     }
 }
 
@@ -116,7 +119,7 @@ extension FilterProducer: Subscription {
     
     func request(_ demand: Subscribers.Demand) {
         lock.lock()
-        guard case .subscribed(let subscription) = status else { lock.unlock(); return }
+        guard case .subscribed(let subscription) = state else { lock.unlock(); return }
         lock.unlock()
         
         subscription.request(demand)
@@ -124,23 +127,13 @@ extension FilterProducer: Subscription {
     
     func cancel() {
         lock.lock()
-        guard case .subscribed(let subscription) = status else {
+        guard case .subscribed(let subscription) = state else {
             lock.unlock()
             return
         }
         
-        status = .terminated
+        state = .terminated
         lock.unlock()
         subscription.cancel()
-        downstream = nil
-    }
-
-    func end(completion: () -> Void) {
-        lock.lock()
-        guard status.isSubscribed else { lock.unlock(); return }
-        status = .terminated
-        lock.unlock()
-        completion()
-        downstream = nil
     }
 }

@@ -5,6 +5,7 @@
 //  Created by Raghav Ahuja on 25/12/19.
 //
 
+#if !targetEnvironment(macCatalyst)
 #if canImport(AppKit)
 
 import AppKit
@@ -30,4 +31,5 @@ extension NSTextField {
     }
 }
 
+#endif
 #endif

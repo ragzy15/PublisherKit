@@ -1,63 +1,65 @@
 //
-//  Try Map.swift
+//  Output.swift
 //  PublisherKit
 //
-//  Created by Raghav Ahuja on 18/11/19.
+//  Created by Raghav Ahuja on 14/03/20.
 //
 
-public extension Publishers {
+extension Publishers {
     
-    /// A publisher that transforms all elements received from an upstream publisher with a specified error-throwing closure.
-    struct TryMap<Upstream: Publisher, Output>: Publisher {
+    /// A publisher that publishes elements specified by a range in the sequence of published elements.
+    public struct Output<Upstream: Publisher>: Publisher {
         
-        public typealias Failure = Error
+        public typealias Output = Upstream.Output
         
-        /// The publisher from which this publisher receives elements.
+        public typealias Failure = Upstream.Failure
+        
+        /// The publisher that this publisher receives elements from.
         public let upstream: Upstream
         
-        /// The closure that transforms elements from the upstream publisher.
-        public let transform: (Upstream.Output) throws -> Output
+        /// The range of elements to publish.
+        public let range: CountableRange<Int>
         
-        public init(upstream: Upstream, transform: @escaping (Upstream.Output) throws -> Output) {
+        /// Creates a publisher that publishes elements specified by a range.
+        ///
+        /// - Parameters:
+        ///   - upstream: The publisher that this publisher receives elements from.
+        ///   - range: The range of elements to publish.
+        public init(upstream: Upstream, range: CountableRange<Int>) {
             self.upstream = upstream
-            self.transform = transform
+            self.range = range
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            upstream.receive(subscriber: Inner(downstream: subscriber, transform: transform))
+            upstream.subscribe(Inner(downstream: subscriber, range: range))
         }
     }
 }
 
-extension Publishers.TryMap {
-    
-    public func map<T>(_ transform: @escaping (Output) -> T) -> Publishers.TryMap<Upstream, T> {
-        Publishers.TryMap(upstream: upstream, transform: { try transform(self.transform($0)) })
-    }
-    
-    public func tryMap<T>(_ transform: @escaping (Output) throws -> T) -> Publishers.TryMap<Upstream, T> {
-        Publishers.TryMap(upstream: upstream, transform: { try transform(self.transform($0)) })
-    }
-}
+extension Publishers.Output: Equatable where Upstream: Equatable { }
 
-extension Publishers.TryMap {
+extension Publishers.Output {
     
-    // MARK: TRY MAP SINK
-    private final class Inner<Downstream: Subscriber>: Subscriber, Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Output == Downstream.Input, Error == Downstream.Failure {
+    // MARK: OUTPUT SINK
+    private final class Inner<Downstream: Subscriber>: Subscriber, Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
         
         typealias Input = Upstream.Output
         
         typealias Failure = Upstream.Failure
         
-        private var downstream: Downstream?
-        private let transform: (Input) throws -> Output
+        private let range: CountableRange<Int>
+        private var startOffset: Int
+        private var remainingCount: Int
         
+        private var downstream: Downstream?
         private var status: SubscriptionStatus = .awaiting
         private let lock = Lock()
         
-        init(downstream: Downstream, transform: @escaping (Input) throws -> Output) {
+        init(downstream: Downstream, range: CountableRange<Int>) {
             self.downstream = downstream
-            self.transform = transform
+            self.range = range
+            startOffset = range.lowerBound
+            remainingCount = range.count
         }
         
         func receive(subscription: Subscription) {
@@ -74,17 +76,21 @@ extension Publishers.TryMap {
             guard case .subscribed(let subscription) = status else { lock.unlock(); return .none }
             lock.unlock()
             
-            do {
-                return downstream?.receive(try transform(input)) ?? .none
-            } catch {
+            if startOffset > 0 {
+                startOffset -= 1
+                return .max(1)
+            }
+            
+            if remainingCount > 0 {
+                remainingCount -= 1
+                return downstream?.receive(input) ?? .none
+            } else {
                 lock.lock()
                 status = .terminated
                 lock.unlock()
                 
                 subscription.cancel()
-                
-                downstream?.receive(completion: .failure(error))
-                downstream = nil
+                downstream?.receive(completion: .finished)
                 
                 return .none
             }
@@ -96,8 +102,7 @@ extension Publishers.TryMap {
             status = .terminated
             lock.unlock()
             
-            downstream?.receive(completion: completion.mapError { $0 as Downstream.Failure })
-            downstream = nil
+            downstream?.receive(completion: completion)
         }
         
         func request(_ demand: Subscribers.Demand) {
@@ -114,12 +119,11 @@ extension Publishers.TryMap {
             status = .terminated
             lock.unlock()
             
-            downstream = nil
             subscription.cancel()
         }
         
         var description: String {
-            "TryMap"
+            "Output"
         }
         
         var playgroundDescription: Any {
@@ -127,7 +131,7 @@ extension Publishers.TryMap {
         }
         
         var customMirror: Mirror {
-            Mirror(reflecting: self)
+            Mirror(self, children: [])
         }
     }
 }

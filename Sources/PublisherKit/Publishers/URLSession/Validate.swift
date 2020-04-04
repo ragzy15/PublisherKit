@@ -116,7 +116,7 @@ extension Publishers.Validate {
             status = .terminated
             lock.unlock()
             
-            downstream?.receive(completion: completion.mapError { $0 as Failure })
+            downstream?.receive(completion: completion.eraseError())
         }
         
         func request(_ demand: Subscribers.Demand) {
