@@ -6,7 +6,7 @@
 //
 
 extension Publisher {
-
+    
     /// Raises a fatal error when its upstream publisher fails, and otherwise republishes all received input.
     ///
     /// Use this function for internal sanity checks that are active during testing but do not impact performance of shipping code.
@@ -60,7 +60,7 @@ extension Publishers {
 extension Publishers.AssertNoFailure {
     
     // MARK: ASSERT NO FAILURE SINK
-    private struct Inner<Downstream: Subscriber>: Subscriber, CustomStringConvertible where Output == Downstream.Input, Failure == Downstream.Failure {
+    private struct Inner<Downstream: Subscriber>: Subscriber, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
         
         typealias Input = Upstream.Output
         
@@ -95,13 +95,25 @@ extension Publishers.AssertNoFailure {
                 downstream.receive(completion: .finished)
                 
             case .failure(let error):
-                let message = prefix.isEmpty ? error.localizedDescription : "\(prefix) \(error.localizedDescription)"
-                Swift.assertionFailure(message, file: file, line: line)
+                let prefixString = prefix.isEmpty ? "" : "\(prefix): "
+                preconditionFailure("\(prefixString)\(error)", file: file, line: line)
             }
         }
         
         var description: String {
             "AssertNoFailure"
+        }
+        
+        var playgroundDescription: Any { return description }
+        
+        var customMirror: Mirror {
+            let children: [Mirror.Child] = [
+                ("file", file),
+                ("line", line),
+                ("prefix", prefix)
+            ]
+            
+            return Mirror(self, children: children)
         }
     }
 }
