@@ -95,7 +95,8 @@ extension Publishers.AssertNoFailure {
                 downstream.receive(completion: .finished)
                 
             case .failure(let error):
-                Swift.assertionFailure(error.localizedDescription, file: file, line: line)
+                let message = prefix.isEmpty ? error.localizedDescription : "\(prefix) \(error.localizedDescription)"
+                Swift.assertionFailure(message, file: file, line: line)
             }
         }
         
