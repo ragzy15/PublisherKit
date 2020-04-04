@@ -24,7 +24,7 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            upstream.subscribe(Inner(downstream: subscriber, operation: transform))
+            upstream.subscribe(Inner(downstream: subscriber, filter: transform))
         }
     }
     
@@ -45,7 +45,7 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            upstream.receive(subscriber: Inner(downstream: subscriber, operation: transform))
+            upstream.receive(subscriber: Inner(downstream: subscriber, filter: transform))
         }
     }
 }
@@ -73,12 +73,8 @@ extension Publishers.CompactMap {
     // MARK: COMPACTMAP SINK
     private final class Inner<Downstream: Subscriber>: FilterProducer<Downstream, Output, Upstream.Output, Upstream.Failure, (Upstream.Output) -> Output?> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        override func receive(input: Input) -> PartialCompletion<Output, Failure>? {
-            if let value = operation(input) {
-                return .continue(value)
-            } else {
-                return nil
-            }
+        override func receive(newValue: Input) -> PartialCompletion<Output?, Failure> {
+            return .continue(filter(newValue))
         }
         
         override var description: String {
@@ -92,13 +88,9 @@ extension Publishers.TryCompactMap {
     // MARK: TRY COMPACTMAP SINK
     private final class Inner<Downstream: Subscriber>: FilterProducer<Downstream, Output, Upstream.Output, Upstream.Failure, (Upstream.Output) throws -> Output?> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        override func receive(input: Input) -> PartialCompletion<Output, Downstream.Failure>? {
+        override func receive(newValue: Input) -> PartialCompletion<Output?, Downstream.Failure> {
             do {
-                if let output = try operation(input) {
-                    return .continue(output)
-                } else {
-                    return nil
-                }
+                return .continue(try filter(newValue))
             } catch {
                 return .failure(error)
             }

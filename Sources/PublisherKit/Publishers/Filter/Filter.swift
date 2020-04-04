@@ -26,7 +26,7 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            upstream.subscribe(Inner(downstream: subscriber, operation: isIncluded))
+            upstream.subscribe(Inner(downstream: subscriber, filter: isIncluded))
         }
     }
     
@@ -49,7 +49,7 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            upstream.receive(subscriber: Inner(downstream: subscriber, operation: isIncluded))
+            upstream.receive(subscriber: Inner(downstream: subscriber, filter: isIncluded))
         }
     }
 }
@@ -81,8 +81,8 @@ extension Publishers.Filter {
     // MARK: FILTER SINK
     private final class Inner<Downstream: Subscriber>: FilterProducer<Downstream, Output, Upstream.Output, Upstream.Failure, (Upstream.Output) -> Bool> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        override func receive(input: Input) -> PartialCompletion<Output, Failure>? {
-            operation(input) ? .continue(input) : nil
+        override func receive(newValue: Input) -> PartialCompletion<Output?, Failure> {
+            filter(newValue) ? .continue(newValue) : .continue(nil)
         }
         
         override var description: String {
@@ -96,9 +96,9 @@ extension Publishers.TryFilter {
     // MARK: TRY FILTER SINK
     private final class Inner<Downstream: Subscriber>: FilterProducer<Downstream, Output, Upstream.Output, Upstream.Failure, (Upstream.Output) throws -> Bool> where Output == Downstream.Input, Failure == Downstream.Failure {
     
-        override func receive(input: Input) -> PartialCompletion<Output, Downstream.Failure>? {
+        override func receive(newValue: Input) -> PartialCompletion<Output?, Downstream.Failure> {
             do {
-                return try operation(input) ? .continue(input) : nil
+                return try filter(newValue) ? .continue(newValue) : .continue(nil)
             } catch {
                 return .failure(error)
             }

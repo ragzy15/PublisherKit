@@ -10,7 +10,7 @@ class ReduceProducer<Downstream: Subscriber, Output, Input, Failure: Error, Redu
     private var status: SubscriptionStatus = .awaiting
     private let lock = Lock()
     
-    private var downstream: Downstream?
+    private let downstream: Downstream
     private var downstreamRequested = false
     
     var result: Output?
@@ -61,10 +61,10 @@ class ReduceProducer<Downstream: Subscriber, Output, Input, Failure: Error, Redu
         assert(completed && upstreamCompleted)
         
         if let result = result {
-            _ = downstream?.receive(result)
+            _ = downstream.receive(result)
         }
         
-        downstream?.receive(completion: .finished)
+        downstream.receive(completion: .finished)
     }
 }
 
@@ -81,7 +81,7 @@ extension ReduceProducer: Subscriber {
         status = .subscribed(to: subscription)
         lock.unlock()
         
-        downstream?.receive(subscription: self)
+        downstream.receive(subscription: self)
         subscription.request(.unlimited)
     }
     
@@ -121,7 +121,7 @@ extension ReduceProducer: Subscriber {
             
             subscription.cancel()
             
-            downstream?.receive(completion: .failure(error))
+            downstream.receive(completion: .failure(error))
         }
         
         return .none
@@ -170,7 +170,7 @@ extension ReduceProducer: Subscriber {
         completed = true
         lock.unlock()
         
-        downstream?.receive(completion: .failure(error as! Downstream.Failure))
+        downstream.receive(completion: .failure(error as! Downstream.Failure))
     }
 }
 

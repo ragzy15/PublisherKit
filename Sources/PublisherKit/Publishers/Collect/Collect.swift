@@ -21,7 +21,7 @@ extension Publishers {
     }
     
     /// A publisher that buffers and periodically publishes its items.
-    public struct CollectByTime<Upstream, Context> : Publisher where Upstream : Publisher, Context : Scheduler {
+    public struct CollectByTime<Upstream: Publisher, Context: Scheduler>: Publisher {
         
         public typealias Output = [Upstream.Output]
         
@@ -31,12 +31,12 @@ extension Publishers {
         public let upstream: Upstream
         
         /// The strategy with which to collect and publish elements.
-        public let strategy: Publishers.TimeGroupingStrategy<Context>
+        public let strategy: TimeGroupingStrategy<Context>
         
         /// `Scheduler` options to use for the strategy.
         public let options: Context.PKSchedulerOptions?
         
-        public init(upstream: Upstream, strategy: Publishers.TimeGroupingStrategy<Context>, options: Context.PKSchedulerOptions?) {
+        public init(upstream: Upstream, strategy: TimeGroupingStrategy<Context>, options: Context.PKSchedulerOptions?) {
             self.upstream = upstream
             self.strategy = strategy
             self.options = options

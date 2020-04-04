@@ -29,7 +29,7 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            upstream.subscribe(Inner(downstream: subscriber, operation: predicate))
+            upstream.subscribe(Inner(downstream: subscriber, filter: predicate))
         }
     }
     
@@ -55,7 +55,7 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            upstream.subscribe(Inner(downstream: subscriber, operation: predicate))
+            upstream.subscribe(Inner(downstream: subscriber, filter: predicate))
         }
     }
 }
@@ -67,13 +67,15 @@ extension Publishers.RemoveDuplicates {
         
         private var previousInput: Output?
         
-        override func receive(input: Input) -> PartialCompletion<Output, Failure>? {
-            if let previousOutput = previousInput, operation(previousOutput, input) {
-                return nil
+        override func receive(newValue: Input) -> PartialCompletion<Output?, Failure> {
+            let previousInput = self.previousInput
+            self.previousInput = newValue
+            
+            if let previousInput = previousInput, filter(previousInput, newValue) {
+                return .continue(nil)
             }
             
-            previousInput = input
-            return .continue(input)
+            return .continue(newValue)
         }
         
         override var description: String {
@@ -89,17 +91,18 @@ extension Publishers.TryRemoveDuplicates {
         
         private var previousInput: Output? = nil
         
-        override func receive(input: Input) -> PartialCompletion<Output, Downstream.Failure>? {
-            do {
-                if let previousInput = previousInput, try operation(previousInput, input) {
-                    return nil
+        override func receive(newValue: Input) -> PartialCompletion<Output?, Downstream.Failure> {
+            let previousInput = self.previousInput
+            self.previousInput = newValue
+            
+            if let previousInput = previousInput {
+                do {
+                    return try filter(previousInput, newValue) ? .continue(nil) : .continue(newValue)
+                } catch {
+                    return .failure(error)
                 }
-                
-                previousInput = input
-                return .continue(input)
-                
-            } catch {
-                return .failure(error)
+            } else {
+                return .continue(newValue)
             }
         }
         

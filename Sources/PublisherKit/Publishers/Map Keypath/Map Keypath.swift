@@ -5,10 +5,10 @@
 //  Created by Raghav Ahuja on 18/11/19.
 //
 
-public extension Publishers {
+extension Publishers {
     
     /// A publisher that publishes the value of a key path.
-    struct MapKeyPath<Upstream: Publisher, Output>: Publisher {
+    public struct MapKeyPath<Upstream: Publisher, Output>: Publisher {
         
         public typealias Failure = Upstream.Failure
         
