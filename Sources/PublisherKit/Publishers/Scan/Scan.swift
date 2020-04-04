@@ -149,7 +149,7 @@ extension Publishers.TryScan {
         
         func receive(completion: Subscribers.Completion<Failure>) {
             guard status.isSubscribed else { return }
-            downstream.receive(completion: completion.mapError { $0 as Downstream.Failure })
+            downstream.receive(completion: completion.eraseError())
         }
         
         func request(_ demand: Subscribers.Demand) {

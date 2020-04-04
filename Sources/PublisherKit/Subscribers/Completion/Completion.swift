@@ -15,20 +15,22 @@ public extension Subscribers {
         
         func mapError<NewFailure: Error>(_ transform: (Failure) -> NewFailure) -> Completion<NewFailure> {
             switch self {
-            case .finished:
-                return .finished
-            case .failure(let error):
-                let newError = transform(error)
-                return .failure(newError)
+            case .finished: return .finished
+            case .failure(let error): return .failure(transform(error))
+            }
+        }
+        
+        func eraseError() -> Completion<Error> {
+            switch self {
+            case .finished: return .finished
+            case .failure(let error): return .failure(error)
             }
         }
         
         func getError() -> Failure? {
             switch self {
-            case .finished:
-                return nil
-            case .failure(let error):
-                return error
+            case .finished: return nil
+            case .failure(let error): return error
             }
         }
         

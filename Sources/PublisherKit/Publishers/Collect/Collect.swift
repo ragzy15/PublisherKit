@@ -266,7 +266,6 @@ extension Publishers.CollectByTime {
     }
 }
 
-
 extension Publishers.Collect {
     
     // MARK: COLLECT SINK

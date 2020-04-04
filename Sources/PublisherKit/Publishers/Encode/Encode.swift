@@ -70,7 +70,7 @@ extension Publishers.Encode {
             guard !finished else { return }
             finished = true
             subscription = nil
-            downstream?.receive(completion: completion.mapError { $0 as Error })
+            downstream?.receive(completion: completion.eraseError())
         }
         
         func receive(subscription: Subscription) {

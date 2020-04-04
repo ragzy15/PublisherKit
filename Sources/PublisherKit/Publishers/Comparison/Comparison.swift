@@ -5,7 +5,7 @@
 //  Created by Raghav Ahuja on 29/03/20.
 //
 
-extension Publisher where Output : Comparable {
+extension Publisher where Output: Comparable {
     
     /// Publishes the minimum value received from the upstream publisher, after it finishes.
     ///
