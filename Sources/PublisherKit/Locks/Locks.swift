@@ -81,7 +81,7 @@ fileprivate final class OSUnfaireLock: Locking {
 
 fileprivate class MutexLock: Locking {
     
-    fileprivate var mutex: pthread_mutex_t
+    private var mutex: pthread_mutex_t
     
     convenience init() {
         let attributes = MutexAttributes()

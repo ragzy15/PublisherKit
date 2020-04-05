@@ -10,12 +10,12 @@ extension Subscriptions {
     /// Returns the 'empty' subscription.
     ///
     /// Use the empty subscription when you need a `Subscription` that ignores requests and cancellation.
-    public static var empty: Subscription { EmptySubscription() }
+    public static var empty: Subscription { _EmptySubscription() }
 }
 
-private extension Subscriptions {
+extension Subscriptions {
     
-    class EmptySubscription: Subscription {
+    private class _EmptySubscription: Subscription {
         
         init() {}
         

@@ -16,12 +16,10 @@ extension Subscribers {
         
         private var _object: Root?
         
-        private var subscription: Subscription?
-        
-        private var isCancelled = false
+        private var status: SubscriptionStatus = .awaiting
         
         /// The key path that indicates the property to assign.
-        final public var keyPath: ReferenceWritableKeyPath<Root, Input>
+        final public let keyPath: ReferenceWritableKeyPath<Root, Input>
         
         /// Creates a subscriber to assign the value of a property indicated by a key path.
         /// - Parameters:
@@ -33,31 +31,48 @@ extension Subscribers {
         }
         
         final public func receive(subscription: Subscription) {
-            guard !isCancelled else { return }
-            self.subscription = subscription
+            guard case .awaiting = status else {
+                subscription.cancel()
+                return
+            }
+            
+            status = .subscribed(to: subscription)
             subscription.request(.unlimited)
         }
         
         final public func receive(_ value: Input) -> Subscribers.Demand {
-            guard !isCancelled else { return .none }
+            guard case .subscribed = status else { return .none }
             _object?[keyPath: keyPath] = value
             return .none
         }
         
-        final public func receive(completion: Subscribers.Completion<Never>) {
-            guard !isCancelled else { return }
-            end()
-        }
-        
-        final func end() {
-            subscription = nil
+        final public func receive(completion: Subscribers.Completion<Failure>) {
+            cancel()
         }
         
         final public func cancel() {
-            isCancelled = true
+            guard case .subscribed(let subscription) = status else { return }
+            status = .terminated
             _object = nil
-            subscription?.cancel()
-            subscription = nil
+            subscription.cancel()
+        }
+        
+        final public var description: String {
+            "Assign \(Root.self)."
+        }
+        
+        final public var playgroundDescription: Any {
+            description
+        }
+        
+        final public var customMirror: Mirror {
+            let children: [Mirror.Child] = [
+                ("object", object as Any),
+                ("keyPath", keyPath),
+                ("status", status as Any)
+            ]
+            
+            return Mirror(self, children: children)
         }
     }
 }

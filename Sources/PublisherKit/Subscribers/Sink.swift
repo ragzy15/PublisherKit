@@ -5,52 +5,60 @@
 //  Created by Raghav Ahuja on 25/12/19.
 //
 
-public extension Subscribers {
-
+extension Subscribers {
+    
     /// A simple subscriber that requests an unlimited number of values upon subscription.
-    final class Sink<Input, Failure: Error>: Subscriber, Cancellable {
-
+    public final class Sink<Input, Failure: Error>: Subscriber, Cancellable, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable {
+        
         /// The closure to execute on receipt of a value.
         final public let receiveValue: (Input) -> Void
-
+        
         /// The closure to execute on completion.
         final public let receiveCompletion: (Subscribers.Completion<Failure>) -> Void
         
-        private var subscription: Subscription?
+        private var status: SubscriptionStatus = .awaiting
         
-        var isCancelled = false
-
         public init(receiveCompletion: @escaping ((Subscribers.Completion<Failure>) -> Void), receiveValue: @escaping ((Input) -> Void)) {
             self.receiveCompletion = receiveCompletion
             self.receiveValue = receiveValue
         }
-
+        
         final public func receive(subscription: Subscription) {
-            guard !isCancelled else { return }
-            self.subscription = subscription
+            guard case .awaiting = status else {
+                subscription.cancel()
+                return
+            }
+            
+            status = .subscribed(to: subscription)
             subscription.request(.unlimited)
         }
-
+        
         final public func receive(_ value: Input) -> Subscribers.Demand {
-            guard !isCancelled else { return .none }
             receiveValue(value)
             return .none
         }
-
+        
         final public func receive(completion: Subscribers.Completion<Failure>) {
-            guard !isCancelled else { return }
             receiveCompletion(completion)
-            end()
-        }
-
-        final public func cancel() {
-            isCancelled = true
-            subscription?.cancel()
-            subscription = nil
+            status = .terminated
         }
         
-        final func end() {
-            subscription = nil
+        final public func cancel() {
+            guard case .subscribed(let subscription) = status else { return }
+            status = .terminated
+            subscription.cancel()
+        }
+        
+        final public var description: String {
+            "Sink"
+        }
+        
+        final public var playgroundDescription: Any {
+            description
+        }
+        
+        final public var customMirror: Mirror {
+            Mirror(self, children: [])
         }
     }
 }
