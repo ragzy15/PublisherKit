@@ -52,6 +52,22 @@ extension NotificationCenter {
     }
 }
 
+extension NotificationCenter.PKPublisher: Equatable {
+    
+    public static func == (lhs: NotificationCenter.PKPublisher, rhs: NotificationCenter.PKPublisher) -> Bool {
+        let equal = lhs.center.isEqual(rhs.center) && lhs.name == rhs.name
+        
+        let objectEqual: Bool
+        if let lhsObject = lhs.object, let rhsObject = rhs.object {
+            objectEqual = lhsObject.isEqual(rhsObject)
+        } else {
+            objectEqual = false
+        }
+        
+        return equal && objectEqual
+    }
+}
+
 extension NotificationCenter.PKPublisher {
     
     // MARK: NOTIFICATION CENTER SINK
