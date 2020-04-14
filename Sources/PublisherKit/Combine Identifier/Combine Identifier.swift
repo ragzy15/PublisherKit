@@ -5,7 +5,7 @@
 //  Created by Raghav Ahuja on 09/02/20.
 //
 
-import PublisherKitHelpers
+import CombineIdentifier
 
 public struct CombineIdentifier: Hashable, CustomStringConvertible {
     

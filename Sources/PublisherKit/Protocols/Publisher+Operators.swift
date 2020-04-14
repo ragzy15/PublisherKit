@@ -5,8 +5,6 @@
 //  Created by Raghav Ahuja on 18/11/19.
 //
 
-import Foundation
-
 // MARK: OPERATORS
 /// THIS EXTENSIONS LISTS ALL OPERATOR METHODS FOR PUBLISHERS
 
@@ -405,22 +403,6 @@ extension Publisher {
         
         return publisher
     }
-    
-    /// Decodes the output from upstream using a specified `JSONDecoder`.
-    ///
-    /// - Parameter type: Type to decode into.
-    /// - Parameter jsonKeyDecodingStrategy: JSON Key Decoding Strategy. Default value is `.useDefaultKeys`.
-    /// - Parameter logOutput: Log output to console using `Logger`. Default value is `true`.
-    public func decode<Item: Decodable>(type: Item.Type, jsonKeyDecodingStrategy: JSONDecoder.KeyDecodingStrategy = .useDefaultKeys, logOutput: Bool = true) -> Publishers.Decode<Self, Item, JSONDecoder> {
-        
-        let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = jsonKeyDecodingStrategy
-        
-        var publisher = Publishers.Decode<Self, Item, JSONDecoder>(upstream: self, decoder: decoder)
-        publisher.logOutput = logOutput
-        
-        return publisher
-    }
 }
 
 // MARK: DELAY
@@ -486,16 +468,6 @@ extension Publisher where Output: Encodable {
     /// - Parameter encoder: `TopLevelEncoder` for encoding output.
     public func encode<Encoder: TopLevelEncoder>(encoder: Encoder) -> Publishers.Encode<Self, Encoder> {
         Publishers.Encode(upstream: self, encoder: encoder)
-    }
-    
-    /// Encodes the output from upstream using a specified `TopLevelEncoder`.
-    /// For example, use `JSONEncoder`.
-    ///
-    /// - Parameter keyEncodingStrategy: JSON Key Encoding Strategy. Default value is `.useDefaultKeys`.
-    public func encodeJSON(keyEncodingStrategy: JSONEncoder.KeyEncodingStrategy = .useDefaultKeys) -> Publishers.Encode<Self, JSONEncoder> {
-        let encoder = JSONEncoder()
-        encoder.keyEncodingStrategy = keyEncodingStrategy
-        return Publishers.Encode(upstream: self, encoder: encoder)
     }
 }
 
@@ -647,18 +619,6 @@ extension Publisher {
     /// - Returns: A publisher that only publishes the last element satisfying the given predicate.
     public func tryLast(where predicate: @escaping (Output) throws -> Bool) -> Publishers.TryLastWhere<Self> {
         Publishers.TryLastWhere(upstream: self, predicate: predicate)
-    }
-}
-
-// MARK: MATCHES
-extension Publisher where Output == String {
-    
-    public func firstMatch(pattern: String, options: NSRegularExpression.Options = [], matchOptions: NSRegularExpression.MatchingOptions = []) -> Publishers.FirstMatch<Self> {
-        Publishers.FirstMatch(upstream: self, pattern: pattern, options: options, matchOptions: matchOptions)
-    }
-    
-    public func matches(pattern: String, options: NSRegularExpression.Options = [], matchOptions: NSRegularExpression.MatchingOptions = []) -> Publishers.Matches<Self> {
-        Publishers.Matches(upstream: self, pattern: pattern, options: options, matchOptions: matchOptions)
     }
 }
 
@@ -1256,32 +1216,6 @@ extension Publisher {
     /// - Returns: A publisher that emits either the most-recent or first element received during the specified interval.
     public func throttle<S: Scheduler>(for interval: S.PKSchedulerTimeType.Stride, scheduler: S, latest: Bool) -> Publishers.Throttle<Self, S> {
         Publishers.Throttle(upstream: self, interval: interval, scheduler: scheduler, latest: latest)
-    }
-}
-
-// MARK: VALIDATE
-extension Publisher where Output == (data: Data, response: HTTPURLResponse) {
-    
-    /// Validates that the response has a status code acceptable in the specified range, and that the response has a content type in the specified sequence.
-    ///
-    /// - Parameters:
-    ///   - acceptableStatusCodes: The range of acceptable status codes. Default range of 200...299.
-    ///   - acceptableContentTypes: The acceptable content types, which may specify wildcard types and/or subtypes. If provided `nil`, content type is not validated. By default the content type matches any specified in the **Accept** HTTP header field.
-    public func validate(acceptableStatusCodes codes: [Int] = Array(200 ..< 300), acceptableContentTypes: AcceptableContentTypes? = .acceptOrWildcard) -> Publishers.Validate<Self> {
-        Publishers.Validate(upstream: self, acceptableStatusCodes: codes, acceptableContentTypes: acceptableContentTypes)
-    }
-    
-    @available(*, unavailable, message: "Please use validate with param acceptableContentTypes as `AcceptableContentTypes` enum")
-    public func validate(acceptableStatusCodes: [Int] = Array(200 ..< 300), acceptableContentTypes ct: [String]? = []) -> Publishers.Validate<Self> {
-        let acceptableContentTypes: AcceptableContentTypes?
-        
-        if let contentTypes = ct {
-            acceptableContentTypes = .custom(contentTypes: contentTypes)
-        } else {
-            acceptableContentTypes = nil
-        }
-        
-        return Publishers.Validate(upstream: self, acceptableStatusCodes: acceptableStatusCodes, acceptableContentTypes: acceptableContentTypes)
     }
 }
 

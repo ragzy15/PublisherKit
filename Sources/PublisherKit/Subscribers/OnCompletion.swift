@@ -15,14 +15,17 @@ public extension Subscribers {
         
         private var status: SubscriptionStatus = .awaiting
         
+        let logError: Bool
+        
         
         /// Initializes a sink with the provided closures.
         ///
         /// - Parameters:
+        ///   - logError: If an error if received in completion, it allows to print on console
         ///   - receiveCompletion: The closure to execute on completion.
-        ///   - receiveValue: The closure to execute on receipt of a value.
-        public init(receiveCompletion: @escaping ((Result<Input, Failure>) -> Void)) {
+        public init(logError: Bool = true, receiveCompletion: @escaping ((Result<Input, Failure>) -> Void)) {
             self.receiveCompletion = receiveCompletion
+            self.logError = logError
         }
         
         final public func receive(subscription: Subscription) {
@@ -47,7 +50,9 @@ public extension Subscribers {
             
             if let error = completion.getError() {
                 #if DEBUG
-                Logger.default.log(error: error)
+                if logError {
+                    Swift.print("⚠️ [PublisherKit: Error]\n  ↪︎ \(error)\n")
+                }
                 #endif
                 receiveCompletion(.failure(error))
             }

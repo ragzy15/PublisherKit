@@ -12,32 +12,35 @@ public extension Subscribers {
         case finished
         
         case failure(Failure)
-        
-        func mapError<NewFailure: Error>(_ transform: (Failure) -> NewFailure) -> Completion<NewFailure> {
-            switch self {
-            case .finished: return .finished
-            case .failure(let error): return .failure(transform(error))
-            }
+    }
+}
+
+extension Subscribers.Completion {
+
+    func mapError<NewFailure: Error>(_ transform: (Failure) -> NewFailure) -> Subscribers.Completion<NewFailure> {
+        switch self {
+        case .finished: return .finished
+        case .failure(let error): return .failure(transform(error))
         }
-        
-        func eraseError() -> Completion<Error> {
-            switch self {
-            case .finished: return .finished
-            case .failure(let error): return .failure(error)
-            }
+    }
+    
+    func eraseError() -> Subscribers.Completion<Error> {
+        switch self {
+        case .finished: return .finished
+        case .failure(let error): return .failure(error)
         }
-        
-        func getError() -> Failure? {
-            switch self {
-            case .finished: return nil
-            case .failure(let error): return error
-            }
+    }
+    
+    func getError() -> Failure? {
+        switch self {
+        case .finished: return nil
+        case .failure(let error): return error
         }
-        
-        private enum CodingKeys: String, CodingKey {
-            case success
-            case error
-        }
+    }
+    
+    private enum CodingKeys: String, CodingKey {
+        case success
+        case error
     }
 }
 
