@@ -15,14 +15,13 @@ To know more about Combine Framework, refer to Apple's Documentation [here](http
 ## Supported Platforms
 
 * Xcode 11 and above
-* Swift 5.1 and above
 
 ### Deployment Targets
 
 * iOS 8 and above
 * macOS (OS X) 10.10 and above
-* tvOS 10 and above
-* watchOS 4 and above
+* tvOS 9 and above
+* watchOS 3 and above
 
 ## Installation
 
