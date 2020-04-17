@@ -1,21 +1,22 @@
 //
-//  Assign.swift
+//  Assign No Retain.swift
 //  PublisherKit
 //
-//  Created by Raghav Ahuja on 19/12/19.
+//  Created by Raghav Ahuja on 18/04/20.
 //
 
 extension Subscribers {
     
     /// A simple subscriber that assigns received elements to a property indicated by a key path.
-    final public class Assign<Root, Input>: Subscriber, Cancellable {
+    /// - Note: It is created as there is a flaw in `Assign` subscriber that it strongly holds the reference to object which can leak memory.
+    final public class AssignNoRetain<Root: AnyObject, Input>: Subscriber, Cancellable {
         
         public typealias Failure = Never
         
         /// The object that contains the property to assign.
         final public var object: Root? { _object }
         
-        private var _object: Root?
+        private weak var _object: Root?
         
         private var subscription: Subscription?
         
