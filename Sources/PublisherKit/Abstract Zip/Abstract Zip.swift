@@ -71,9 +71,9 @@ final class AbstractZip<Downstream: Subscriber, Output, Failure> where Output ==
         lock.lock()
         guard !isTerminated else { lock.unlock(); return .none }
         
-        let finishedSubscriptions = upstreamSubscriptions.filter { $0 == nil }.count > 0
+        let anySubscriptionFinished = !upstreamSubscriptions.filter { $0 == nil }.isEmpty
         
-        if finishedSubscriptions {
+        if anySubscriptionFinished {
             let bufferIsEmpty = buffers.filter { $0.isEmpty }.count == upstreamCount
             if bufferIsEmpty {
                 lockedSendCompletion()
