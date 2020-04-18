@@ -51,7 +51,7 @@ let package = Package(
             targets: ["YourPackage"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/ragzy15/PublisherKit.git", from: "3.0.0"),
+        .package(url: "https://github.com/ragzy15/PublisherKit.git", from: "4.0.0"),
     ],
     targets: [
         .target(
@@ -62,6 +62,49 @@ let package = Package(
 ```
 
 You can install by using swift package manager built into Xcode or clone the repository and add a sub project into your project.
+
+### CocoaPods
+
+[CocoaPods](http://cocoapods.org) is a dependency manager for Cocoa projects.
+
+If you don't already have the Cocoapods gem installed, run the following command:
+
+```bash
+$ gem install cocoapods
+```
+
+To integrate PublisherKit into your Xcode project using CocoaPods, specify it in your `Podfile`:
+
+```ruby
+source 'https://github.com/CocoaPods/Specs.git'
+platform :ios, '10.0'
+use_frameworks!
+
+pod 'PublisherKit', '~> 4.0.0'
+```
+
+Then, run the following command:
+
+```bash
+$ pod install
+```
+
+### Carthage
+
+[Carthage](https://github.com/Carthage/Carthage) is a decentralized dependency manager that automates the process of adding frameworks to your application.
+
+You can install Carthage with [Homebrew](http://brew.sh/) using the following command:
+
+```bash
+$ brew update
+$ brew install carthage
+```
+
+To integrate PublisherKit into your Xcode project using Carthage, specify it in your `Cartfile`:
+
+```ogdl
+github "ragzy15/PublisherKit"
+```
 
 ## Usage
 
