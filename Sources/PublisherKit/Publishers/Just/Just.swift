@@ -24,28 +24,50 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            
-            let justSubscriber = Inner(downstream: subscriber)
-            
-            subscriber.receive(subscription: justSubscriber)
-            justSubscriber.request(.max(1))
-            
-            justSubscriber.receive(input: output)
-            justSubscriber.receive(completion: .finished)
+            subscriber.receive(subscription: Inner(downstream: subscriber, output: output))
         }
     }
 }
 
-extension Publishers.Just: Equatable where Output: Equatable {
-}
+extension Publishers.Just: Equatable where Output: Equatable { }
 
 extension Publishers.Just {
     
     // MARK: JUST SINK
-    private final class Inner<Downstream: Subscriber>: Subscriptions.Internal<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        override var description: String {
+        private let output: Output
+        private var downstream: Downstream?
+        
+        init(downstream: Downstream, output: Output) {
+            self.downstream = downstream
+            self.output = output
+        }
+        
+        func request(_ demand: Subscribers.Demand) {
+            precondition(demand > .none, "Demand must not be zero.")
+            
+            guard let downstream = downstream else { return }
+            self.downstream = nil
+            
+            _ = downstream.receive(output)
+            downstream.receive(completion: .finished)
+        }
+        
+        func cancel() {
+            downstream = nil
+        }
+        
+        var description: String {
             "Just"
+        }
+        
+        var playgroundDescription: Any {
+            description
+        }
+        
+        var customMirror: Mirror {
+            Mirror(self, unlabeledChildren: [output])
         }
     }
 }

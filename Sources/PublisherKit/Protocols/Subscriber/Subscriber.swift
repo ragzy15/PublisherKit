@@ -5,12 +5,6 @@
 //  Created by Raghav Ahuja on 19/12/19.
 //
 
-@available(*, deprecated, renamed: "Subscriber")
-public typealias NKSubscriber = Subscriber
-
-@available(*, deprecated, renamed: "Subscriber")
-public typealias PKSubscriber = Subscriber
-
 /// A protocol that declares a type that can receive input from a publisher.
 ///
 /// A Subscriber instance receives a stream of elements from a [Publisher](apple-reference-documentation://hsja-BzNqj), along with life cycle events describing changes to their relationship.
@@ -30,24 +24,24 @@ public protocol Subscriber: CustomCombineIdentifierConvertible {
     
     /// The kind of values this subscriber receives.
     associatedtype Input
-
+    
     /// The kind of errors this subscriber might receive.
     ///
     /// Use `Never` if this `Subscriber` cannot receive errors.
     associatedtype Failure : Error
-
+    
     /// Tells the subscriber that it has successfully subscribed to the publisher and may request items.
     ///
     /// Use the received [Subscription](apple-reference-documentation://hsuduLjqdO) to request items from the publisher.
     /// - Parameter subscription: A subscription that represents the connection between publisher and subscriber.
     func receive(subscription: Subscription)
-
+    
     /// Tells the subscriber that the publisher has produced an element.
     ///
     /// - Parameter input: The published element.
     /// - Returns: A [Subscribers.Demand](https://developer.apple.com/documentation/combine/subscribers/demand) instance indicating how many more elements the subcriber expects to receive.
     func receive(_ input: Input) -> Subscribers.Demand
-
+    
     /// Tells the subscriber that the publisher has completed publishing, either normally or with an error.
     ///
     /// - Parameter completion: A [Subscribers.Completion](apple-reference-documentation://hs0a1r610i) case indicating whether publishing completed normally or with an error.

@@ -34,8 +34,8 @@ extension Publishers {
         
         public init(upstream: Upstream,
                     receiveSubscription: ((Subscription) -> Void)? = nil,
-                    receiveOutput: ((Publishers.HandleEvents<Upstream>.Output) -> Void)? = nil,
-                    receiveCompletion: ((Subscribers.Completion<Publishers.HandleEvents<Upstream>.Failure>) -> Void)? = nil,
+                    receiveOutput: ((Output) -> Void)? = nil,
+                    receiveCompletion: ((Subscribers.Completion<Failure>) -> Void)? = nil,
                     receiveCancel: (() -> Void)? = nil,
                     receiveRequest: ((Subscribers.Demand) -> Void)?) {
             
@@ -50,13 +50,14 @@ extension Publishers {
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
+            let handleEventsSubscriber = Inner<S, Upstream>(downstream: subscriber,
+                                                            receiveSubscription: receiveSubscription,
+                                                            receiveOutput: receiveOutput,
+                                                            receiveCompletion: receiveCompletion,
+                                                            receiveCancel: receiveCancel,
+                                                            receiveRequest: receiveRequest)
             
-            let handleEventsSubscriber = HandleEvents<S, Upstream>(downstream: subscriber,
-                                                                   receiveSubscription: receiveSubscription,
-                                                                   receiveOutput: receiveOutput,
-                                                                   receiveCompletion: receiveCompletion,
-                                                                   receiveCancel: receiveCancel,
-                                                                   receiveRequest: receiveRequest)
+            subscriber.receive(subscription: handleEventsSubscriber)
             upstream.subscribe(handleEventsSubscriber)
         }
     }
@@ -65,7 +66,16 @@ extension Publishers {
 extension Publishers.HandleEvents {
     
     // MARK: HANDLE EVENTS SINK
-    private final class HandleEvents<Downstream: Subscriber, Upstream: Publisher>: InternalSubscriber<Downstream, Upstream> where Downstream.Input == Upstream.Output, Downstream.Failure == Upstream.Failure {
+    private final class Inner<Downstream: Subscriber, Upstream: Publisher>: Subscriber, Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Downstream.Input == Upstream.Output, Downstream.Failure == Upstream.Failure {
+        
+        typealias Input = Upstream.Output
+        
+        typealias Failure = Upstream.Failure
+        
+        private var downstream: Downstream?
+        private var status: SubscriptionStatus = .awaiting
+        private var pendingDemand: Subscribers.Demand = .none
+        private let lock = Lock()
         
         final let receiveOutput: ((Input) -> Void)?
         
@@ -89,39 +99,77 @@ extension Publishers.HandleEvents {
             self.receiveCancel = receiveCancel
             self.receiveRequest = receiveRequest
             
-            super.init(downstream: downstream)
+            self.downstream = downstream
         }
         
-        override func request(_ demand: Subscribers.Demand) {
-            receiveRequest?(demand)
-            super.request(demand)
-        }
-        
-        override func onSubscription(_ subscription: Subscription) {
-            super.onSubscription(subscription)
+        func receive(subscription: Subscription) {
             receiveSubscription?(subscription)
+            lock.lock()
+            guard status == .awaiting else { lock.unlock(); return }
+            status = .subscribed(to: subscription)
+            
+            let pendingDemand = self.pendingDemand
+            self.pendingDemand = .none
+            lock.unlock()
+            
+            if pendingDemand > 0 {
+                subscription.request(pendingDemand)
+            }
         }
         
-        override func operate(on input: Input) -> Result<Downstream.Input, Downstream.Failure>? {
+        func receive(_ input: Input) -> Subscribers.Demand {
             receiveOutput?(input)
-            return .success(input)
+            lock.lock()
+            guard status.isSubscribed else { lock.unlock(); return .none }
+            lock.unlock()
+            
+            let newDemand = downstream?.receive(input) ?? .none
+            if newDemand > .none {
+                receiveRequest?(newDemand)
+            }
+            
+            return newDemand
         }
         
-        override func onCompletion(_ completion: Subscribers.Completion<Failure>) {
+        func receive(completion: Subscribers.Completion<Downstream.Failure>) {
             receiveCompletion?(completion)
+            lock.lock()
+            guard status.isSubscribed else { lock.unlock(); return }
+            status = .terminated
+            lock.unlock()
             downstream?.receive(completion: completion)
         }
         
-        override func cancel() {
-            receiveCancel?()
-            super.cancel()
+        func request(_ demand: Subscribers.Demand) {
+            receiveRequest?(demand)
+            lock.lock()
+            if case .subscribed(let subscription) = status {
+                lock.unlock()
+                subscription.request(demand)
+                return
+            }
+            pendingDemand += demand
+            lock.unlock()
         }
         
-        override var description: String {
+        func cancel() {
+            receiveCancel?()
+            lock.lock()
+            guard case .subscribed(let subscription) = status else { lock.unlock(); return }
+            status = .terminated
+            lock.unlock()
+            subscription.cancel()
+        }
+        
+        var description: String {
             "HandleEvents"
         }
         
-        override var customMirror: Mirror {
+        var playgroundDescription: Any {
+            description
+        }
+        
+        var customMirror: Mirror {
             Mirror(self, children: [])
         }
     }

@@ -31,26 +31,10 @@ public struct Empty<Output, Failure: Error>: Publisher, Equatable {
     }
     
     public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-        let emptySubscriber = Inner(downstream: subscriber)
-        subscriber.receive(subscription: emptySubscriber)
+        subscriber.receive(subscription: Subscriptions.empty)
         
         if completeImmediately {
-            emptySubscriber.receive(completion: .finished)
-        }
-    }
-}
-
-extension Empty {
-    
-    // MARK: EMPTY SINK
-    private final class Inner<Downstream: Subscriber>: Subscriptions.Internal<Downstream, Output, Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
-        
-        override func receive(input: Output) {
-            // overriding so that downstream does not receive any inputs.
-        }
-        
-        override var description: String {
-            "Empty"
+            subscriber.receive(completion: .finished)
         }
     }
 }

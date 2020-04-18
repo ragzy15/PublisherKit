@@ -7,6 +7,7 @@
 
 extension Subscribers {
     
+    /// A simple subscriber that assigns received elements to a property indicated by a key path.
     final public class Assign<Root, Input>: Subscriber, Cancellable {
         
         public typealias Failure = Never
@@ -17,8 +18,6 @@ extension Subscribers {
         private var _object: Root?
         
         private var subscription: Subscription?
-        
-        private var isCancelled = false
         
         /// The key path that indicates the property to assign.
         final public var keyPath: ReferenceWritableKeyPath<Root, Input>
@@ -33,29 +32,24 @@ extension Subscribers {
         }
         
         final public func receive(subscription: Subscription) {
-            guard !isCancelled else { return }
+            guard self.subscription == nil else { return }
             self.subscription = subscription
             subscription.request(.unlimited)
         }
         
         final public func receive(_ value: Input) -> Subscribers.Demand {
-            guard !isCancelled else { return .none }
+            guard subscription != nil else { return .none }
             _object?[keyPath: keyPath] = value
-            return .unlimited
+            return .none
         }
         
         final public func receive(completion: Subscribers.Completion<Never>) {
-            guard !isCancelled else { return }
-            end()
-        }
-        
-        final func end() {
-            subscription?.cancel()
+            guard subscription != nil else { return }
             subscription = nil
+            _object = nil
         }
         
         final public func cancel() {
-            isCancelled = true
             _object = nil
             subscription?.cancel()
             subscription = nil

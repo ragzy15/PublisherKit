@@ -82,7 +82,7 @@ extension Publishers.Just {
     }
     
     public func dropFirst(_ count: Int = 1) -> Optional<Output>.PKPublisher {
-        precondition(count >= 0, "count must not be negative")
+        precondition(count >= 0, "count must not be negative.")
         return Optional<Output>.PKPublisher(count > 0 ? nil : output)
     }
     
@@ -111,7 +111,7 @@ extension Publishers.Just {
     }
     
     public func ignoreOutput() -> Empty<Output, Failure> {
-        Empty(completeImmediately: true)
+        Empty()
     }
     
     public func map<T>(_ transform: (Output) -> T) -> Publishers.Just<T> {
@@ -127,7 +127,7 @@ extension Publishers.Just {
     }
     
     public func output(at index: Int) -> Optional<Output>.PKPublisher {
-        precondition(index >= 0, "index must not be negative")
+        precondition(index >= 0, "index must not be negative.")
         return Optional<Output>.PKPublisher(index == 0 ? output : nil)
     }
     
@@ -136,7 +136,7 @@ extension Publishers.Just {
     }
     
     public func prefix(_ maxLength: Int) -> Optional<Output>.PKPublisher {
-        precondition(maxLength >= 0, "maxLength must not be negative")
+        precondition(maxLength >= 0, "maxLength must not be negative.")
         return Optional<Output>.PKPublisher(maxLength > 0 ? output : nil)
     }
     

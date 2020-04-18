@@ -23,34 +23,25 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            
-            let countSubscriber = Inner(downstream: subscriber)
-            upstream.subscribe(countSubscriber)
+            upstream.subscribe(Inner(downstream: subscriber))
         }
     }
 }
 
+extension Publishers.Count: Equatable where Upstream: Equatable { }
+
 extension Publishers.Count {
     
     // MARK: COUNT SINK
-    private final class Inner<Downstream: Subscriber>: InternalSubscriber<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: ReduceProducer<Downstream, Output, Upstream.Output, Upstream.Failure, Void> where Output == Downstream.Input, Failure == Downstream.Failure {
         
-        private var counter = 0
-        
-        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
-            counter += 1
-            return nil
+        init(downstream: Downstream) {
+            super.init(downstream: downstream, initial: 0, reduce: ())
         }
         
-        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
-            switch completion {
-            case .finished:
-                _ = downstream?.receive(counter)
-                downstream?.receive(completion: .finished)
-                
-            case .failure(let error):
-                downstream?.receive(completion: .failure(error))
-            }
+        override func receive(newValue: Input) -> PartialCompletion<Void, Failure> {
+            result = (result ?? 0) + 1
+            return .continue
         }
         
         override var description: String {

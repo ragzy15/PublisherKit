@@ -52,10 +52,9 @@ extension Publishers {
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
             
             let breakpointSubscriber = Inner(downstream: subscriber,
-                                                    receiveSubscription: receiveSubscription,
-                                                    receiveOutput: receiveOutput,
-                                                    receiveCompletion: receiveCompletion)
-            
+                                             receiveSubscription: receiveSubscription,
+                                             receiveOutput: receiveOutput,
+                                             receiveCompletion: receiveCompletion)
             upstream.subscribe(breakpointSubscriber)
         }
     }
@@ -65,44 +64,53 @@ extension Publishers {
 extension Publishers.Breakpoint {
     
     // MARK: BREAKPOINT SINK
-    private final class Inner<Downstream: Subscriber>: InternalSubscriber<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private struct Inner<Downstream: Subscriber>: Subscriber, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable {
+        
+        typealias Input = Downstream.Input
+        
+        typealias Failure = Downstream.Failure
+        
+        let combineIdentifier: CombineIdentifier
         
         private let receiveSubscription: ((Subscription) -> Bool)?
         
-        private let receiveOutput: ((Upstream.Output) -> Bool)?
+        private let receiveOutput: ((Input) -> Bool)?
         
-        private let receiveCompletion: ((Subscribers.Completion<Upstream.Failure>) -> Bool)?
+        private let receiveCompletion: ((Subscribers.Completion<Failure>) -> Bool)?
         
         private let signal = Int32(SIGTRAP)
         
+        private var downstream: Downstream?
+        
         init(downstream: Downstream,
              receiveSubscription: ((Subscription) -> Bool)? = nil,
-             receiveOutput: ((Upstream.Output) -> Bool)? = nil,
+             receiveOutput: ((Input) -> Bool)? = nil,
              receiveCompletion: ((Subscribers.Completion<Failure>) -> Bool)? = nil) {
             
             self.receiveSubscription = receiveSubscription
             self.receiveOutput = receiveOutput
             self.receiveCompletion = receiveCompletion
-            super.init(downstream: downstream)
+            self.downstream = downstream
+            combineIdentifier = CombineIdentifier()
         }
         
-        override func onSubscription(_ subscription: Subscription) {
-            super.onSubscription(subscription)
-            
+        func receive(subscription: Subscription) {
             if receiveSubscription?(subscription) ?? false {
                 Darwin.raise(signal)
             }
+            
+            downstream?.receive(subscription: subscription)
         }
         
-        override func operate(on input: Upstream.Output) -> Result<Output, Failure>? {
+        func receive(_ input: Input) -> Subscribers.Demand {
             if receiveOutput?(input) ?? false {
                 Darwin.raise(signal)
             }
             
-            return .success(input)
+            return downstream?.receive(input) ?? .none
         }
         
-        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
+        func receive(completion: Subscribers.Completion<Failure>) {
             if receiveCompletion?(completion) ?? false {
                 Darwin.raise(signal)
             }
@@ -110,18 +118,16 @@ extension Publishers.Breakpoint {
             downstream?.receive(completion: completion)
         }
         
-        override var description: String {
+        var description: String {
             "Breakpoint"
         }
         
-        override var customMirror: Mirror {
-            let children: [Mirror.Child] = [
-                ("receiveSubscription", receiveSubscription ?? "nil"),
-                ("receiveOutput", receiveOutput ?? "nil"),
-                ("receiveCompletion", receiveCompletion ?? "nil")
-            ]
-            
-            return Mirror(self, children: children)
+        var playgroundDescription: Any {
+            description
+        }
+        
+        var customMirror: Mirror {
+            Mirror(self, children: [])
         }
     }
 }

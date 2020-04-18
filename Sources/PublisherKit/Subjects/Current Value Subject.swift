@@ -13,7 +13,7 @@ final public class CurrentValueSubject<Output, Failure: Error>: Subject {
     final private var _completion: Subscribers.Completion<Failure>? = nil
     
     private var upstreamSubscriptions: [Subscription] = []
-    private var downstreamSubscriptions: [Inner] = []
+    private var downstreamSubscriptions: [Conduit] = []
     
     private let _lock = RecursiveLock()
     
@@ -36,23 +36,15 @@ final public class CurrentValueSubject<Output, Failure: Error>: Subject {
     }
     
     deinit {
-        upstreamSubscriptions.forEach { (subscription) in
-            subscription.cancel()
-        }
-        
-        upstreamSubscriptions = []
-        
         downstreamSubscriptions.forEach { (subscription) in
-            subscription.cancel()
+            subscription._downstream = nil
         }
-        
-        downstreamSubscriptions = []
     }
     
     final public func send(subscription: Subscription) {
         _lock.do {
             upstreamSubscriptions.append(subscription)
-            subscription.request(_completion == nil ? .unlimited : .none)
+            subscription.request(.unlimited)
         }
     }
     
@@ -62,9 +54,7 @@ final public class CurrentValueSubject<Output, Failure: Error>: Subject {
                 subscriber.receive(subscription: Subscriptions.empty)
                 subscriber.receive(completion: completion)
             } else {
-                let subscription = Inner(downstream: AnySubscriber(subscriber))
-                subscription.subject = self
-                subscription.lock = _lock
+                let subscription = Conduit(parent: self, downstream: AnySubscriber(subscriber))
                 downstreamSubscriptions.append(subscription)
                 
                 subscriber.receive(subscription: subscription)
@@ -77,8 +67,14 @@ final public class CurrentValueSubject<Output, Failure: Error>: Subject {
             guard _completion == nil else { return }    // if subject has been completed, do not send or save any more inputs.
             
             _value = input
-            downstreamSubscriptions.forEach { (subscription) in
-                subscription.receive(input)
+            
+            for subscription in downstreamSubscriptions where !subscription.isCompleted {
+                if subscription._demand > 0 {
+                    subscription.offer(input)
+                    subscription._demand -= 1
+                } else {
+                    subscription._delivered = false
+                }
             }
         }
     }
@@ -88,8 +84,9 @@ final public class CurrentValueSubject<Output, Failure: Error>: Subject {
             guard _completion == nil else { return }    // if subject has been completed, do not send or save future completions.
             
             _completion = completion
+            
             downstreamSubscriptions.forEach { (subscription) in
-                subscription.receive(completion: completion)
+                subscription.finish(completion: completion)
             }
             
             downstreamSubscriptions = []
@@ -100,33 +97,61 @@ final public class CurrentValueSubject<Output, Failure: Error>: Subject {
 extension CurrentValueSubject {
     
     // MARK: CURRENT VALUE SUBJECT SINK
-    private final class Inner: Subscriptions.InternalSubject<Output, Failure> {
-        
-        var subject: CurrentValueSubject?
-        var lock: RecursiveLock?
-        
-        private var hasDeliveredOnRequest = false
-        
-        override func request(_ demand: Subscribers.Demand) {
-            lock?.do {
-                guard !isTerminated, !hasDeliveredOnRequest, _demand >= .none else { return }
-                _demand += demand
-                
-                if let value = subject?.value {
-                    receive(value)
-                }
-                
-                hasDeliveredOnRequest = true
+    private class Conduit: Subscription, CustomStringConvertible {
+
+        private var _parent: CurrentValueSubject?
+
+        fileprivate var _downstream: AnySubscriber<Output, Failure>?
+
+        fileprivate var _demand: Subscribers.Demand = .none
+
+        /// Whethere we satisfied the demand
+        fileprivate var _delivered = false
+
+        var isCompleted: Bool {
+            return _parent == nil
+        }
+
+        func offer(_ value: Output) {
+            let newDemand = _downstream?.receive(value) ?? .none
+            _demand += newDemand
+            _delivered = true
+        }
+
+        init(parent: CurrentValueSubject, downstream: AnySubscriber<Output, Failure>) {
+            _parent = parent
+            _downstream = downstream
+        }
+
+        func finish(completion: Subscribers.Completion<Failure>) {
+            if !isCompleted {
+                _parent = nil
+                _downstream?.receive(completion: completion)
             }
         }
-        
-        @inlinable override func finish() {
-            super.finish()
-            subject = nil
-            lock = nil
+
+        func request(_ demand: Subscribers.Demand) {
+            precondition(demand > 0)
+            
+            _parent?._lock.do {
+                if !_delivered, let value = _parent?.value {
+                    let newDemand = _downstream?.receive(value) ?? .none
+                    _demand += newDemand
+                    _delivered = true
+                    
+                    _demand += demand
+                    _demand -= 1
+                } else {
+                    _demand = demand
+                }
+            }
+        }
+
+        func cancel() {
+            _parent = nil
         }
         
-        override var description: String {
+        var description: String {
             "CurrentValueSubject"
         }
     }

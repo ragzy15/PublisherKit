@@ -5,21 +5,23 @@
 //  Created by Raghav Ahuja on 09/02/20.
 //
 
+#if canImport(PublisherKitHelpers)
 import PublisherKitHelpers
+#endif
 
 public struct CombineIdentifier: Hashable, CustomStringConvertible {
     
-    private let identifier: UInt64
+    private let value: UInt64
 
     public init() {
-        identifier = _newCombineIdentifier()
+        value = _newCombineIdentifier()
     }
 
     public init(_ obj: AnyObject) {
-        identifier = UInt64(UInt(bitPattern: ObjectIdentifier(obj)))
+        value = UInt64(UInt(bitPattern: ObjectIdentifier(obj)))
     }
     
     public var description: String {
-        "0x\(String(identifier, radix: 16))"
+        "0x\(String(value, radix: 16))"
     }
 }

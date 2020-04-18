@@ -5,15 +5,6 @@
 //  Created by Raghav Ahuja on 25/12/19.
 //
 
-@available(*, deprecated, renamed: "AnyPublisher")
-public typealias NKAnyPublisher = AnyPublisher
-
-@available(*, deprecated, renamed: "AnyPublisher")
-public typealias PKAnyPublisher = AnyPublisher
-
-@available(*, deprecated, renamed: "AnyPublisher")
-public typealias AnyPKPublisher = AnyPublisher
-
 /// A type-erasing publisher.
 ///
 /// Use `AnyPublisher` to wrap a publisher whose type has details you don’t want to expose to subscribers or other publishers.
@@ -26,7 +17,6 @@ public struct AnyPublisher<Output, Failure: Error>: Publisher {
     /// - Parameters:
     ///   - publisher: A publisher to wrap with a type-eraser.
     @inlinable public init<P: Publisher>(_ publisher: P) where Output == P.Output, Failure == P.Failure {
-        
         subscriberBlock = { (subscriber) in
             publisher.subscribe(subscriber)
         }

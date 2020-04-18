@@ -10,7 +10,7 @@ import Foundation
 extension RunLoop: Scheduler {
     
     /// The scheduler time type used by the run loop.
-    public struct PKStrideType: Strideable, Codable, Hashable {
+    public struct PKSchedulerTimeType: Strideable, Codable, Hashable {
         
         /// The date represented by this type.
         public var date: Date
@@ -26,22 +26,22 @@ extension RunLoop: Scheduler {
         ///
         /// - Parameter other: Another dispatch queue time.
         /// - Returns: The time interval between this time and the provided time.
-        public func distance(to other: PKStrideType) -> PKStrideType.Stride {
+        public func distance(to other: PKSchedulerTimeType) -> Stride {
             let timeIntervalSince1970 =
                 date > other.date
                     ? date.timeIntervalSince1970 - other.date.timeIntervalSince1970
                     : other.date.timeIntervalSince1970 - date.timeIntervalSince1970
             
-            return PKStrideType.Stride(timeIntervalSince1970)
+            return Stride(timeIntervalSince1970)
         }
         
         /// Returns a run loop scheduler time calculated by advancing this instance’s time by the given interval.
         ///
         /// - Parameter n: A time interval to advance.
         /// - Returns: A dispatch queue time advanced by the given interval from this instance’s time.
-        public func advanced(by n: PKStrideType.Stride) -> PKStrideType {
+        public func advanced(by n: Stride) -> PKSchedulerTimeType {
             let timeIntervalSince1970 = date.timeIntervalSince1970 + n.magnitude
-            return PKStrideType(Date(timeIntervalSince1970: timeIntervalSince1970))
+            return PKSchedulerTimeType(Date(timeIntervalSince1970: timeIntervalSince1970))
         }
         
         /// The interval by which run loop times advance.
@@ -84,7 +84,7 @@ extension RunLoop: Scheduler {
             ///
             /// If `exactly` cannot convert to an `Int`, the resulting time interval is `nil`.
             /// - Parameter exactly: A binary integer representing a time interval.
-            public init?<T>(exactly source: T) where T : BinaryInteger {
+            public init?<T: BinaryInteger>(exactly source: T) {
                 guard let value = TimeInterval(exactly: source) else { return nil }
                 magnitude = value
             }
@@ -157,38 +157,58 @@ extension RunLoop: Scheduler {
     public struct PKSchedulerOptions {
     }
     
-    public var now: PKStrideType { PKStrideType(Date()) }
+    public var now: PKSchedulerTimeType { PKSchedulerTimeType(Date()) }
     
-    public var minimumTolerance: PKStrideType.Stride { .seconds(0) }
+    public var minimumTolerance: PKSchedulerTimeType.Stride { .seconds(0) }
     
     public func schedule(options: PKSchedulerOptions?, _ action: @escaping () -> Void) {
-        let timer = Timer(fireAt: now.date, interval: 0, target: self, selector: #selector(scheduledAction(_:)), userInfo: action, repeats: false)
-        
-        add(timer, forMode: .default)
+        let cfRunLoop = getCFRunLoop()
+        CFRunLoopPerformBlock(cfRunLoop, CFRunLoopMode.defaultMode.rawValue, action)
+        CFRunLoopWakeUp(cfRunLoop)
     }
     
-    public func schedule(after date: PKStrideType, tolerance: PKStrideType.Stride, options: PKSchedulerOptions?, _ action: @escaping () -> Void) {
-        let timer = Timer(fireAt: date.date, interval: 0, target: self, selector: #selector(scheduledAction(_:)), userInfo: action, repeats: false)
+    public func schedule(after date: PKSchedulerTimeType, tolerance: PKSchedulerTimeType.Stride, options: PKSchedulerOptions?, _ action: @escaping () -> Void) {
+        perform(#selector(runLoopPKScheduled(action:)), with: _PKCombineRunLoopAction(action: action), afterDelay: date.date.timeIntervalSinceNow)
+    }
+    
+    public func schedule(after date: PKSchedulerTimeType, interval: PKSchedulerTimeType.Stride, tolerance: PKSchedulerTimeType.Stride, options: PKSchedulerOptions?, _ action: @escaping () -> Void) -> Cancellable {
+        
+        let timer: Timer
+        if #available(macOS 10.12, iOS 10.0, tvOS 10.0, watchOS 3.0, *) {
+            timer = Timer(fire: date.date, interval: interval.timeInterval, repeats: true) { (timer) in
+                if timer.isValid {
+                    action()
+                }
+            }
+        } else {
+            timer = Timer(fireAt: date.date, interval: interval.timeInterval, target: self, selector: #selector(runLoopPKScheduled(timer:)), userInfo: action, repeats: true)
+        }
         
         timer.tolerance = tolerance.timeInterval
         
         add(timer, forMode: .default)
+        
+        return AnyCancellable(timer.invalidate)
     }
     
-    public func schedule(after date: PKStrideType, interval: PKStrideType.Stride, tolerance: PKStrideType.Stride, options: PKSchedulerOptions?, _ action: @escaping () -> Void) -> Cancellable {
-        let timer = Timer(fireAt: date.date, interval: interval.timeInterval, target: self, selector: #selector(scheduledAction(_:)), userInfo: action, repeats: true)
-        
-        timer.tolerance = tolerance.timeInterval
-        
-        add(timer, forMode: .default)
-        
-        return AnyCancellable(cancel: timer.invalidate)
-    }
-    
-    @objc private func scheduledAction(_ timer: Timer) {
+    @objc private func runLoopPKScheduled(timer: Timer) {
         if timer.isValid {
             let action = timer.userInfo as? () -> Void
             action?()
+        }
+    }
+    
+    @objc private func runLoopPKScheduled(action: _PKCombineRunLoopAction) {
+        action.action()
+    }
+    
+    private class _PKCombineRunLoopAction: NSObject {
+        
+        let action: () -> Void
+        
+        init(action: @escaping () -> Void) {
+            self.action = action
+            super.init()
         }
     }
 }

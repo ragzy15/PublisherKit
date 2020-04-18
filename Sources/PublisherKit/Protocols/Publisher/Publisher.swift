@@ -5,12 +5,6 @@
 //  Created by Raghav Ahuja on 18/11/19.
 //
 
-@available(*, deprecated, renamed: "Publisher")
-public typealias NKPublisher = Publisher
-
-@available(*, deprecated, renamed: "Publisher")
-public typealias PKPublisher = Publisher
-
 /// Declares that a type can transmit a sequence of values over time.
 ///
 /// There are four kinds of messages:
@@ -48,7 +42,7 @@ public typealias PKPublisher = Publisher
 /// Rather than implementing Publisher on your own, you can use one of several types provided by the Combine framework. For example, you can use an AnySubject instance and publish new elements imperatively with its send(_:) method.
 /// You can also add the @Published annotation to any property to give it a publisher that returns an instance of Published, which emits an event every time the property’s value changes.
 public protocol Publisher {
-
+    
     /// The kind of values published by this publisher.
     associatedtype Output
     
@@ -61,7 +55,6 @@ public protocol Publisher {
     ///
     /// - SeeAlso: `subscribe(_:)`
     /// - Parameters:
-    ///     - subscriber: The subscriber to attach to this `Publisher`.
-    ///                   Once attached it can begin to receive values.
+    ///     - subscriber: The subscriber to attach to this `Publisher`. Once attached it can begin to receive values.
     func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure
 }

@@ -24,9 +24,7 @@ public extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            
-            let mapErrorSubscriber = Inner(downstream: subscriber, operation: transform)
-            upstream.subscribe(mapErrorSubscriber)
+            upstream.subscribe(Inner(downstream: subscriber, transform: transform))
         }
     }
 }
@@ -34,19 +32,46 @@ public extension Publishers {
 extension Publishers.MapError {
     
     // MARK: MAPERROR SINK
-    private final class Inner<Downstream: Subscriber, Failure>: OperatorSubscriber<Downstream, Upstream, (Upstream.Failure) -> Failure> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private struct Inner<Downstream: Subscriber, NewFailure>: Subscriber, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Output == Downstream.Input, NewFailure == Downstream.Failure {
         
-        override func operate(on input: Upstream.Output) -> Result<Downstream.Input, Downstream.Failure>? {
-            .success(input)
+        typealias Input = Upstream.Output
+
+        typealias Failure = Upstream.Failure
+
+        private var downstream: Downstream?
+        
+        private let transform: (Failure) -> NewFailure
+
+        let combineIdentifier: CombineIdentifier
+
+        fileprivate init(downstream: Downstream, transform: @escaping (Failure) -> NewFailure) {
+            self.downstream = downstream
+            self.transform = transform
+            combineIdentifier = CombineIdentifier()
         }
-        
-        override func onCompletion(_ completion: Subscribers.Completion<Upstream.Failure>) {
-            let completion = completion.mapError { operation($0) }
-            downstream?.receive(completion: completion)
+
+        func receive(subscription: Subscription) {
+            downstream?.receive(subscription: subscription)
         }
-        
-        override var description: String {
+
+        func receive(_ input: Input) -> Subscribers.Demand {
+            downstream?.receive(input) ?? .none
+        }
+
+        func receive(completion: Subscribers.Completion<Failure>) {
+            downstream?.receive(completion: completion.mapError(transform))
+        }
+
+        var description: String {
             "MapError"
+        }
+        
+        var playgroundDescription: Any {
+            description
+        }
+
+        var customMirror: Mirror {
+            Mirror(self, children: [])
         }
     }
 }

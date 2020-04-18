@@ -15,67 +15,75 @@ final public class PassthroughSubject<Output, Failure: Error>: Subject {
     final private var _completion: Subscribers.Completion<Failure>? = nil
     
     private var upstreamSubscriptions: [Subscription] = []
-    private var downstreamSubscriptions: [Inner] = []
+    private var downstreamSubscriptions: [Conduit] = []
     
     private let _lock = RecursiveLock()
+    private var hasAnyDownstreamDemand = false
     
     public init() {}
     
     deinit {
-        upstreamSubscriptions.forEach { (subscription) in
-            subscription.cancel()
+        downstreamSubscriptions.forEach { (subscription) in
+            subscription._downstream = nil
         }
+    }
+    
+    final public func send(subscription: Subscription) {
+        _lock.lock()
+        defer { _lock.unlock() }
         
-        upstreamSubscriptions = []
+        upstreamSubscriptions.append(subscription)
+        subscription.request(.unlimited)
+    }
+    
+    final public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
+        _lock.lock()
+        defer { _lock.unlock() }
+        
+        if let completion = _completion {
+            subscriber.receive(subscription: Subscriptions.empty)
+            subscriber.receive(completion: completion)
+        } else {
+            let subscription = Conduit(parent: self, downstream: AnySubscriber(subscriber))
+            downstreamSubscriptions.append(subscription)
+            
+            subscriber.receive(subscription: subscription)
+        }
+    }
+    
+    final public func send(_ input: Output) {
+        _lock.lock()
+        defer { _lock.unlock() }
+        
+        guard _completion == nil else { return }    // if subject has been completed, do not send any more inputs.
         
         downstreamSubscriptions.forEach { (subscription) in
-            subscription.cancel()
+            subscription.offer(input)
+        }
+    }
+    
+    final public func send(completion: Subscribers.Completion<Failure>) {
+        _lock.lock()
+        defer { _lock.unlock() }
+        
+        guard _completion == nil else { return }    // if subject has been completed, do not send or save future completions.
+        
+        _completion = completion
+        downstreamSubscriptions.forEach { (subscription) in
+            subscription.finish(completion: completion)
         }
         
         downstreamSubscriptions = []
     }
     
-    final public func send(subscription: Subscription) {
-        _lock.do {
-            upstreamSubscriptions.append(subscription)
-            subscription.request(_completion == nil ? .unlimited : .none)
-        }
-    }
-    
-    final public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-        _lock.do {
-            if let completion = _completion {
-                subscriber.receive(subscription: Subscriptions.empty)
-                subscriber.receive(completion: completion)
-            } else {
-                let subscription = Inner(downstream: AnySubscriber(subscriber))
-                downstreamSubscriptions.append(subscription)
-                
-                subscriber.receive(subscription: subscription)
-            }
-        }
-    }
-    
-    final public func send(_ input: Output) {
-        _lock.do {
-            guard _completion == nil else { return }    // if subject has been completed, do not send any more inputs.
-            
-            downstreamSubscriptions.forEach { (subscription) in
-                subscription.receive(input)
-            }
-        }
-    }
-    
-    final public func send(completion: Subscribers.Completion<Failure>) {
-        _lock.do {
-            guard _completion == nil else { return }    // if subject has been completed, do not send or save future completions.
-            
-            _completion = completion
-            downstreamSubscriptions.forEach { (subscription) in
-                subscription.receive(completion: completion)
-            }
-            
-            downstreamSubscriptions = []
+    fileprivate func acknowledgeDownstreamDemand() {
+        _lock.lock()
+        defer { _lock.unlock() }
+        
+        guard !hasAnyDownstreamDemand else { return }
+        hasAnyDownstreamDemand = true
+        for subscription in upstreamSubscriptions {
+            subscription.request(.unlimited)
         }
     }
 }
@@ -83,9 +91,49 @@ final public class PassthroughSubject<Output, Failure: Error>: Subject {
 extension PassthroughSubject {
     
     // MARK: PASSTHROUGH SUBJECT SINK
-    private final class Inner: Subscriptions.InternalSubject<Output, Failure> {
+    // MARK: CURRENT VALUE SUBJECT SINK
+    private class Conduit: Subscription, CustomStringConvertible {
         
-        override var description: String {
+        private var _parent: PassthroughSubject?
+        
+        fileprivate var _downstream: AnySubscriber<Output, Failure>?
+        
+        fileprivate var _demand: Subscribers.Demand = .none
+        
+        var isCompleted: Bool {
+            return _parent == nil
+        }
+        
+        func offer(_ value: Output) {
+            let newDemand = _downstream?.receive(value) ?? .none
+            _demand += newDemand
+        }
+        
+        init(parent: PassthroughSubject, downstream: AnySubscriber<Output, Failure>) {
+            _parent = parent
+            _downstream = downstream
+        }
+        
+        func finish(completion: Subscribers.Completion<Failure>) {
+            if !isCompleted {
+                _parent = nil
+                _downstream?.receive(completion: completion)
+            }
+        }
+        
+        func request(_ demand: Subscribers.Demand) {
+            precondition(demand > 0)
+            _parent?._lock.do {
+                _demand += demand
+            }
+            _parent?.acknowledgeDownstreamDemand()
+        }
+        
+        func cancel() {
+            _parent = nil
+        }
+        
+        var description: String {
             "PassthroughSubject"
         }
     }

@@ -43,8 +43,7 @@ extension Publishers {
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
-            let printSubscriber = Inner(downstream: subscriber, prefix: prefix, to: stream)
-            upstream.subscribe(printSubscriber)
+            upstream.subscribe(Inner(downstream: subscriber, prefix: prefix, to: stream))
         }
     }
 }
@@ -53,7 +52,7 @@ extension Publishers {
 extension Publishers.Print {
     
     // MARK: PRINT SINK
-    private final class Inner<Downstream: Subscriber>: InternalSubscriber<Downstream, Upstream> where Output == Downstream.Input, Failure == Downstream.Failure {
+    private final class Inner<Downstream: Subscriber>: Subscriber, Subscription, CustomStringConvertible, CustomPlaygroundDisplayConvertible, CustomReflectable where Output == Downstream.Input, Failure == Downstream.Failure {
         
         private let prefix: String
         
@@ -67,19 +66,33 @@ extension Publishers.Print {
         
         private var stream: OutputStream?
         
+        private let lock = Lock()
+        private var downstream: Downstream?
+        private var status: SubscriptionStatus = .awaiting
+        
         init(downstream: Downstream, prefix: String, to stream: TextOutputStream?) {
-            self.prefix = prefix
+            self.prefix = prefix.isEmpty ? prefix : prefix + ": "
             self.stream = stream.map { OutputStream(stream: $0) }
-            super.init(downstream: downstream)
+            self.downstream = downstream
         }
         
-        override func onSubscription(_ subscription: Subscription) {
+        func receive(subscription: Subscription) {
+            lock.lock()
+            guard status == .awaiting else { lock.unlock(); return }
+            status = .subscribed(to: subscription)
+            lock.unlock()
+            
             print("receive subscription: (\(subscription))")
-            super.onSubscription(subscription)
+            downstream?.receive(subscription: self)
         }
         
-        override func request(_ demand: Subscribers.Demand) {
-            guard status.isSubscribed else { return }
+        func request(_ demand: Subscribers.Demand) {
+            lock.lock()
+            guard case .subscribed(let subscription) = status else {
+                lock.unlock()
+                return
+            }
+            lock.unlock()
             
             if let max = demand.max {
                 print("request max: (\(max))")
@@ -87,17 +100,24 @@ extension Publishers.Print {
                 print("request unlimited")
             }
             
-            super.request(demand)
+            subscription.request(demand)
         }
         
-        override func receive(_ input: Upstream.Output) -> Subscribers.Demand {
-            guard status.isSubscribed else { return .none }
+        func receive(_ input: Upstream.Output) -> Subscribers.Demand {
+            lock.lock()
+            guard status.isSubscribed else { lock.unlock(); return .none }
+            lock.unlock()
+            
             print("receive value: (\(input))")
-            _ = downstream?.receive(input)
-            return demand
+            return downstream?.receive(input) ?? .none
         }
         
-        override func onCompletion(_ completion: Subscribers.Completion<Failure>) {
+        func receive(completion: Subscribers.Completion<Failure>) {
+            lock.lock()
+            guard status.isSubscribed else { lock.unlock(); return }
+            status = .terminated
+            lock.unlock()
+            
             switch completion {
             case .finished:
                 print("receive finished")
@@ -106,6 +126,16 @@ extension Publishers.Print {
             }
             
             downstream?.receive(completion: completion)
+        }
+        
+        func cancel() {
+            lock.lock()
+            guard case .subscribed(let subscription) = status else { lock.unlock(); return }
+            status = .terminated
+            lock.unlock()
+            
+            print("receive cancel")
+            subscription.cancel()
         }
         
         func print(_ text: String) {
@@ -118,8 +148,16 @@ extension Publishers.Print {
             }
         }
         
-        override var description: String {
+        var description: String {
             "Print"
+        }
+        
+        var playgroundDescription: Any {
+            description
+        }
+        
+        var customMirror: Mirror {
+            Mirror(self, children: [])
         }
     }
 }

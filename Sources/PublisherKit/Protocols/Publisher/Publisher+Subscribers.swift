@@ -27,7 +27,7 @@ extension Publisher {
     /// - Parameter subject: The subject to attach to this publisher.
     /// - Returns: A cancellable instance; used when you end assignment of the received value. Deallocation of the result will tear down the subscription stream.
     public func subscribe<S: Subject>(_ subject: S) -> AnyCancellable where Output == S.Output, Failure == S.Failure {
-        let subscriber = Subscribers.InternalSubject(subject: subject)
+        let subscriber = SubjectSubscriber(subject: subject)
         subscribe(subscriber)
         return AnyCancellable(subscriber)
     }
@@ -80,9 +80,7 @@ extension Publisher where Failure == Never {
     /// - Returns: A cancellable instance; used when you end assignment of the received value. Deallocation of the result will tear down the subscription stream.
     public func sink(receiveValue: @escaping ((Output) -> Void)) -> AnyCancellable {
         
-        let sink = Subscribers.Sink<Output, Failure>(receiveCompletion: { (_) in
-            
-        }) { (output) in
+        let sink = Subscribers.Sink<Output, Failure>(receiveCompletion: { (_) in }) { (output) in
             receiveValue(output)
         }
         
@@ -101,6 +99,21 @@ extension Publisher where Failure == Never {
     public func assign<Root>(to keyPath: ReferenceWritableKeyPath<Root, Output>, on object: Root) -> AnyCancellable {
         
         let subscriber = Subscribers.Assign(object: object, keyPath: keyPath)
+        subscribe(subscriber)
+        return AnyCancellable(subscriber)
+    }
+    
+    /// Assigns each element from a Publisher to a property on an object.
+    ///
+    /// Difference between `assign(to: on:)` and this is this subcriber does not hold the object strongly. It only works for classes.
+    ///
+    /// - Parameters:
+    ///   - keyPath: The key path of the property to assign.
+    ///   - object: The object on which to assign the value.
+    /// - Returns: A cancellable instance; used when you end assignment of the received value. Deallocation of the result will tear down the subscription stream.
+    public func assignNoRetain<Root: AnyObject>(to keyPath: ReferenceWritableKeyPath<Root, Output>, on object: Root) -> AnyCancellable {
+        
+        let subscriber = Subscribers.AssignNoRetain(object: object, keyPath: keyPath)
         subscribe(subscriber)
         return AnyCancellable(subscriber)
     }
