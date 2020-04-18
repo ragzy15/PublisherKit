@@ -60,10 +60,10 @@ final class SubjectSubscriber<DownstreamSubject: Subject>: Subscriber, Subscript
         lock.lock()
         guard case let .subscribed(subscription) = status else { lock.unlock(); return }
         status = .terminated
-        subject = nil
         lock.unlock()
         
         subscription.cancel()
+        subject = nil
     }
     
     var description: String {
