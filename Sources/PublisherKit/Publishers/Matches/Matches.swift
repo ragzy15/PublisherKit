@@ -85,6 +85,8 @@ extension Publishers.Matches {
             guard status == .awaiting else { lock.unlock(); return }
             status = .subscribed(to: subscription)
             lock.unlock()
+            
+            downstream?.receive(subscription: self)
         }
         
         func receive(_ input: String) -> Subscribers.Demand {
@@ -114,6 +116,7 @@ extension Publishers.Matches {
             guard status.isSubscribed else { lock.unlock(); return }
             status = .terminated
             lock.unlock()
+            
             downstream?.receive(completion: completion.eraseError())
         }
         
