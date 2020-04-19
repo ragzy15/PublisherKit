@@ -18,9 +18,9 @@ public enum AcceptableContentTypes {
 
 extension Publishers {
     
-    public struct Validate<Upstream: Publisher>: Publisher where Upstream.Output == (data: Data, response: HTTPURLResponse) {
+    public struct Validate<Upstream: Publisher>: Publisher where Upstream.Output == (data: Data, response: URLResponse) {
         
-        public typealias Output = Upstream.Output
+        public typealias Output = (data: Data, response: HTTPURLResponse)
         
         public typealias Failure = Error
         
@@ -159,7 +159,11 @@ private extension Publishers.Validate.Inner {
     
     func validate(input: Input) -> Result<Downstream.Input, Downstream.Failure> {
         
-        let (data, response) = input
+        let (data, _response) = input
+        
+        guard let response = _response as? HTTPURLResponse else {
+            return .failure(URLError.onlyHTTPSupported())
+        }
         
         guard acceptableStatusCodes.contains(response.statusCode) else {
             

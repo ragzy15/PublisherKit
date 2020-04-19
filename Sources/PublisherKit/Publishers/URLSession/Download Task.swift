@@ -49,7 +49,7 @@ extension URLSession {
     
     public struct DownloadTaskPKPublisher: PublisherKit.Publisher {
         
-        public typealias Output = (url: URL, response: HTTPURLResponse)
+        public typealias Output = (url: URL, response: URLResponse)
         
         public typealias Failure = Error
         
@@ -129,7 +129,7 @@ extension URLSession.DownloadTaskPKPublisher {
             
             if let error = error {
                 downstream.receive(completion: .failure(error))
-            } else if let url = url, let response = response as? HTTPURLResponse {
+            } else if let url = url, let response = response {
                 _ = downstream.receive((url, response))
                 downstream.receive(completion: .finished)
             } else {

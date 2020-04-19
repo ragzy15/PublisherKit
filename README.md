@@ -51,7 +51,7 @@ let package = Package(
             targets: ["YourPackage"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/ragzy15/PublisherKit.git", from: "4.0.1"),
+        .package(url: "https://github.com/ragzy15/PublisherKit.git", from: "4.0.2"),
     ],
     targets: [
         .target(
@@ -80,7 +80,7 @@ source 'https://github.com/CocoaPods/Specs.git'
 platform :ios, '10.0'
 use_frameworks!
 
-pod 'PublisherKit', '~> 4.0.1'
+pod 'PublisherKit', '~> 4.0.2'
 ```
 
 Then, run the following command:
