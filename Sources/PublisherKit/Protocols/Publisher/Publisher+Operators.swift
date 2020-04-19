@@ -1260,7 +1260,7 @@ extension Publisher {
 }
 
 // MARK: VALIDATE
-extension Publisher where Output == (data: Data, response: HTTPURLResponse) {
+extension Publisher where Output == (data: Data, response: URLResponse) {
     
     /// Validates that the response has a status code acceptable in the specified range, and that the response has a content type in the specified sequence.
     ///

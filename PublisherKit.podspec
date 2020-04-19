@@ -1,7 +1,7 @@
 Pod::Spec.new do |spec|
 
   spec.name             = "PublisherKit"
-  spec.version          = "4.0.1"
+  spec.version          = "4.0.2"
   spec.summary          = "An open source implementation of Apple's Combine framework for processing asynchronous events over time"
 
   spec.homepage         = "https://github.com/ragzy15/PublisherKit"

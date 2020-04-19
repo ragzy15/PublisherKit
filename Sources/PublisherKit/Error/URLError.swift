@@ -20,4 +20,10 @@ extension URLError {
             NSLocalizedDescriptionKey: "Content data received during a connection request had an unknown content encoding."
         ])
     }
+    
+    static func onlyHTTPSupported() -> Error {
+        URLError(.cannotParseResponse, userInfo: [
+            NSLocalizedDescriptionKey: "Currently Validate only works on HTTP requests."
+        ])
+    }
 }
