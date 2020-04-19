@@ -20,7 +20,7 @@ extension Publishers {
     
     public struct Validate<Upstream: Publisher>: Publisher where Upstream.Output == (data: Data, response: URLResponse) {
         
-        public typealias Output = Upstream.Output
+        public typealias Output = (data: Data, response: HTTPURLResponse)
         
         public typealias Failure = Error
         
