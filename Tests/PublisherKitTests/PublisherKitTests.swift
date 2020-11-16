@@ -15,6 +15,12 @@ final class PublisherKitTests: XCTestCase {
     @BindableValue
     var x: Int = 5
     
+    func testCodes() {
+        HTTPStatusCode.allCases.forEach { (item) in
+            print("\(item.rawValue): \(item.localizedDescription)")
+        }
+    }
+    
     func testRemoveDuplicates() {
         
         struct Test {

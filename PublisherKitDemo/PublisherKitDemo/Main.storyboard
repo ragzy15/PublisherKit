@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="15702" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="9NU-rJ-tvd">
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="17156" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="9NU-rJ-tvd">
     <device id="retina6_1" orientation="portrait" appearance="light"/>
     <dependencies>
-        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="15704"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="17126"/>
         <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="System colors in document resources" minToolsVersion="11.0"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
     <scenes>
@@ -32,7 +33,7 @@
                     <tableView key="view" clipsSubviews="YES" contentMode="scaleToFill" alwaysBounceVertical="YES" dataMode="prototypes" style="plain" separatorStyle="default" rowHeight="-1" estimatedRowHeight="-1" sectionHeaderHeight="28" sectionFooterHeight="28" id="gTd-WF-q8O">
                         <rect key="frame" x="0.0" y="0.0" width="414" height="896"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
-                        <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
+                        <color key="backgroundColor" systemColor="systemBackgroundColor"/>
                         <connections>
                             <outlet property="dataSource" destination="awp-86-QP7" id="Eoa-xI-EzE"/>
                             <outlet property="delegate" destination="awp-86-QP7" id="VFg-th-sFH"/>
@@ -89,13 +90,13 @@
                                         <rect key="frame" x="0.0" y="54" width="374" height="34"/>
                                         <subviews>
                                             <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Avatar" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="pcq-v5-dln">
-                                                <rect key="frame" x="0.0" y="0.0" width="48.5" height="34"/>
+                                                <rect key="frame" x="0.0" y="0.0" width="48" height="34"/>
                                                 <fontDescription key="fontDescription" type="system" pointSize="17"/>
                                                 <nil key="textColor"/>
                                                 <nil key="highlightedColor"/>
                                             </label>
                                             <textField opaque="NO" tag="101" contentMode="scaleToFill" contentHorizontalAlignment="left" contentVerticalAlignment="center" borderStyle="roundedRect" placeholder="https://example.com/image.jpg" textAlignment="natural" minimumFontSize="17" translatesAutoresizingMaskIntoConstraints="NO" id="iqq-A0-RpJ">
-                                                <rect key="frame" x="60.5" y="0.0" width="313.5" height="34"/>
+                                                <rect key="frame" x="60" y="0.0" width="314" height="34"/>
                                                 <fontDescription key="fontDescription" type="system" pointSize="14"/>
                                                 <textInputTraits key="textInputTraits" keyboardType="URL" returnKeyType="next" textContentType="url"/>
                                                 <connections>
@@ -123,9 +124,9 @@
                                             </textField>
                                         </subviews>
                                     </stackView>
-                                    <button opaque="NO" contentMode="scaleToFill" enabled="NO" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="M3X-h3-AEa">
+                                    <button opaque="NO" contentMode="scaleToFill" enabled="NO" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="M3X-h3-AEa">
                                         <rect key="frame" x="0.0" y="162" width="374" height="30"/>
-                                        <color key="tintColor" systemColor="systemBlueColor" red="0.0" green="0.47843137250000001" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                        <color key="tintColor" systemColor="systemBlueColor"/>
                                         <state key="normal" title="Submit"/>
                                         <connections>
                                             <action selector="submitButtonTapped:" destination="nGW-Cb-u28" eventType="touchUpInside" id="dGQ-J0-gHz"/>
@@ -134,14 +135,14 @@
                                 </subviews>
                             </stackView>
                         </subviews>
-                        <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
+                        <viewLayoutGuide key="safeArea" id="kA1-wG-q04"/>
+                        <color key="backgroundColor" systemColor="systemBackgroundColor"/>
                         <constraints>
                             <constraint firstItem="Uoo-ln-Bbg" firstAttribute="top" secondItem="kA1-wG-q04" secondAttribute="top" constant="20" id="54k-rV-qJ0"/>
                             <constraint firstItem="Uoo-ln-Bbg" firstAttribute="leading" secondItem="kA1-wG-q04" secondAttribute="leading" constant="20" id="SKE-vA-Aji"/>
                             <constraint firstItem="kA1-wG-q04" firstAttribute="trailing" secondItem="Uoo-ln-Bbg" secondAttribute="trailing" constant="20" id="T7b-zF-o5K"/>
                             <constraint firstItem="kA1-wG-q04" firstAttribute="bottom" relation="greaterThanOrEqual" secondItem="Uoo-ln-Bbg" secondAttribute="bottom" constant="20" id="dcf-xB-950"/>
                         </constraints>
-                        <viewLayoutGuide key="safeArea" id="kA1-wG-q04"/>
                     </view>
                     <navigationItem key="navigationItem" title="Add New User" id="tnh-vC-iGj">
                         <barButtonItem key="rightBarButtonItem" systemItem="cancel" id="dE9-D9-EGZ">
@@ -162,4 +163,12 @@
             <point key="canvasLocation" x="1101" y="108"/>
         </scene>
     </scenes>
+    <resources>
+        <systemColor name="systemBackgroundColor">
+            <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+        </systemColor>
+        <systemColor name="systemBlueColor">
+            <color red="0.0" green="0.47843137254901963" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </systemColor>
+    </resources>
 </document>

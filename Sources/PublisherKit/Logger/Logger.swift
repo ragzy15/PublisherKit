@@ -56,7 +56,7 @@ final public class Logger {
      - parameter request: URLRequest
      - parameter name: API name.
      */
-    func logAPIRequest(request: URLRequest, name: String) {
+    public func logAPIRequest(request: URLRequest, name: String) {
         #if DEBUG
         guard isLoggingEnabled else { return }
         
