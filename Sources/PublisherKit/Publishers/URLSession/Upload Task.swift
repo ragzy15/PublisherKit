@@ -20,8 +20,8 @@ extension URLSession {
     /// - Parameter data: The body data for the request.
     /// - Parameter name: Name for the task. Used for logging purpose only.
     /// - Returns: A publisher that wraps a upload task for the URL request.
-    public func uploadTaskPKPublisher(for request: URLRequest, from data: Data?, name: String = "") -> UploadTaskPKPublisher {
-        UploadTaskPKPublisher(name: name, request: request, from: data, session: self)
+    public func uploadTaskPKPublisher(for request: URLRequest, from data: Data?, name: String = "", downloadProgressHandler: ((Progress) -> Void)? = nil, uploadProgressHandler: ((Progress) -> Void)? = nil, taskProgressHandler: ((Progress) -> Void)? = nil) -> UploadTaskPKPublisher {
+        UploadTaskPKPublisher(name: name, request: request, from: data, session: self, downloadProgressHandler: downloadProgressHandler, uploadProgressHandler: uploadProgressHandler, taskProgressHandler: taskProgressHandler)
     }
     
     /// Returns a publisher that wraps a URL session upload task for a given URL request.
@@ -31,8 +31,8 @@ extension URLSession {
     /// - Parameter file: The URL of the file to upload.
     /// - Parameter name: Name for the task. Used for logging purpose only.
     /// - Returns: A publisher that wraps a upload task for the URL request.
-    public func uploadTaskPKPublisher(for request: URLRequest, from file: URL, name: String = "") -> UploadTaskPKPublisher {
-        UploadTaskPKPublisher(name: name, request: request, from: file, session: self)
+    public func uploadTaskPKPublisher(for request: URLRequest, from file: URL, name: String = "", downloadProgressHandler: ((Progress) -> Void)? = nil, uploadProgressHandler: ((Progress) -> Void)? = nil, taskProgressHandler: ((Progress) -> Void)? = nil) -> UploadTaskPKPublisher {
+        UploadTaskPKPublisher(name: name, request: request, from: file, session: self, downloadProgressHandler: downloadProgressHandler, uploadProgressHandler: uploadProgressHandler, taskProgressHandler: taskProgressHandler)
     }
 }
 
@@ -54,20 +54,30 @@ extension URLSession {
         
         public var name: String
         
-        public init(name: String = "", request: URLRequest, from data: Data?, session: URLSession) {
+        public let downloadProgressHandler: ((Progress) -> Void)?
+        public let uploadProgressHandler: ((Progress) -> Void)?
+        public let taskProgressHandler: ((Progress) -> Void)?
+        
+        public init(name: String = "", request: URLRequest, from data: Data?, session: URLSession, downloadProgressHandler: ((Progress) -> Void)?, uploadProgressHandler: ((Progress) -> Void)?, taskProgressHandler: ((Progress) -> Void)?) {
             self.name = name
             self.request = request
             self.session = session
             self.data = data
             fileUrl = nil
+            self.downloadProgressHandler = downloadProgressHandler
+            self.uploadProgressHandler = uploadProgressHandler
+            self.taskProgressHandler = taskProgressHandler
         }
         
-        public init(name: String = "", request: URLRequest, from file: URL, session: URLSession) {
+        public init(name: String = "", request: URLRequest, from file: URL, session: URLSession, downloadProgressHandler: ((Progress) -> Void)?, uploadProgressHandler: ((Progress) -> Void)?, taskProgressHandler: ((Progress) -> Void)?) {
             self.name = name
             self.request = request
             self.session = session
             data = nil
             fileUrl = file
+            self.downloadProgressHandler = downloadProgressHandler
+            self.uploadProgressHandler = uploadProgressHandler
+            self.taskProgressHandler = taskProgressHandler
         }
         
         public func receive<S: Subscriber>(subscriber: S) where Output == S.Input, Failure == S.Failure {
@@ -89,6 +99,9 @@ extension URLSession.UploadTaskPKPublisher {
         
         private var parent: URLSession.UploadTaskPKPublisher?
         
+        private var uploadObserver: NSKeyValueObservation?
+        private var downloadObserver: NSKeyValueObservation?
+        
         init(downstream: Downstream, parent: URLSession.UploadTaskPKPublisher) {
             self.downstream = downstream
             self.parent = parent
@@ -97,6 +110,8 @@ extension URLSession.UploadTaskPKPublisher {
         func request(_ demand: Subscribers.Demand) {
             lock.lock()
             guard let parent = parent, task == nil else { lock.unlock(); return }
+            
+            let task: URLSessionUploadTask
             
             if let url = parent.fileUrl {
                 task = parent.session.uploadTask(with: parent.request, fromFile: url) { [weak self] in
@@ -108,12 +123,47 @@ extension URLSession.UploadTaskPKPublisher {
                 }
             }
             
+            self.task = task
             self.demand += demand
             lock.unlock()
             
+            let uploadProgress = Progress(totalUnitCount: 0)
+            uploadObserver = task.observe(\.countOfBytesSent) { (task, _) in
+                let totalBytesExpected = task.countOfBytesExpectedToSend
+                let totalBytesReceived = task.countOfBytesSent
+                
+                uploadProgress.totalUnitCount = totalBytesExpected
+                uploadProgress.completedUnitCount = totalBytesReceived
+            }
+            
+            let downloadProgress = Progress(totalUnitCount: 0)
+            downloadObserver = task.observe(\.countOfBytesReceived) { (task, _) in
+                let totalBytesExpected = task.response?.expectedContentLength ?? NSURLSessionTransferSizeUnknown
+                let totalBytesReceived = task.countOfBytesReceived
+                
+                downloadProgress.totalUnitCount = totalBytesExpected
+                downloadProgress.completedUnitCount = totalBytesReceived
+            }
+            
+            let taskProgress: Progress
+            if #available(iOS 11.0, macOS 10.13, tvOS 11.0, watchOS 4.0, *) {
+                taskProgress = task.progress
+            } else {
+                let progress = Progress(totalUnitCount: 100)
+                progress.addChild(uploadProgress, withPendingUnitCount: 50)
+                progress.addChild(downloadProgress, withPendingUnitCount: 50)
+                taskProgress = progress
+            }
+            
+            DispatchQueue.main.async {
+                parent.uploadProgressHandler?(uploadProgress)
+                parent.downloadProgressHandler?(downloadProgress)
+                parent.taskProgressHandler?(taskProgress)
+            }
+            
             Logger.default.logAPIRequest(request: parent.request, name: parent.name)
             
-            task?.resume()
+            task.resume()
         }
         
         private func handleResponse(data: Data?, response: URLResponse?, error: Error?) {
@@ -147,6 +197,10 @@ extension URLSession.UploadTaskPKPublisher {
             demand = .none
             parent = nil
             task = nil
+            uploadObserver?.invalidate()
+            uploadObserver = nil
+            downloadObserver?.invalidate()
+            downloadObserver = nil
         }
         
         var description: String {

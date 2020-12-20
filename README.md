@@ -20,8 +20,8 @@ To know more about Combine Framework, refer to Apple's Documentation [here](http
 
 ### Deployment Targets
 
-* iOS 8 and above
-* macOS (OS X) 10.10 and above
+* iOS 9 and above
+* macOS (OS X) 10.11 and above
 * tvOS 9 and above
 * watchOS 3 and above
 
