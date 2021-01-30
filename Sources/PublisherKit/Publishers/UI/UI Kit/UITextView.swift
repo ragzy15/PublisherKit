@@ -7,9 +7,11 @@
 
 #if canImport(UIKit)
 #if !os(watchOS)
-#if canImport(Combine)
 import UIKit
+
+#if canImport(Combine)
 import Combine
+#endif
 
 extension UITextView {
     
@@ -25,12 +27,14 @@ extension UITextView {
             .eraseToAnyPublisher()
     }
     
+    #if canImport(Combine)
     @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
     public var textDidEndEditingCombinePublisher: Combine.AnyPublisher<Void, Never> {
         NotificationCenter.default.publisher(for: UITextView.textDidEndEditingNotification, object: self)
             .map { _ in }
             .eraseToAnyPublisher()
     }
+    #endif
     
     public var textDidEndEditingPublisher: PublisherKit.AnyPublisher<Void, Never> {
         NotificationCenter.default.pkPublisher(for: UITextView.textDidEndEditingNotification, object: self)
@@ -39,6 +43,5 @@ extension UITextView {
     }
 }
 
-#endif
 #endif
 #endif
